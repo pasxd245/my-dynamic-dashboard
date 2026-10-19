@@ -15,7 +15,7 @@ import { useTranslation } from 'react-i18next';
 
 import { DASHBOARD_MAX_ROWS } from '@/_generated/constants';
 import type { DashboardFilter } from './aggregate';
-import { useWidgetParamContext } from './DashboardParams';
+import { useWidgetParamContext, useWidgetSharedFilters } from './DashboardParams';
 import { useWidgetFilterOptions } from './hooks';
 import type { Widget } from './types';
 
@@ -37,7 +37,12 @@ type WidgetFilterDrawerProps = Readonly<{
 
 export function WidgetFilterDrawer({ open, widget, filters, onChange, onClose, afterClose }: WidgetFilterDrawerProps) {
   const { t } = useTranslation();
-  const { options, capped } = useWidgetFilterOptions(widget?.queryId, useWidgetParamContext(widget?.id));
+  // R199 — the same shared selections as the card, so the drawer's options AND with them.
+  const { options, capped } = useWidgetFilterOptions(
+    widget?.queryId,
+    useWidgetParamContext(widget?.id),
+    useWidgetSharedFilters(widget?.id),
+  );
 
   // Distinct values offered for a column (the picker) vs the currently-selected
   // ones (from the active filters).

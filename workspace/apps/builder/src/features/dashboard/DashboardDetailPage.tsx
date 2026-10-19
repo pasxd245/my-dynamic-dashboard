@@ -47,7 +47,7 @@ import { PageContainer, PageHeader } from '@mdd/ui';
 import { App, Button, Card, Dropdown, Empty, Grid, Popover, Space, Spin, Tooltip, theme } from 'antd';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { NotFoundPage } from '@/components/NotFoundPage';
 import { useMetadataQuery } from '@/features/metadata/hooks';
@@ -57,8 +57,16 @@ import { MetadataEntriesList, MetadataPanel } from '@/features/metadata/Metadata
 import type { MetadataAnchor, MetadataEntries } from '@/features/metadata/types';
 import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
 import type { DashboardFilter } from './aggregate';
-import { useDashboardsQuery, useUpdateDashboardMutation } from './hooks';
-import { controlParams, type DashboardControl, type Widget } from './types';
+import { useColumnsOfQueries, useDashboardsQuery, useUpdateDashboardMutation } from './hooks';
+import { controlParams, type DashboardControl, type ValuesControl, type Widget } from './types';
+import type { DataColumn } from './aggregate';
+import {
+  parseFilterSelections,
+  withParamsRaw,
+  withSelectionRaw,
+  withoutStaleRaw,
+  withoutViewerRaw,
+} from './sharedFilters';
 import type { ResolvedParams } from '@/features/data-management/queries/types';
 import { WidgetBuilder } from './WidgetBuilder';
 import { WidgetFilterDrawer } from './WidgetFilterDrawer';
@@ -72,9 +80,12 @@ import {
   bindableParams,
   controlReach,
   controlValuesFrom,
+  paramContextFor,
   useWidgetParamContext,
+  useWidgetSharedFilters,
+  type ValuesSource,
 } from './DashboardParams';
-import { paramsFromSearch, withParams, withoutParams } from '@/features/data-management/queries/params';
+import { paramsFromSearch } from '@/features/data-management/queries/params';
 import { useQueriesQuery } from '@/features/data-management/queries/hooks';
 import { widgetsToDefinition } from './wire';
 
@@ -226,6 +237,7 @@ function SortableWidget({
   // result the table reads, with its totals row; the server names the file.
   const { message } = App.useApp();
   const paramCtx = useWidgetParamContext(widget.id);
+  const shared = useWidgetSharedFilters(widget.id);
   const exportLabel = t('dashboard.export.label');
   const exportButton =
     widget.chartType === 'table' ? (
@@ -237,7 +249,7 @@ function SortableWidget({
             { key: 'csv', label: t('dashboard.export.csv') },
           ],
           onClick: ({ key }) => {
-            downloadWidgetExport(widget, filters, key as 'csv' | 'xlsx', paramCtx)
+            downloadWidgetExport(widget, filters, key as 'csv' | 'xlsx', paramCtx, shared)
               .then((name) => message.success(t('dashboard.export.done', { name })))
               .catch((err: unknown) => {
                 const body =
@@ -298,8 +310,16 @@ export function DashboardDetailPage() {
   const [builder, setBuilder] = useState<{ initial?: Widget } | null>(null);
   // R195 — parameter controls: viewer values in the URL (`?p.<name>=`), the
   // queries' declarations for types and reach, and the controls editor.
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const viewer = paramsFromSearch(searchParams);
+  // R199 — every URL write goes through the ONE raw writer (`sharedFilters`):
+  // `f.*` is split before decoding, so its bytes must never be re-serialised by
+  // `URLSearchParams` (BA-C2). Reads of `f.*` come from the raw search too.
+  const location = useLocation();
+  const rawSearch = location.search;
+  const selections = parseFilterSelections(rawSearch);
+  const writeUrl = (search: string, replace: boolean) =>
+    navigate({ pathname: location.pathname, search, hash: location.hash }, { replace });
   // R180 — one read serves the dashboard's own entries and every widget's;
   // R197 — under the viewer's values (the panel below shares this read).
   const metadataQ = useMetadataQuery('dashboard', dashboard?.id, viewer);
@@ -340,6 +360,17 @@ export function DashboardDetailPage() {
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const filtersFor = (id: string): DashboardFilter[] => filtersByWidget[id] ?? [];
 
+  // R199 (BA-C1) — an `f.` key naming no values control of this dashboard (a link
+  // copied before the control was removed) is dropped from the URL on load; the
+  // server ignores it too, so the read never failed.
+  const cleaned = dashboard ? withoutStaleRaw(rawSearch, dashboard.controls ?? []) : rawSearch;
+  useEffect(() => {
+    if (dashboard && cleaned !== rawSearch) writeUrl(cleaned, true);
+  }, [dashboard?.id, cleaned, rawSearch]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // R199 — the widgets' result columns (D5 reach of a values control; its options' source).
+  const columnsByQuery = useColumnsOfQueries((dashboard?.widgets ?? []).flatMap((w) => (w.queryId ? [w.queryId] : [])));
+
   if (dashboardsQ.isLoading) {
     return (
       <PageContainer width="data" dataComponent="DashboardDetailPage">
@@ -374,12 +405,14 @@ export function DashboardDetailPage() {
   // R198 — a range's two parameters read "Period · from" / "Period · to".
   const controlLabels = Object.fromEntries(
     controls.flatMap((c) =>
-      c.kind === 'date_range'
-        ? [
-            [c.from, `${c.label} · ${t('dashboard.params.range.from')}`],
-            [c.to, `${c.label} · ${t('dashboard.params.range.to')}`],
-          ]
-        : [[c.param, c.label]],
+      c.kind === 'values'
+        ? []
+        : c.kind === 'date_range'
+          ? [
+              [c.from, `${c.label} · ${t('dashboard.params.range.from')}`],
+              [c.to, `${c.label} · ${t('dashboard.params.range.to')}`],
+            ]
+          : [[c.param, c.label]],
     ),
   );
   // The server-resolved value per parameter name (R198: was per control id — a
@@ -393,6 +426,31 @@ export function DashboardDetailPage() {
     }
   }
   const bindable = bindableParams(dash.widgets, queriesById);
+  // R199 — the result column names of a widget (undefined while unknown).
+  const widgetColumns = (w: Widget): readonly string[] | undefined => {
+    const cols = w.queryId ? columnsByQuery.get(w.queryId) : undefined;
+    return cols?.map((c) => c.name);
+  };
+  // Every result column of the dashboard's queries (the editor's choices), once.
+  const allColumns: DataColumn[] = [];
+  for (const cols of columnsByQuery.values()) {
+    for (const c of cols) if (!allColumns.some((a) => a.name === c.name)) allColumns.push(c);
+  }
+  const columnWidgets = (column: string) =>
+    dash.widgets.filter((w) => w.chartType !== 'note' && widgetColumns(w)?.includes(column)).map((w) => w.id);
+  // D4 — a values control's options come from the first targeted widget whose
+  // result has the column, read with that widget's parameter context.
+  const valuesSource = (c: ValuesControl): ValuesSource => {
+    const w = dash.widgets.find(
+      (x) =>
+        x.chartType !== 'note' &&
+        x.queryId &&
+        (c.targets === 'all' || c.targets.includes(x.id)) &&
+        widgetColumns(x)?.includes(c.column),
+    );
+    if (!w?.queryId) return undefined;
+    return { queryId: w.queryId, ctx: paramContextFor({ viewer, dashboardId: dash.id, controls }, w.id) };
+  };
   const saveControls = (next: DashboardControl[]) =>
     updateMutation
       .mutateAsync({
@@ -538,11 +596,16 @@ export function DashboardDetailPage() {
         params={bindable}
         viewer={viewer}
         resolved={resolvedByParam}
-        onChange={(values) => setSearchParams(withParams(searchParams, values), { replace: true })}
-        onReset={() => setSearchParams(withoutParams(searchParams))}
+        onChange={(values) => writeUrl(withParamsRaw(rawSearch, values), true)}
+        onReset={() => writeUrl(withoutViewerRaw(rawSearch), false)}
+        selections={selections}
+        onFilterChange={(id, values) => writeUrl(withSelectionRaw(rawSearch, id, values), true)}
+        valuesSource={valuesSource}
       />
 
-      <DashboardParamsContext.Provider value={{ viewer, dashboardId: dash.id, controls, report: reportResolved }}>
+      <DashboardParamsContext.Provider
+        value={{ viewer, dashboardId: dash.id, controls, report: reportResolved, filters: selections }}
+      >
         <MetadataPanel
           kind="dashboard"
           nounId={dash.id}
@@ -596,7 +659,12 @@ export function DashboardDetailPage() {
                     filters={filtersFor(w.id)}
                     badge={
                       <ReachBadge
-                        reach={controlReach(controls, w, w.queryId ? queriesById.get(w.queryId) : undefined)}
+                        reach={controlReach(
+                          controls,
+                          w,
+                          w.queryId ? queriesById.get(w.queryId) : undefined,
+                          widgetColumns(w),
+                        )}
                       />
                     }
                   />
@@ -623,6 +691,9 @@ export function DashboardDetailPage() {
         saving={updateMutation.isPending}
         onSave={(next) => void saveControls(next)}
         onClose={() => setControlsOpen(false)}
+        columns={allColumns}
+        columnWidgets={columnWidgets}
+        valuesSource={valuesSource}
       />
 
       {/* R195 — the builder's preview reads with the values the dashboard shows

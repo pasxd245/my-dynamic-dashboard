@@ -4,7 +4,7 @@
 // relation the table (and its footer) reads.
 
 import { queriesApi } from '@/api/queriesApi';
-import type { ExportRequest, ParamContext } from '@/features/data-management/queries/types';
+import type { AggregateFilter, ExportRequest, ParamContext } from '@/features/data-management/queries/types';
 import { BLANK_LABEL } from './aggregate';
 import type { DashboardFilter } from './aggregate';
 import type { Widget } from './types';
@@ -14,12 +14,18 @@ export function exportRequest(
   filters: readonly DashboardFilter[],
   format: 'csv' | 'xlsx',
   ctx?: ParamContext,
+  // R199 — the viewer's shared selections (the saved ones the server applies);
+  // the Filters sheet tells them from the widget's own (D7).
+  shared: readonly AggregateFilter[] = [],
 ): ExportRequest {
   return {
     // R195 — the file is read under the same parameter values as the widget.
     ...(ctx ?? {}),
     format,
-    filters: filters.map((f) => ({ column: f.column, values: f.values.map((v) => (v === BLANK_LABEL ? null : v)) })),
+    filters: [
+      ...filters.map((f) => ({ column: f.column, values: f.values.map((v) => (v === BLANK_LABEL ? null : v)) })),
+      ...shared,
+    ],
     ...(widget.totals && Object.keys(widget.totals).length > 0 ? { totals: widget.totals } : {}),
     ...(widget.numberFormat === 'percent' ? { percent: true } : {}),
     title: widget.title,
@@ -32,9 +38,13 @@ export async function downloadWidgetExport(
   filters: readonly DashboardFilter[],
   format: 'csv' | 'xlsx',
   ctx?: ParamContext,
+  shared: readonly AggregateFilter[] = [],
 ): Promise<string> {
   if (!widget.queryId) throw new Error('a note has nothing to export');
-  const { blob, filename } = await queriesApi.exportFile(widget.queryId, exportRequest(widget, filters, format, ctx));
+  const { blob, filename } = await queriesApi.exportFile(
+    widget.queryId,
+    exportRequest(widget, filters, format, ctx, shared),
+  );
   const url = URL.createObjectURL(blob);
   try {
     const a = document.createElement('a');

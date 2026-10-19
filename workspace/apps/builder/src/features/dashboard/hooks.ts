@@ -18,6 +18,7 @@ import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks'
 import { distinctValues, isNumeric, type DataColumn } from './aggregate';
 import { ApiErrorThrown } from '@/features/data-management/_shared/types';
 import type {
+  AggregateFilter,
   AggregateRequest,
   ParamContext,
   ResolvedParams,
@@ -110,6 +111,7 @@ export function useWidgetColumns(queryId: string | undefined): { columns: readon
 async function fetchWidgetData(
   queryId: string,
   ctx?: ParamContext,
+  shared?: readonly AggregateFilter[],
 ): Promise<{
   columns: readonly DataColumn[];
   rows: (string | null)[][];
@@ -130,22 +132,28 @@ async function fetchWidgetData(
   }
   // R107 — one unpaged request; the server caps rows at `dashboard_max_rows`
   // and returns the full `total`, so a partial (capped) result is `total > len`.
-  const { rows, total, resolvedParams, dataVersions } = await queriesApi.getUnpagedRows(queryId, ctx);
+  const { rows, total, resolvedParams, dataVersions } = await queriesApi.getUnpagedRows(queryId, ctx, shared);
   return { columns, rows, total, capped: total > rows.length, resolvedParams, dataVersions };
 }
 
-function widgetDataKey(queryId: string | undefined, ctx?: ParamContext) {
-  return ['dashboard-widget-data', queryId, ctx ?? null] as const;
+function widgetDataKey(queryId: string | undefined, ctx?: ParamContext, shared?: readonly AggregateFilter[]) {
+  return ['dashboard-widget-data', queryId, ctx ?? null, shared?.length ? shared : null] as const;
 }
 
-export function useWidgetData(queryId: string | undefined, enabled = true, ctx?: ParamContext): WidgetData {
+export function useWidgetData(
+  queryId: string | undefined,
+  enabled = true,
+  ctx?: ParamContext,
+  // R199 — the viewer's shared selections for this widget (`f.*` on the read).
+  shared?: readonly AggregateFilter[],
+): WidgetData {
   // R119 — `enabled` lets an aggregating widget (bar/pie/line/stat) SKIP the raw
   // fetch: it binds to the server aggregate instead, so it never pulls (capped)
   // rows. The filter-options drawer still calls this with the default `enabled`,
   // so the raw rows are fetched lazily only when a filter drawer opens.
   const q = useQuery({
-    queryKey: widgetDataKey(queryId, ctx),
-    queryFn: () => fetchWidgetData(queryId as string, ctx),
+    queryKey: widgetDataKey(queryId, ctx, shared),
+    queryFn: () => fetchWidgetData(queryId as string, ctx, shared),
     retry: retryUnlessRefused,
     enabled: enabled && typeof queryId === 'string' && queryId.length > 0,
   });
@@ -232,8 +240,10 @@ export function useWidgetFilterOptions(
   queryId: string | undefined,
   // R195 — the same parameter context as the card, so the options are the card's values.
   ctx?: ParamContext,
+  // R199 — and the same shared selections (the drawer ANDs with them).
+  shared?: readonly AggregateFilter[],
 ): { options: FilterOption[]; capped: boolean } {
-  const { columns, rows, capped } = useWidgetData(queryId, true, ctx);
+  const { columns, rows, capped } = useWidgetData(queryId, true, ctx, shared);
   const options: FilterOption[] = [];
   columns.forEach((c, i) => {
     if (isNumeric(c)) return; // categorical only (v1)
@@ -241,6 +251,41 @@ export function useWidgetFilterOptions(
   });
   // R104 — when the widget is capped, the distinct-value lists are partial too.
   return { options, capped };
+}
+
+/** R199 — the result columns of several queries at once (the same cache entries
+ *  as `useWidgetColumns`): the reach badge and the values control need to know
+ *  which widgets' results HAVE a column (D5). A query still loading is absent. */
+export function useColumnsOfQueries(queryIds: readonly string[]): ReadonlyMap<string, readonly DataColumn[]> {
+  const unique = [...new Set(queryIds)];
+  const results = useQueries({
+    queries: unique.map((id) => ({
+      queryKey: ['dashboard-widget-columns', id] as const,
+      queryFn: () => fetchWidgetColumns(id),
+    })),
+  });
+  const out = new Map<string, readonly DataColumn[]>();
+  results.forEach((r, i) => {
+    if (r.data) out.set(unique[i], r.data);
+  });
+  return out;
+}
+
+/** R199 — a values control's options (`GET /queries/{id}/values`), read over
+ *  one widget's query with that widget's parameter context. */
+export function useColumnValues(queryId: string | undefined, column: string | undefined, ctx?: ParamContext) {
+  const q = useQuery({
+    queryKey: ['dashboard-column-values', queryId, column, ctx ?? null] as const,
+    queryFn: () => queriesApi.values(queryId as string, column as string, ctx),
+    retry: retryUnlessRefused,
+    enabled: Boolean(queryId) && Boolean(column),
+  });
+  return {
+    values: q.data?.values ?? [],
+    partial: q.data?.partial ?? false,
+    isLoading: q.isLoading,
+    isError: q.isError,
+  };
 }
 
 /** Categorical chart palette drawn from the AntD theme tokens (Desirability:
@@ -346,6 +391,8 @@ export function useUpdateDashboardMutation() {
       queryClient.invalidateQueries({ queryKey: ['dashboard-widget-data'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-widget-aggregate'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-widget-totals'] });
+      // R199 — a saved shared selection changes what the reads return, too.
+      queryClient.invalidateQueries({ queryKey: ['dashboard-column-values'] });
     },
   });
 }

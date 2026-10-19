@@ -15,15 +15,37 @@
 // - `controlReach` + `ReachBadge` — which controls reached a widget and which
 //   were skipped and why (D5): a control reaches a targeted widget only when its
 //   query USES the parameter (a range: `from` or `to`).
+// R199 (item 4.3) — the `values` control (a shared filter): a multi-select on one
+//   result column, options from `GET /queries/{id}/values`; a viewer selection
+//   lives in the URL as `f.<id>=…` (written through `sharedFilters.writeSearch`,
+//   never re-serialised); the server applies the saved one; it reaches a targeted
+//   widget whose result HAS the column, skipped and badged otherwise (D5).
 
 import { ControlOutlined, DeleteOutlined, LinkOutlined, PlusOutlined, UndoOutlined } from '@ant-design/icons';
 import { App, Button, Drawer, Input, InputNumber, Select, Space, Tag, Tooltip, Typography, theme } from 'antd';
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { isRelative, isoToday, usedParams, valueFits } from '@/features/data-management/queries/params';
-import type { ParamContext, Query, QueryParam, ResolvedParams } from '@/features/data-management/queries/types';
+import type {
+  AggregateFilter,
+  ParamContext,
+  Query,
+  QueryParam,
+  ResolvedParams,
+} from '@/features/data-management/queries/types';
+import type { DataColumn } from './aggregate';
 import { presetOf, resolvePreset } from './dateRange';
+import { useColumnValues } from './hooks';
+import {
+  F_PREFIX,
+  P_PREFIX,
+  encodeSelection,
+  sharedItemsFor,
+  staleFilterKeys,
+  writeSearch,
+  type FilterSelections,
+} from './sharedFilters';
 import {
   DATE_RANGE_PRESETS,
   controlParams,
@@ -32,11 +54,15 @@ import {
   type DateRangePreset,
   type DateRangeValue,
   type RelativeDay,
+  type ValuesControl,
   type Widget,
 } from './types';
 
 export const MAX_CONTROLS = 12;
 const RANGE_OPTION = '__date_range__';
+const VALUES_OPTION = '__values__';
+/** The select key of the `(blank)` option (`null` on the wire, `~blank` in the URL). */
+const BLANK_KEY = '\u0000blank';
 
 export type DashboardParamsState = {
   viewer: Record<string, string>;
@@ -46,6 +72,8 @@ export type DashboardParamsState = {
   /** Each widget reports what its read used (the bar shows, and the link pins,
    *  the server-resolved values of the controls that target it). */
   report?: (widgetId: string, resolved: ResolvedParams | undefined) => void;
+  /** R199 — the viewer's shared-filter selections (URL `f.*`), by control id. */
+  filters?: FilterSelections;
 };
 export const DashboardParamsContext = createContext<DashboardParamsState>({ viewer: {} });
 
@@ -58,7 +86,15 @@ function targetsWidget(c: DashboardControl, widgetId: string): boolean {
  *  the widget, whose saved values the server applies. Off a dashboard (the
  *  widget builder's preview): the viewer values as given. */
 export function useWidgetParamContext(widgetId: string | undefined): ParamContext | undefined {
-  const { viewer, dashboardId, controls } = useContext(DashboardParamsContext);
+  return paramContextFor(useContext(DashboardParamsContext), widgetId);
+}
+
+/** The pure rule behind `useWidgetParamContext` (R199: the values control's
+ *  option read uses it for the widget it reads over, outside the provider). */
+export function paramContextFor(
+  { viewer, dashboardId, controls }: Pick<DashboardParamsState, 'viewer' | 'dashboardId' | 'controls'>,
+  widgetId: string | undefined,
+): ParamContext | undefined {
   if (!dashboardId || !widgetId) return Object.keys(viewer).length ? { params: viewer } : undefined;
   const allowed = new Set((controls ?? []).filter((c) => targetsWidget(c, widgetId)).flatMap(controlParams));
   const params = Object.fromEntries(Object.entries(viewer).filter(([k]) => allowed.has(k)));
@@ -66,6 +102,16 @@ export function useWidgetParamContext(widgetId: string | undefined): ParamContex
     ...(Object.keys(params).length ? { params } : {}),
     dashboard: { id: dashboardId, widgetId },
   };
+}
+
+/** R199 — the viewer's shared selections one widget's reads carry (controls
+ *  that TARGET it only; the saved ones are the server's to apply). Empty off a
+ *  dashboard. Memoised on its content so query keys stay stable. */
+export function useWidgetSharedFilters(widgetId: string | undefined): AggregateFilter[] {
+  const { dashboardId, controls, filters } = useContext(DashboardParamsContext);
+  const items = dashboardId && widgetId ? sharedItemsFor(controls ?? [], filters ?? {}, widgetId) : [];
+  const key = JSON.stringify(items);
+  return useMemo(() => items, [key]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 /** Report a read's `resolvedParams` to the page (no-op off a dashboard). */
@@ -101,7 +147,7 @@ export function controlValuesFrom(
  *  absolute literal (a relative one is the server's to resolve). */
 function savedAbsolute(c: DashboardControl, name: string): string | number | undefined {
   if (c.kind === 'param') return c.saved !== undefined && !isRelative(c.saved) ? c.saved : undefined;
-  if (!c.saved || !('from' in c.saved)) return undefined;
+  if (c.kind !== 'date_range' || !c.saved || !('from' in c.saved)) return undefined;
   const v = name === c.from ? c.saved.from : c.saved.to;
   return typeof v === 'string' ? v : undefined;
 }
@@ -109,23 +155,35 @@ function savedAbsolute(c: DashboardControl, name: string): string | number | und
 /** The URL to share: the current one with every control's value pinned as an
  *  absolute `p.<name>` (the server-resolved value where the viewer set none), so
  *  a relative saved value cannot drift by tomorrow (BA-2; D4: the URL holds
- *  absolute dates). */
+ *  absolute dates). R199 — every `values` control pinned too (`f.<id>`: the
+ *  viewer's selection as it is, else the saved one, else `f.<id>=` — no filter),
+ *  so the link reopens this view even after the saved selection changes; a stale
+ *  `f.` key is dropped (BA-C1). Written through the raw writer: the `f.*` bytes
+ *  in the current URL are kept as they are (BA-C2). */
 export function shareUrl(
   href: string,
   controls: readonly DashboardControl[],
   viewer: Record<string, string>,
   /** Server-resolved values by parameter name. */
   resolved: Record<string, string | number>,
+  selections: FilterSelections = {},
 ): string {
   const url = new URL(href);
+  const set: Record<string, string> = {};
   for (const c of controls) {
+    if (c.kind === 'values') {
+      if (selections[c.id] === undefined) set[F_PREFIX + c.id] = encodeSelection(c.saved ?? []);
+      continue;
+    }
     for (const name of controlParams(c)) {
       if (viewer[name] !== undefined) continue;
       const v = resolved[name] ?? savedAbsolute(c, name);
-      if (v !== undefined && v !== '') url.searchParams.set(`p.${name}`, String(v));
+      if (v !== undefined && v !== '') set[P_PREFIX + name] = encodeURIComponent(String(v));
     }
   }
-  return url.toString();
+  const stale = new Set(staleFilterKeys(url.search, controls).map((id) => F_PREFIX + id));
+  const search = writeSearch(url.search, set, (k) => stale.has(k));
+  return `${url.origin}${url.pathname}${search}${url.hash}`;
 }
 
 function newControlId(): string {
@@ -156,20 +214,34 @@ export function bindableParams(
 
 export type Reach = {
   reached: DashboardControl[];
-  /** `reason` names the parameter(s) the query does not use; `count` picks the wording (BA-F1). */
+  /** `reason` names the parameter(s) the query does not use — or, for a values
+   *  control, the column its result lacks; `count` picks the wording (BA-F1). */
   skipped: { control: DashboardControl; reason: string; count?: number }[];
 };
 
 /** D4/D5 — a control reaches a widget when the widget is targeted AND its query
  *  uses the parameter (a range: `from` or `to`); a targeted widget whose query
  *  does not is skipped, the reason naming the parameter(s). A note is never
- *  reached (and never badged). */
-export function controlReach(controls: readonly DashboardControl[], widget: Widget, query: Query | undefined): Reach {
+ *  reached (and never badged). R199 — a `values` control reaches a targeted
+ *  widget whose result has its column (`columns`: the result's column names;
+ *  `undefined` while unknown — the control is then listed neither way). */
+export function controlReach(
+  controls: readonly DashboardControl[],
+  widget: Widget,
+  query: Query | undefined,
+  columns?: readonly string[],
+): Reach {
   const reach: Reach = { reached: [], skipped: [] };
   if (widget.chartType === 'note' || !widget.queryId) return reach;
   const used = usedParams(query?.definition);
   for (const c of controls) {
     if (!targetsWidget(c, widget.id)) continue;
+    if (c.kind === 'values') {
+      if (columns === undefined) continue;
+      if (columns.includes(c.column)) reach.reached.push(c);
+      else reach.skipped.push({ control: c, reason: c.column, count: 1 });
+      continue;
+    }
     const names = controlParams(c);
     if (names.some((n) => used.has(n))) reach.reached.push(c);
     else reach.skipped.push({ control: c, reason: names.join(', '), count: names.length });
@@ -188,23 +260,26 @@ export function ReachBadge({ reach }: Readonly<{ reach: Reach }>) {
           {c.label}
         </Tag>
       ))}
-      {reach.skipped.map(({ control, reason, count }) => (
-        <Tooltip
-          key={control.id}
-          title={t(count && count > 1 ? 'dashboard.params.skippedWhyMany' : 'dashboard.params.skippedWhy', {
-            param: reason,
-          })}
-        >
-          <Tag
-            color="warning"
-            style={{ marginInlineEnd: 0 }}
-            aria-label={`${t('dashboard.params.skipped', { label: control.label })} — ${t(count && count > 1 ? 'dashboard.params.skippedWhyMany' : 'dashboard.params.skippedWhy', { param: reason })}`}
-            data-component="ReachSkippedTag"
-          >
-            {t('dashboard.params.skipped', { label: control.label })}
-          </Tag>
-        </Tooltip>
-      ))}
+      {reach.skipped.map(({ control, reason, count }) => {
+        const why =
+          control.kind === 'values'
+            ? t('dashboard.params.skippedNoColumn', { column: reason })
+            : t(count && count > 1 ? 'dashboard.params.skippedWhyMany' : 'dashboard.params.skippedWhy', {
+                param: reason,
+              });
+        return (
+          <Tooltip key={control.id} title={why}>
+            <Tag
+              color="warning"
+              style={{ marginInlineEnd: 0 }}
+              aria-label={`${t('dashboard.params.skipped', { label: control.label })} — ${why}`}
+              data-component="ReachSkippedTag"
+            >
+              {t('dashboard.params.skipped', { label: control.label })}
+            </Tag>
+          </Tooltip>
+        );
+      })}
     </Space>
   );
 }
@@ -351,6 +426,67 @@ function DateRangeInput({
   );
 }
 
+/** R199 — where a values control reads its options: one widget's query and
+ *  that widget's parameter context (D4: the first targeted widget whose result
+ *  has the column). `undefined` when no targeted widget has it. */
+export type ValuesSource = { queryId: string; ctx?: ParamContext } | undefined;
+
+/** R199 — a values control's multi-select (the bar's control and the editor's
+ *  saved selection): options from `GET /queries/{id}/values`, `(blank)` as an
+ *  option, "First 1 000 values" when the list is partial. Nothing selected =
+ *  "All values" (no filter). */
+export function ValuesSelect({
+  control,
+  source,
+  value,
+  onChange,
+  ariaLabel,
+  dataComponent,
+  width = 220,
+}: Readonly<{
+  control: ValuesControl;
+  source: ValuesSource;
+  value: readonly (string | null)[];
+  onChange: (values: (string | null)[]) => void;
+  ariaLabel: string;
+  dataComponent: string;
+  width?: number;
+}>) {
+  const { t } = useTranslation();
+  const { token } = theme.useToken();
+  const opts = useColumnValues(source?.queryId, source ? control.column : undefined, source?.ctx);
+  const toKey = (v: string | null) => (v === null ? BLANK_KEY : v);
+  const label = (v: string | null) => (v === null ? t('dashboard.params.values.blank') : v);
+  // A selected value the list does not hold (from a link, or past the cap) stays selectable.
+  const all = [...opts.values, ...value.filter((v) => !opts.values.includes(v))];
+  return (
+    <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2 }}>
+      <Select
+        mode="multiple"
+        allowClear
+        value={value.map(toKey)}
+        onChange={(keys: string[]) => onChange(keys.map((k) => (k === BLANK_KEY ? null : k)))}
+        options={all.map((v) => ({ value: toKey(v), label: label(v) }))}
+        placeholder={
+          source ? t('dashboard.params.values.all') : t('dashboard.params.values.noSource', { column: control.column })
+        }
+        disabled={!source}
+        loading={opts.isLoading && Boolean(source)}
+        maxTagCount="responsive"
+        style={{ minWidth: width, maxWidth: 360 }}
+        aria-label={ariaLabel}
+        data-component={dataComponent}
+        data-control={control.id}
+      />
+      {opts.partial ? (
+        <Typography.Text type="secondary" style={{ fontSize: token.fontSizeSM }} data-component="ValuesPartial">
+          {t('dashboard.params.values.partial')}
+        </Typography.Text>
+      ) : null}
+    </span>
+  );
+}
+
 export function DashboardControlBar({
   controls,
   params,
@@ -358,6 +494,9 @@ export function DashboardControlBar({
   resolved,
   onChange,
   onReset,
+  selections = {},
+  onFilterChange,
+  valuesSource,
 }: Readonly<{
   controls: readonly DashboardControl[];
   params: ReadonlyMap<string, { decl: QueryParam; usedBy: string[] }>;
@@ -367,12 +506,20 @@ export function DashboardControlBar({
   /** Viewer values to set in the URL (empty = remove), several at once. */
   onChange: (values: Record<string, string>) => void;
   onReset: () => void;
+  /** R199 — the viewer's shared selections (URL `f.*`), by control id. */
+  selections?: FilterSelections;
+  /** R199 — a values control's new viewer selection (`[]` = cleared: no filter). */
+  onFilterChange?: (controlId: string, values: (string | null)[]) => void;
+  /** R199 — where each values control reads its options. */
+  valuesSource?: (c: ValuesControl) => ValuesSource;
 }>) {
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const { message } = App.useApp();
   if (controls.length === 0) return null;
-  const changed = controls.some((c) => controlParams(c).some((n) => viewer[n] !== undefined));
+  const changed = controls.some((c) =>
+    c.kind === 'values' ? selections[c.id] !== undefined : controlParams(c).some((n) => viewer[n] !== undefined),
+  );
   return (
     <div
       data-component="DashboardControlBar"
@@ -391,6 +538,38 @@ export function DashboardControlBar({
       {controls.map((c) => {
         if (c.kind === 'date_range') {
           return <DateRangeInput key={c.id} control={c} viewer={viewer} resolved={resolved} onChange={onChange} />;
+        }
+        if (c.kind === 'values') {
+          const own = selections[c.id];
+          return (
+            <label
+              key={c.id}
+              style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+              data-component="SharedFilterControl"
+              data-column={c.column}
+              data-viewer={own !== undefined || undefined}
+            >
+              <Typography.Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+                {c.label}
+              </Typography.Text>
+              <span
+                style={
+                  own !== undefined
+                    ? { outline: `1px solid ${token.colorPrimary}`, borderRadius: token.borderRadius }
+                    : undefined
+                }
+              >
+                <ValuesSelect
+                  control={c}
+                  source={valuesSource?.(c)}
+                  value={own ?? c.saved ?? []}
+                  onChange={(v) => onFilterChange?.(c.id, v)}
+                  ariaLabel={c.label}
+                  dataComponent="SharedFilterSelect"
+                />
+              </span>
+            </label>
+          );
         }
         const type = params.get(c.param)?.decl.type ?? 'string';
         const own = viewer[c.param];
@@ -446,7 +625,7 @@ export function DashboardControlBar({
           size="small"
           icon={<LinkOutlined />}
           onClick={() => {
-            const url = shareUrl(window.location.href, controls, viewer, resolved);
+            const url = shareUrl(window.location.href, controls, viewer, resolved, selections);
             if (!navigator.clipboard) {
               message.error(t('dashboard.params.copyFailed'));
               return;
@@ -525,6 +704,9 @@ export function ControlsEditor({
   saving,
   onSave,
   onClose,
+  columns = [],
+  columnWidgets = () => [],
+  valuesSource = () => undefined,
 }: Readonly<{
   open: boolean;
   controls: readonly DashboardControl[];
@@ -533,6 +715,12 @@ export function ControlsEditor({
   saving: boolean;
   onSave: (next: DashboardControl[]) => void;
   onClose: () => void;
+  /** R199 — every result column of the widgets' queries (a values control's choices). */
+  columns?: readonly DataColumn[];
+  /** R199 — the widgets whose result has a column ("Chosen widgets" default). */
+  columnWidgets?: (column: string) => string[];
+  /** R199 — where a values control reads its options. */
+  valuesSource?: (c: ValuesControl) => ValuesSource;
 }>) {
   const { t } = useTranslation();
   const [draft, setDraft] = useState<DashboardControl[]>([...controls]);
@@ -543,11 +731,17 @@ export function ControlsEditor({
   const free = [...params.keys()].filter((p) => !bound.has(p));
   const freeDates = free.filter((p) => params.get(p)?.decl.type === 'date');
   const dateParams = [...params.keys()].filter((p) => params.get(p)?.decl.type === 'date');
+  // R199 — one values control per column (`duplicate_column`); a text column first.
+  const filteredColumns = new Set(draft.flatMap((c) => (c.kind === 'values' ? [c.column] : [])));
+  const freeColumns = columns.filter((c) => !filteredColumns.has(c.name));
+  const firstFreeColumn = (freeColumns.find((c) => c.dtype === 'string') ?? freeColumns[0])?.name;
   const set = (i: number, patch: Partial<DashboardControl>) =>
     setDraft(draft.map((c, k) => (k === i ? ({ ...c, ...patch } as DashboardControl) : c)));
   const widgetOptions = widgets.filter((w) => w.chartType !== 'note').map((w) => ({ value: w.id, label: w.title }));
-  const invalid = draft.some((c) => {
+  const invalid = draft.some((c, i) => {
     if (!c.label.trim() || (c.targets !== 'all' && c.targets.length === 0)) return true;
+    if (c.kind === 'values')
+      return !c.column || draft.some((o, k) => k !== i && o.kind === 'values' && o.column === c.column);
     if (c.kind === 'date_range') return c.from === c.to || !rangeSavedValid(c.saved);
     const type = params.get(c.param)?.decl.type;
     return type !== undefined && typeof c.saved === 'string' && c.saved !== '' && !valueFits(type, c.saved);
@@ -572,6 +766,11 @@ export function ControlsEditor({
             onClick={() =>
               onSave(
                 draft.map((c) => {
+                  if (c.kind === 'values') {
+                    const out: ValuesControl = { ...c, label: c.label.trim() };
+                    if (!out.saved || out.saved.length === 0) delete out.saved;
+                    return out;
+                  }
                   if (c.kind === 'date_range') {
                     const out: DateRangeControl = { ...c, label: c.label.trim() };
                     if (!out.saved) delete out.saved;
@@ -600,6 +799,95 @@ export function ControlsEditor({
       ) : null}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {draft.map((c, i) => {
+          if (c.kind === 'values') {
+            const otherColumns = new Set(
+              draft.filter((o, k) => k !== i && o.kind === 'values').map((o) => (o as ValuesControl).column),
+            );
+            return (
+              <div
+                key={c.id}
+                data-component="ControlRow"
+                data-kind="values"
+                data-column={c.column}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 6,
+                  paddingBottom: 12,
+                  borderBottom: '1px solid var(--ant-color-border-secondary, #f0f0f0)',
+                }}
+              >
+                <Space wrap>
+                  <Input
+                    value={c.label}
+                    maxLength={60}
+                    onChange={(e) => set(i, { label: e.target.value })}
+                    aria-label={t('dashboard.params.label')}
+                    style={{ width: 180 }}
+                    data-component="ControlLabel"
+                  />
+                  <Typography.Text type="secondary">{t('dashboard.params.values.binds')}</Typography.Text>
+                  <Select
+                    showSearch
+                    value={c.column}
+                    // A new column drops a saved selection made for the old one.
+                    onChange={(col: string) => set(i, { column: col, saved: undefined })}
+                    options={columns
+                      .filter((col) => !otherColumns.has(col.name))
+                      .map((col) => ({ value: col.name, label: col.name }))}
+                    status={otherColumns.has(c.column) ? 'error' : undefined}
+                    style={{ width: 200 }}
+                    aria-label={t('dashboard.params.values.column')}
+                    data-component="ValuesColumn"
+                  />
+                  <Button
+                    type="text"
+                    danger
+                    icon={<DeleteOutlined />}
+                    aria-label={t('dashboard.params.remove', { label: c.label })}
+                    onClick={() => setDraft(draft.filter((_, k) => k !== i))}
+                    data-component="ControlRemove"
+                  />
+                </Space>
+                <Space wrap>
+                  <Typography.Text>{t('dashboard.params.targets')}</Typography.Text>
+                  <Select
+                    value={c.targets === 'all' ? 'all' : 'some'}
+                    onChange={(v: 'all' | 'some') => set(i, { targets: v === 'all' ? 'all' : columnWidgets(c.column) })}
+                    options={[
+                      { value: 'all', label: t('dashboard.params.allWidgets') },
+                      { value: 'some', label: t('dashboard.params.someWidgets') },
+                    ]}
+                    style={{ width: 170 }}
+                    data-component="ControlTargetMode"
+                  />
+                  {c.targets !== 'all' ? (
+                    <Select
+                      mode="multiple"
+                      value={c.targets}
+                      onChange={(ids: string[]) => set(i, { targets: ids })}
+                      options={widgetOptions}
+                      style={{ minWidth: 240 }}
+                      aria-label={t('dashboard.params.targets')}
+                      data-component="ControlTargets"
+                    />
+                  ) : null}
+                </Space>
+                <Space wrap>
+                  <Typography.Text>{t('dashboard.params.saved')}</Typography.Text>
+                  <ValuesSelect
+                    control={c}
+                    source={valuesSource(c)}
+                    value={c.saved ?? []}
+                    onChange={(v) => set(i, { saved: v.length ? v : undefined })}
+                    ariaLabel={`${c.label} — ${t('dashboard.params.saved')}`}
+                    dataComponent="ValuesSaved"
+                    width={260}
+                  />
+                </Space>
+              </div>
+            );
+          }
           const names = controlParams(c);
           const entry = c.kind === 'param' ? params.get(c.param) : undefined;
           const type = entry?.decl.type ?? 'string';
@@ -781,8 +1069,15 @@ export function ControlsEditor({
         <Select
           placeholder={t('dashboard.params.add')}
           value={null}
-          disabled={(free.length === 0 && freeDates.length < 2) || draft.length >= MAX_CONTROLS}
+          disabled={(free.length === 0 && freeDates.length < 2 && !firstFreeColumn) || draft.length >= MAX_CONTROLS}
           onChange={(param: string) => {
+            if (param === VALUES_OPTION && firstFreeColumn) {
+              setDraft([
+                ...draft,
+                { id: newControlId(), kind: 'values', label: firstFreeColumn, column: firstFreeColumn, targets: 'all' },
+              ]);
+              return;
+            }
             if (param === RANGE_OPTION) {
               setDraft([
                 ...draft,
@@ -804,6 +1099,7 @@ export function ControlsEditor({
             ]);
           }}
           options={[
+            ...(firstFreeColumn ? [{ value: VALUES_OPTION, label: t('dashboard.params.values.add') }] : []),
             ...(freeDates.length >= 2 ? [{ value: RANGE_OPTION, label: t('dashboard.params.range.add') }] : []),
             ...free.map((p) => ({ value: p, label: paramOption(p) })),
           ]}

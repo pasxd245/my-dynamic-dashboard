@@ -1,12 +1,15 @@
 import { appConfig } from '../config';
 import { ApiErrorThrown, isApiError } from '@/features/data-management/_shared/types';
 import type { RowsPage } from '@/features/data-management/datasets/types';
+import { rowsFilterSuffix } from '@/features/dashboard/sharedFilters';
 import type {
   AggregateRequest,
   ExportRequest,
   TotalsRequest,
   TotalsResult,
   AggregateResult,
+  AggregateFilter,
+  ColumnValues,
   CreateQueryRequest,
   ParamContext,
   PreviewQueryRequest,
@@ -83,15 +86,32 @@ export const queriesApi = {
    *  `dashboard_max_rows`. `pageSize` echoes the returned row count; `total` is
    *  the full matched count (so `total > rows.length` ⇒ partial). Replaces the
    *  paged-at-100 fetch-all loop. 404 / 409 query_stale (both throw). */
-  async getUnpagedRows(id: string, ctx?: ParamContext): Promise<RowsPage> {
+  async getUnpagedRows(id: string, ctx?: ParamContext, shared?: readonly AggregateFilter[]): Promise<RowsPage> {
     const params = new URLSearchParams({ unpaged: 'true' });
     for (const [k, v] of Object.entries(ctx?.params ?? {})) params.set(`p.${k}`, String(v));
     if (ctx?.dashboard) {
       params.set('dashboard', ctx.dashboard.id);
       params.set('widget', ctx.dashboard.widgetId);
     }
-    const resp = await fetch(`${API_BASE_URL}/queries/${id}/rows?${params.toString()}`);
+    // R199 — the viewer's shared selections as raw `f.<id>=` keys (the dashboard
+    // URL spelling: split before decoding, `~blank`), never re-encoded.
+    const f = ctx?.dashboard ? rowsFilterSuffix(shared) : '';
+    const resp = await fetch(`${API_BASE_URL}/queries/${id}/rows?${params.toString()}${f}`);
     return readJson<RowsPage>(resp);
+  },
+
+  /** R199 — GET /queries/{id}/values?column= — a values control's options: the
+   *  distinct values of one result column (blank first, then the column's own
+   *  order), at most 1 000, `partial` when capped. Parameters as on `/rows`. */
+  async values(id: string, column: string, ctx?: ParamContext): Promise<ColumnValues> {
+    const params = new URLSearchParams({ column });
+    for (const [k, v] of Object.entries(ctx?.params ?? {})) params.set(`p.${k}`, String(v));
+    if (ctx?.dashboard) {
+      params.set('dashboard', ctx.dashboard.id);
+      params.set('widget', ctx.dashboard.widgetId);
+    }
+    const resp = await fetch(`${API_BASE_URL}/queries/${id}/values?${params.toString()}`);
+    return readJson<ColumnValues>(resp);
   },
 
   /** R119 — POST /queries/{id}/aggregate — server-side GROUP BY over a saved

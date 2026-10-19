@@ -157,8 +157,8 @@
     "params": {
       "edit": "Tham số",
       "editorTitle": "Tham số của dashboard",
-      "editorHint": "Mỗi điều khiển đặt một tham số truy vấn cho các widget nó áp dụng (một kỳ đặt hai tham số: từ và đến). Giá trị đã lưu là giá trị mọi người thấy cho đến khi họ đổi — thay đổi của họ chỉ nằm trong liên kết và không bao giờ được lưu.",
-      "noParams": "Chưa có truy vấn nào trên dashboard này khai báo tham số. Hãy khai báo trên trang truy vấn trước.",
+      "editorHint": "Mỗi điều khiển đặt một tham số truy vấn cho các widget nó áp dụng (một kỳ đặt hai tham số: từ và đến), hoặc lọc chúng theo một cột (bộ lọc dùng chung). Giá trị đã lưu là giá trị mọi người thấy cho đến khi họ đổi — thay đổi của họ chỉ nằm trong liên kết và không bao giờ được lưu.",
+      "noParams": "Chưa có truy vấn nào trên dashboard này khai báo tham số — hãy khai báo trên trang truy vấn để thêm điều khiển tham số. Bộ lọc dùng chung thì không cần.",
       "label": "Nhãn",
       "bindsTo": "đặt tham số {{param}}",
       "remove": "Xóa điều khiển {{label}}",
@@ -197,7 +197,18 @@
           "last_month": "Tháng trước"
         }
       },
-      "skippedWhyMany": "Truy vấn của widget này không dùng tham số nào trong ({{param}}), nên điều khiển không thay đổi nó."
+      "skippedWhyMany": "Truy vấn của widget này không dùng tham số nào trong ({{param}}), nên điều khiển không thay đổi nó.",
+      "values": {
+        "add": "Giá trị (bộ lọc dùng chung)",
+        "binds": "lọc cột",
+        "column": "Cột",
+        "all": "Mọi giá trị",
+        "blank": "(trống)",
+        "partial": "1 000 giá trị đầu tiên",
+        "noSource": "Không widget nào được áp dụng có cột {{column}}.",
+        "noSaved": "Không lưu lựa chọn — mọi giá trị"
+      },
+      "skippedNoColumn": "Kết quả của widget này không có cột {{column}}, nên bộ lọc không thay đổi nó."
     },
     "dataFooter": "Dữ liệu: làm mới lúc {{when}}",
     "dataFooterRun": "lần chạy #{{n}}"

@@ -157,8 +157,8 @@
     "params": {
       "edit": "Parameters",
       "editorTitle": "Dashboard parameters",
-      "editorHint": "Each control sets a query parameter for the widgets it targets (a period sets two: from and to). The saved value is what everyone sees until they change it — their change stays in the link and is never saved.",
-      "noParams": "No query on this dashboard declares a parameter yet. Declare one on a query page first.",
+      "editorHint": "Each control sets a query parameter for the widgets it targets (a period sets two: from and to), or filters them on one column (a shared filter). The saved value is what everyone sees until they change it — their change stays in the link and is never saved.",
+      "noParams": "No query on this dashboard declares a parameter yet — declare one on a query page to add a parameter control. A shared filter needs none.",
       "label": "Label",
       "bindsTo": "sets parameter {{param}}",
       "remove": "Remove control {{label}}",
@@ -197,7 +197,18 @@
           "last_month": "Last month"
         }
       },
-      "skippedWhyMany": "This widget's query uses neither parameter ({{param}}), so the control does not change it."
+      "skippedWhyMany": "This widget's query uses neither parameter ({{param}}), so the control does not change it.",
+      "values": {
+        "add": "Values (a shared filter)",
+        "binds": "filters column",
+        "column": "Column",
+        "all": "All values",
+        "blank": "(blank)",
+        "partial": "First 1 000 values",
+        "noSource": "No targeted widget has column {{column}}.",
+        "noSaved": "No saved selection — all values"
+      },
+      "skippedNoColumn": "This widget's result has no column {{column}}, so the filter does not change it."
     },
     "dataFooter": "Data: refreshed {{when}}",
     "dataFooterRun": "run #{{n}}"

@@ -59,8 +59,13 @@ import { useQueryQuery } from '@/features/data-management/queries/hooks';
 import { ApiErrorThrown } from '@/features/data-management/_shared/types';
 import { useChartPalette, useWidgetAggregate, useWidgetData, useWidgetTotals } from './hooks';
 import { computeTotals, totalsColumns } from './totals';
-import type { AggregateMeasure, AggregateRequest, ParamContext } from '@/features/data-management/queries/types';
-import { useReportResolved, useWidgetParamContext } from './DashboardParams';
+import type {
+  AggregateFilter,
+  AggregateMeasure,
+  AggregateRequest,
+  ParamContext,
+} from '@/features/data-management/queries/types';
+import { useReportResolved, useWidgetParamContext, useWidgetSharedFilters } from './DashboardParams';
 import type { Agg, Widget } from './types';
 
 const numberFmt = new Intl.NumberFormat();
@@ -461,7 +466,7 @@ function PieView({ data, palette }: Readonly<{ data: Datum[]; palette: string[] 
 
 /** Translate the active R103 dashboard filters to the aggregate wire shape:
  *  the `(blank)` label maps to a `null` value (a NULL/empty cell). */
-function toWireFilters(filters: readonly DashboardFilter[]): AggregateRequest['filters'] {
+function toWireFilters(filters: readonly DashboardFilter[]): AggregateFilter[] {
   return filters.map((f) => ({
     column: f.column,
     values: f.values.map((v) => (v === BLANK_LABEL ? null : v)),
@@ -481,6 +486,9 @@ export function useWidgetChartData(
   filters: readonly DashboardFilter[] = [],
   // R195 — the dashboard's parameter context (viewer values + this widget).
   ctx?: ParamContext,
+  // R199 — the viewer's shared selections for this widget (`RuntimeFilter` items
+  // with `control`): sent with every read — `f.*` on `/rows`, items on the POSTs.
+  shared: readonly AggregateFilter[] = [],
 ) {
   // R179 — a `note` never reaches this hook (WidgetView dispatches it to
   // NoteWidgetView); `agg` is typed optional only for the note's sake.
@@ -519,12 +527,12 @@ export function useWidgetChartData(
   const aggBody: AggregateRequest = {
     dimensions: isScalar || !widget.dimensionCol ? [] : [widget.dimensionCol],
     measures,
-    filters: toWireFilters(filters),
+    filters: [...toWireFilters(filters), ...shared],
     ...(ctx ?? {}),
   };
 
   // The aggregating widget skips the raw fetch; the rest fetch raw rows.
-  const data = useWidgetData(widget.queryId, !aggregateEnabled, ctx);
+  const data = useWidgetData(widget.queryId, !aggregateEnabled, ctx, shared);
   const agg = useWidgetAggregate(widget.queryId, aggBody, aggregateEnabled);
 
   const dimIdx = widget.dimensionCol ? findColIndex(data.columns, widget.dimensionCol) : -1;
@@ -693,6 +701,7 @@ export function WidgetView(props: WidgetViewProps) {
 function ChartWidgetView({ widget, extra, filters, badge }: WidgetViewProps) {
   const { t } = useTranslation();
   const ctx = useWidgetParamContext(widget.id);
+  const shared = useWidgetSharedFilters(widget.id);
   const { token } = theme.useToken();
   const palette = useChartPalette();
   const {
@@ -711,7 +720,7 @@ function ChartWidgetView({ widget, extra, filters, badge }: WidgetViewProps) {
     dataVersions,
     capped,
     total,
-  } = useWidgetChartData(widget, filters, ctx);
+  } = useWidgetChartData(widget, filters, ctx, shared);
   useReportResolved(widget.id, resolvedParams);
   const paramTitle = paramError
     ? ((paramError as { label?: string }).label ?? (paramError as { param: string }).param)
@@ -731,7 +740,7 @@ function ChartWidgetView({ widget, extra, filters, badge }: WidgetViewProps) {
   const totalsEnabled = widget.chartType === 'table' && Boolean(widget.totals && Object.keys(widget.totals).length > 0);
   const totalsQ = useWidgetTotals(
     widget.queryId,
-    { columns: totalsColumns(widget.totals), filters: toWireFilters(filters ?? []), ...(ctx ?? {}) },
+    { columns: totalsColumns(widget.totals), filters: [...toWireFilters(filters ?? []), ...shared], ...(ctx ?? {}) },
     totalsEnabled,
   );
   const footerTotals = totalsEnabled ? computeTotals(widget.totals, totalsQ.sums) : undefined;

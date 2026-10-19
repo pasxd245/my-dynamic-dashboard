@@ -124,9 +124,25 @@ export type DateRangeControl = {
   saved?: DateRangeValue;
 };
 
-export type DashboardControl = ParamControl | DateRangeControl;
+/** R199 (item 4.3, dashboard-filters.md D4, `kind: values`) — a SHARED FILTER:
+ *  a name-based one-of on one result column, reaching the targeted widgets whose
+ *  result has the column (D5: skipped and badged otherwise). `saved` is the
+ *  dashboard's selection — applied by the SERVER; `null` is `(blank)`. A viewer's
+ *  selection lives in the URL only (`?f.<id>=North,South`, `~blank`). Mirrors
+ *  `_shared/dashboard.yaml#/ValuesControl`. */
+export type ValuesControl = {
+  id: string;
+  kind: 'values';
+  label: string;
+  column: string;
+  targets: 'all' | string[];
+  saved?: (string | null)[];
+};
 
-/** The parameter names one control binds (a range binds two). */
+export type DashboardControl = ParamControl | DateRangeControl | ValuesControl;
+
+/** The parameter names one control binds (a range binds two; a values control none). */
 export function controlParams(c: DashboardControl): string[] {
+  if (c.kind === 'values') return [];
   return c.kind === 'date_range' ? [c.from, c.to] : [c.param];
 }

@@ -92,9 +92,9 @@ _Track: 1 (product). Pulled by: release program item 4.3
       `GET /queries/{id}/values`, the Filters sheet split. **BA pass 1 at Contract exit.**
 - [x] **B** — control validation; shared-filter resolution (viewer item → saved); `f.*` parsing;
       the `/values` route; the export rows; tests
-- [ ] **F** — types, bar control, URL state, per-widget routing, reach badge, editor, share link,
+- [x] **F** — types, bar control, URL state, per-widget routing, reach badge, editor, share link,
       MSW, EN/VI; tests
-- [ ] **I** — visual gate (light EN + VI; dark N/A — no theme)
+- [x] **I** — visual gate (light EN + VI; dark N/A — no theme)
 - [ ] Reviews: code review + QA in parallel, then BA pass 2; every P0/P1 fixed
 
 ## Risks / unknowns
@@ -209,6 +209,45 @@ DateRangeControl | ValuesControl` (discriminator `kind`), `FilterValues`;
   filters identically on `/rows` and `/export`, the 1 000 cap, parameters). Backend 700 green,
   ruff clean. Seen: under an OR predicate (`North` ∪ blank) the parquet scan does not keep file
   order — the R171 `preserve_insertion_order` reliance; the test sorts; rolling-log row.
+- **B (`ebb2cde`)** — re-verified after a session cut: backend 700, ruff clean.
+- **F** — `types.ts` (`ValuesControl`, `controlParams` → none for it), `queries/types.ts`
+  (`AggregateFilter.control`, `ColumnValues`); new `sharedFilters.ts` — the URL side: the parser
+  (the server's rules, BA-C2/C5), `encodeSelection` (`~` → `%7E`, `null` → `~blank`), **the one
+  raw writer** `writeSearch` and its uses (`withParamsRaw`, `withSelectionRaw`,
+  `withoutViewerRaw`, `withoutStaleRaw`), `sharedItemsFor` (a viewer selection only to the
+  targeted widgets), `rowsFilterSuffix`; `queriesApi` (`f.*` appended raw to the `/rows` read;
+  `values()`); `hooks.ts` (`useWidgetData` / `useWidgetFilterOptions` carry the shared items;
+  `useColumnsOfQueries`, `useColumnValues`); `DashboardParams.tsx` (`paramContextFor`,
+  `useWidgetSharedFilters`, `controlReach(…, columns)` — reached when the result has the column,
+  skipped "no column <column>", unknown → neither; `ValuesSelect` (options from `/values`,
+  `(blank)` option, "First 1 000 values"); the bar's `SharedFilterControl` (outlined viewer
+  selection, Reset, Copy link pins every values control raw and drops a stale key); the editor's
+  values row (label, column — one per column, targets, saved selection) and "Values (a shared
+  filter)" in Add); `DashboardDetailPage.tsx` (every URL write — `p.*` change, Reset, `f.*`
+  change — through `navigate({search})` with the raw writer instead of `setSearchParams`;
+  `f.*` read from the raw `location.search`; stale `f.` keys replaced away on load; widget
+  columns for reach; the options source = the first targeted widget whose result has the column,
+  with that widget's parameter context); `WidgetView.tsx` / `WidgetFilterDrawer.tsx` /
+  `exportWidget.ts` (the shared items on aggregate, totals, rows, the drawer's options and the
+  export, after the widget's own filters); MSW `GET /queries/:id/values` (contract-validated) and
+  an empty (cleared) list restricting nothing in the mock aggregate (server parity); EN/VI
+  (`dashboard.params.values.*`, `skippedNoColumn`, the editor hint names a shared filter).
+  `tests/shared-filters-r199.test.tsx` (16): the parser edges, round-trip encoding,
+  **a `p.` change leaves `f.` byte-identical** and Reset drops both, `%7Eblank` ≠ `~blank`, a
+  stale key dropped (pure + page: the old link opens, reads, loses the key), reach and routing,
+  the share link, the export body, MSW parity (PUT echo, `/values`), the bar (raw `f.` on the
+  targeted read only, skipped badge text, options over the first widget with the column,
+  partial note, selected options), picking / clearing writes (`~blank`, `f.<id>=`), the editor
+  (add → first text column, save). Builder 580 green (detached full run), `tsc` clean.
+- **Visual gate (light, EN + VI; dark N/A — no theme):** real backend on an isolated data dir
+  (`scratchpad/r199/data`), fake `calls_demo` (Acme agents, 56 rows, teams incl. blank), a
+  **Weekly** dashboard: Team values control saved ["North"] targeting a bar, a table and a stat
+  over a query without `team`; a fourth stat untargeted. Screenshots (`scratchpad/r199/shots/`):
+  saved selection (North only, no Reset), a link `?f.<id>=South,~blank&f.ctl_0000dead=x` (the
+  stale key gone from the URL after load, the control outlined, "(blank)" / "(trống)" tags,
+  Reset), the options list (blank first, the selection checked), the skipped badge tooltip, the
+  editor's values row (EN + VI). Network: only the three targeted widgets' reads carried
+  `f.ctl_0000c199=South,~blank`, byte-for-byte; the skipped widget read 56 of 56 rows.
 
 ## Check
 

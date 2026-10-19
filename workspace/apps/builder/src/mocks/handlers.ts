@@ -323,6 +323,7 @@ function computeAggregate(
   for (const f of body.filters ?? []) {
     const idx = _aggColIdx(columns, f.column);
     if (idx === -1) continue; // a filter on a column this query lacks is skipped
+    if (f.values.length === 0) continue; // R199 — an empty (cleared) list restricts nothing (server parity)
     const wantsBlank = f.values.includes(null);
     const set = new Set(f.values);
     matched = matched.filter((r) => {
@@ -1241,6 +1242,44 @@ export const handlers = [
     const aqGroups = def.advanced.map((g) => g.map(predFromAtom));
     const matched = applyFiltersAndQ(MOCK_ROWS, MOCK_DATASET.columns, preds, def.q ?? null, aqGroups);
     return HttpResponse.json(computeAggregate(MOCK_DATASET.columns, matched, body));
+  }),
+
+  // R199 — a values control's options: the distinct values of one column of
+  // MOCK_QUERY's matched rows, blank (`null`) first, then ascending (numbers
+  // numerically), capped at 1 000 with `partial`. 422 `unknown_column`.
+  // Contract-validated against queries/values-get.contract.yaml.
+  withContractValidation('get', api('/queries/:id/values'), 'queryValues', ({ params, request }) => {
+    const column = new URL(request.url).searchParams.get('column') ?? '';
+    const isJoined = params.id === MOCK_JOINED_QUERY.id;
+    if (!isJoined && params.id !== MOCK_QUERY.id) {
+      return HttpResponse.json({ code: 'not_found' }, { status: 404 });
+    }
+    const columns = isJoined ? (MOCK_JOINED_QUERY.resolvedColumns ?? []) : MOCK_DATASET.columns;
+    const idx = _aggColIdx(columns, column);
+    if (idx === -1) return HttpResponse.json({ code: 'unknown_column', column }, { status: 422 });
+    let rows: readonly (readonly (string | null)[])[] = MOCK_JOINED_ROWS.rows;
+    if (!isJoined) {
+      const def = MOCK_QUERY.definition;
+      rows = applyFiltersAndQ(
+        MOCK_ROWS,
+        MOCK_DATASET.columns,
+        def.filters.map(predFromAtom),
+        def.q ?? null,
+        def.advanced.map((g) => g.map(predFromAtom)),
+      );
+    }
+    const cells = rows.map((r) => r[idx] ?? null);
+    const hasBlank = cells.some((c) => c === null || c === '');
+    const numeric = ['integer', 'float'].includes(columns[idx]?.dtype ?? '');
+    const distinct = [...new Set(cells.filter((c): c is string => c !== null && c !== ''))].sort((a, b) =>
+      numeric ? Number(a) - Number(b) : a < b ? -1 : a > b ? 1 : 0,
+    );
+    const CAP = 1000;
+    return HttpResponse.json({
+      column,
+      values: [...(hasBlank ? [null] : []), ...distinct.slice(0, CAP)],
+      partial: distinct.length > CAP,
+    });
   }),
 
   // R72 — preview: run an UNSAVED working-copy definition (the live builder

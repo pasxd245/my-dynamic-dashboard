@@ -430,6 +430,20 @@ export type AggregateMeasure = {
 export type AggregateFilter = {
   column: string;
   values: readonly (string | null)[];
+  /** R199 — set: a SHARED filter (the viewer's selection for that `values`
+   *  control); absent: the widget's own drawer filter. `_shared/query.yaml#/RuntimeFilter`. */
+  control?: string;
+};
+
+/** R199 — the result of `GET /queries/{id}/values?column=` (a values control's
+ *  options): blank (`null`) first, then ascending in the column's own order;
+ *  `partial` when more than 1 000 distinct values exist. */
+export type ColumnValues = {
+  column: string;
+  values: (string | null)[];
+  partial: boolean;
+  dataVersions?: Record<string, number>;
+  resolvedParams?: ResolvedParams;
 };
 
 /** R119 — POST /queries/{id}/aggregate request body: a stateless server-side
