@@ -84,6 +84,13 @@ _Re-based on the accepted design 2026-10-18. Built `Round_199` (2026-10-19) — 
 | Flow       | DCFBI                                                                                                |
 | Depends on | 3.2 — a definition's version is its hash (decision 14); history rows carry their own sequence number |
 
+_Built `Round_200` (2026-10-19, review) — see
+[`_shared/definition-history.md`](../../../design/data-management/_shared/definition-history.md):
+queries, dashboards **and workflows** (owner to confirm), migration `0011` with a `baseline`
+backfill, `seq` + `change` + `changed_source` beside the spec's columns, `?seq=` on the version
+read, `sourceChangedSince` on a query version, the History drawer on the three pages; restore is
+the noun's PUT, and a widget's notes return with the widget._
+
 - **Migration** (next free number) `…_definition_history`: `(kind, id, version, definition_json, changed_at,
 changed_by)`; written in the same transaction as the definition update.
 - **Contract:** `GET /{kind}/{id}/history` (list), `GET /{kind}/{id}/history/{version}` (read-only

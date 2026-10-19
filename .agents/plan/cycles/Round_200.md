@@ -7,7 +7,36 @@
 
 ## ⟢ At a glance
 
-_Written at close-out._
+**Shipped** — every saved definition is kept.
+
+- A query, dashboard or workflow writes one history row per definition change, in the change's
+  own transaction: its own `seq`, the definition hash (decision 14 — the value a note anchors
+  to), the definition, when, and who when the change carried a writer token. A rename, an
+  unchanged re-save or a refused save writes nothing; deleting the noun deletes its history.
+  Migration `0011` seeds a `baseline` row per existing noun and downgrades cleanly.
+- A **History** drawer on the three pages lists the versions (_Current_, _Same as #k_, _History
+  started_), shows a version's technical JSON, and restores one through the noun's ordinary PUT —
+  a new version on top, nothing rewritten. The confirm warns when a query's source was refreshed
+  since that version; a dashboard's widget notes are set aside with the widget and come back with
+  it; delete confirms name the saved versions.
+- Backend 756 · builder 601 · contracts 53; BA pass 1 CHANGES (3 P1, folded before code),
+  code review and QA CHANGES → PASS on re-check, BA pass 2 CHANGES (1 P1, folded; re-check
+  pending); the owner's walk W1–W14 is open.
+
+**Studied** _(predicted → saw → now believe)_ — predicted the hard part was the migration (a
+backfill computing the app's hash without importing the app, both ways on a populated database).
+It held first time, through the coder's probe and QA's S0–S6. Saw: the defects were all at the
+**edges of "restore is just a PUT"** — a PUT also sweeps widget notes (CR-1), a hash names a
+definition but not a row (the `?seq=` fix at the visual gate), and a PUT moves reads other than
+the noun's (two stale caches). Now believe (medium-high confidence — two of the three are the same
+class, and it recurred within the round): "reuse the ordinary write" is the right design, but
+every side effect and every cached read of that write has to be walked once for the new caller.
+Promoted the cache half (memory + `review-qa` item 10).
+
+**Watch** — the five owner questions (workflows in; an AI label on a change; a readable old
+version; an empty "who" for in-app edits; refuse vs warn on a changed source); BA-F5 (the warning
+fires on any refresh); the 0-based column-index fragility; the concurrent-rename revert on
+restore; unbounded history (trigger: 1 000 rows a noun); 4.8 needs its spec in `rc4.md`.
 
 ## Goal
 
@@ -376,15 +405,76 @@ baseline`), `HistoryEntry` `{seq, version, change, changedAt, changedBy}` (`chan
   - Gates: backend **756** (737 + 5 new + 14 adopted), ruff clean; builder **599** (595 + 1 new + 3 adopted;
     full suite detached, backend idle), `tsc` clean; contracts 53; md / plan / design lints 0.
 
+### BA pass 2 and the re-checks
+
+- **Code review re-check (`71c911c`): PASS** — CR-1..CR-8 closed; `unsweep_widgets` probed on id
+  reuse (comes back `other_definition` — honest), on a dashboard delete (notes stay archived) and
+  on cascades (no resurrection). New **CR-9 (P2)**: the `MetadataEntrySwept` docstring said
+  "Never read by the API".
+- **QA re-check: PASS** — QA-1..QA-3 closed; the migration walk S0–S6 and the failing-backfill
+  case clean; CR-1 verified live. New **QA-4 (P2)**: the Metadata panel stays stale up to 30 s
+  after a restore.
+- **BA pass 2: CHANGES** — BA-C1..C9 landed, no matrix cell undefined. **BA-F1 (P1) = QA-4**:
+  the three update mutations did not invalidate `['metadata', …]`, so after a restore the panel
+  listed set-aside notes under raw `wdg_…` ids and a query's notes kept their old state (C5,
+  C13) — visible in the coder's own `shots2/vi-f-restored-toast.png`. P2: BA-F2 ("come back if
+  you restore a version that has the widget"), BA-F3 ("filters this version lacks"), BA-F4
+  (judge "already current" on a list re-read right before the PUT), BA-F5 (`sourceChangedSince`
+  fires on any refresh — logged), BA-F6 (an indent `metadata.md` lost to a formatter run).
+- **Fold (`fix(R200): BA pass 2 folds …`)** — BA-F1: the query, dashboard and workflow update
+  mutations invalidate `['metadata']`; test with the app's `QueryClient` defaults (a restore →
+  the panel re-reads; fails without the fix). BA-F2 / BA-F3: `kindLine.dashboard` EN/VI and the
+  design doc. BA-F4: the drawer re-reads the history list inside the confirm's `onOk`, before the
+  PUT; test (another tab restored first → "already current"; fails without the fix). BA-F6: the
+  indent restored (not re-formatted). CR-9: the docstring names `unsweep_widgets`. BA-F5 →
+  rolling log. Re-shot `shots2/vi-f-restored-toast.png` (and `vi-e2-dashboard-restore-confirm.png`):
+  after the VI restore the panel is gone at once (its only note set aside), toast "Đã khôi phục
+  #1 thành #7".
+
 ## Check
 
-_Gates, visual gate, reviewer verdicts and the walk script — at close-out._
+- [x] backend **756** · builder **601** · contracts **53** green; `tsc --noEmit`; `ruff check`; md /
+      plan / design lints 0; M3 guard over `9b3ec3e..HEAD` empty; nothing under
+      `workspace/apps/backend/data/` (the default `app.sqlite` untouched — mtime before the round)
+- [x] Migration both ways: the coder's probe (`scratchpad/r200/probe-0011`) and QA's walk S0–S6 +
+      the failing-backfill case (upgrade, `downgrade -1` with history rows, re-upgrade, down to
+      0010, the startup path) — nouns and hashes identical, fk / integrity clean
+- [x] Visual gate: light (EN + VI) — coder `scratchpad/r200/shots/` (13), `scratchpad/r200/shots2/`
+      (8: baseline row, source warning, refused restore, dashboard confirm, VI restored toast, the
+      note back after restoring back) and QA's `qa2`; dark N/A (no theme — owner)
+- [ ] BA · code review · QA — no open P0/P1: code review PASS (`71c911c`), QA PASS; BA pass 1
+      CHANGES → folded (`d18e023`); BA pass 2 CHANGES (BA-F1 P1) → folded in the BA pass 2 fold
+      commit — **BA re-check of BA-F1 pending**
+- [x] ⟢ At a glance **Studied** line written
+- [ ] **Acceptance walk** (human reviewer) — ⬜ verdicts, `coverage: 0 of 14`. Light theme, fake
+      data only. Walk script drafted by the BA (pass 2), verbatim; W8's Metadata line is fixed
+      by BA-F1 and W11 by BA-F4:
+  - ⬜ S1 Start the backend on a fresh scratch data folder (not workspace/apps/backend/data/) with one writer token configured (author `report-agent`, source `ai`), and the builder.
+  - ⬜ S2 Workspace "Acme demo"; upload fake `calls_demo.csv` (id, team, agent, amount; 40 rows, teams North/South); query "North calls" (team = North); dashboard "Weekly" with one Count widget on it; workflow "Calls rollup" from the query, run it.
+  - ⬜ S3 Stop the app, `alembic downgrade -1`, start again — the startup upgrade seeds baseline rows.
+  - ⬜ W1 Query "North calls" → History (beside Delete): drawer "History — North calls"; intro ends "Names appear only for changes made through the API with a writer token."; row #1 Current + "History started" + "The definition when history began; earlier changes were not recorded."; no Restore on #1.
+  - ⬜ W2 Edit filter North → South, Save → #2 Current, no name after the time; #1 offers Restore. Rename "Weekly" in Settings › Dashboard → its History gains no row.
+  - ⬜ W3 Restore #1 → confirm "Restore version #1?" / "…saved as a new version. The current definition stays in the history, so you can restore it back." / "Dashboards and workflows that use this query will read the restored definition." → toast "Restored #1 as #3"; #3 Current + Same as #1; table shows North rows.
+  - ⬜ W4 No Restore on #3 or #1 (both current version); #2 has Restore.
+  - ⬜ W5 Source warning: refresh calls_demo with a fake file dropping `agent`; Restore #2 → yellow "The data source changed after this version was saved; column positions may differ — check the filters after restoring."; Cancel. Edit once (#4), once more (#5); Restore #4 → no warning; Cancel.
+  - ⬜ W6 "Technical definition (JSON)" on #2 → "#2 — technical definition (JSON), read-only", read-only JSON; second click closes. No row shows an AI label.
+  - ⬜ W7 Dashboard "Weekly": add a "Read me" text widget in the app (#2); with the token, write a note on that widget via API, and add a filter control via API (#3) → History #3 "· report-agent", #2, #1 "History started".
+  - ⬜ W8 Select the new filter, copy the viewer link; Restore #1 → confirm has the links line and the widget-notes line → toast "Restored #1 as #4"; Read me gone; the Metadata panel no longer lists the note (no `wdg_…` id); the copied link opens without that selection.
+  - ⬜ W9 Restore #3 → Read me back, its ⓘ popover shows the same note, "AI", report-agent; History shows "Same as #3".
+  - ⬜ W10 Refused restore: add a widget on a new query "Agent calls", remove the widget, delete the query; restore the version that had it → red toast "This version can no longer be saved: it does not fit the current data or queries."; no new row; page unchanged.
+  - ⬜ W11 "Already current": dashboard History open in tab A; in tab B restore #1; within 60 s restore #1 in tab A → "#1 is already the current definition; nothing was saved."
+  - ⬜ W12 Workflow "Calls rollup": Edit → History disappears; Cancel. Restore #1 → confirm has "The workflow's output is cleared; run it again to rebuild it."; after restore output reads "Not run yet".
+  - ⬜ W13 Delete confirms (cancel each): query delete "This also deletes its N saved versions." (N = History rows); workflow delete same; Settings › Dashboard list delete "Weekly" same.
+  - ⬜ W14 VI: "Lịch sử — …", "Hiện tại", "Giống #k", "Bắt đầu lịch sử", "Định nghĩa kỹ thuật (JSON)", "Khôi phục"; intro ends "…gửi qua API kèm mã ghi."; VI source warning; toast "Đã khôi phục #k thành #n"; delete line "Thao tác này cũng xoá N phiên bản đã lưu của nó."
 
 ## Act
 
-_Rolling-log rows, promotion and prune check — at close-out._
-
-- **Owner questions** (from BA pass 1, carried to close-out):
+- **Rolling log** ([release-rc2-rc5.plan.md § Rolling log](../programs/release-rc2-rc5/release-rc2-rc5.plan.md)):
+  the 0-based column-index fragility (pre-existing; R200 warns, refusing is owner question 5);
+  the concurrent-rename revert on restore (P2); BA-F5 (`sourceChangedSince` fires on any
+  refresh — trigger: the owner reports the warning on every restore; tied to owner question 5).
+  The R196 `updated_at` row is answered by this round (a history, not a timestamp).
+- **Owner questions** (BA pass 1; question 4 relayed later):
   1. Workflows are in the definition history (and its drawer) alongside queries and
      dashboards — the program row named only queries and dashboards. Confirm?
   2. Should a change made by an agent (`changedSource: ai`) carry an AI label in the history
@@ -396,7 +486,28 @@ _Rolling-log rows, promotion and prune check — at close-out._
      appear only for writer-token changes)?
   5. Should restoring a query version whose source datasets changed since be **refused**
      rather than warned (BA-C2; built: a warning in the confirm)?
+- **Promotion: yes — "after a write, every read the write changes must re-read; check the
+  after-state with the app's cache".** The stale-cache-after-a-write class recurred twice in this
+  round (QA-1: the history version read cached past a dataset refresh; BA-F1: the Metadata panel
+  cached past a restore), both behind green tests on a bare `QueryClient`, the second visible in
+  the coder's own after-screenshot. Per the in-round rule: new memory
+  [`2026-10-19-stale-cache-after-a-write`](../../memory/2026-10-19-stale-cache-after-a-write.md)
+  and `review-qa` item 10 (look at every write's after-state, not only the toast; test it with
+  the app's `QueryClient` defaults); logged in [`promotions.md`](../promotions.md). `review-cr`
+  item 6 already asks the code-side question. R199's candidate (a binding change must not keep
+  identifiers the URL already holds) did not recur.
+- **Prune check:** every role found something only it found — BA pass 1 the three P1s before
+  code (the lying "Restored" toast on a current-hash row, the column-index trap, the JSON journey);
+  the visual gate the hash-only version read (`?seq=`); code review CR-1 (restore archived widget
+  notes for good) by a probe; QA the stale warning under the app's cache (QA-1) and the panel
+  (QA-4); BA pass 2 the same panel from the coder's own screenshot. Nothing to prune.
+- **agents.csv** row appended.
 
-## Feeds into → Round_201 (TBD)
+## Feeds into → Round_201
 
-_At close-out._
+M4's last item is **4.8 — a definition pack** (export / import of queries, dashboards and
+workflows by name), from the AI-Cowork master plan v2; it is **not yet in `rc4.md`**, so the next
+round first writes its spec there (DFCFBI likely — a new file format and a name-matching import
+are new interaction patterns). Hand-over: every definition now has a history (`seq`, the hash,
+`change`, who), restore is the noun's PUT, a widget's notes follow the widget, and
+`app.metadata.token_for` is the one writer-token lookup. 4.1 (scheduled refresh) stays last.

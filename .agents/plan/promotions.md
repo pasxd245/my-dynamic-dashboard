@@ -428,3 +428,20 @@ probe found the P1. The checklist item is the smallest mechanism that makes the 
 before the probe. No lint. Track 2 (agent-method), artifact-only.
 **Promoted by**: drafted by the coding agent in Round_199 under the standing rc3 § Execution rule
 (human, 2026-10-18); human review on merge to `main`.
+
+## 2026-10-19: After a write, check the after-state with the app's cache → `.agents/memory/` + `skills/review-qa` item 10
+
+**What**: (1) new
+[`2026-10-19-stale-cache-after-a-write.md`](../memory/2026-10-19-stale-cache-after-a-write.md)
+— a mutation must invalidate every read whose answer it changes; test the after-state with the
+app's `QueryClient` defaults and read every after-screenshot for leftover state. (2) item 10 of
+[`review-qa`](../skills/review-qa/SKILL.md).
+**Rationale**: the in-round rule of
+[rc3.md § Execution](programs/release-rc2-rc5/rc3.md#execution--the-four-role-loop-from-2026-10-18)
+— the class recurred twice in Round_200 (QA-1: a history read cached past a dataset refresh;
+BA-F1: the Metadata panel cached past a restore), both behind green tests that used a bare
+`QueryClient`, the second visible in the coder's own screenshot. `review-cr` item 6 already asks
+the code-side question; the QA item makes the live after-state the check. No lint. Track 2
+(agent-method), artifact-only.
+**Promoted by**: drafted by the coding agent in Round_200 under the standing rc3 § Execution rule
+(human, 2026-10-18); human review on merge to `main`.

@@ -52,6 +52,12 @@ metadata:
 9. **Boundary** — nothing you created is left under `workspace/apps/backend/data/`; no customer,
    company or person name in any added line; screenshots and fake data under the scratch
    directory only.
+10. **After-state of every write** — for each mutation the round adds or touches, look at what the
+    page shows after it (screenshot and test), not only the toast: every read the write changes
+    (the noun, its lists, its history, its notes, the widgets reading it) shows the new state at
+    once. Write that test with the app's `QueryClient` defaults (`staleTime` 60 s, `main.tsx`) —
+    a bare client re-fetches on mount and hides a missing invalidation (R200 QA-1, BA-F1). Memory:
+    [stale-cache-after-a-write](../../memory/2026-10-19-stale-cache-after-a-write.md).
 
 ## Output
 
