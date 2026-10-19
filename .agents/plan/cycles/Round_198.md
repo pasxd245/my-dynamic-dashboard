@@ -1,6 +1,6 @@
 # Round 198: view-time date range (item 4.2)
 
-**Status**: In Progress
+**Status**: Review
 **Flow**: **DCFBI** — set at the Design gate via `flow-selector` (see Do).
 **Date started**: 2026-10-19
 **Date completed**: —
@@ -230,7 +230,8 @@ saying so beats an empty table that looks like "no calls". Row updated; the BA m
 - [x] backend 687 · builder 564 · contracts 49 green; `tsc --noEmit`; `ruff check`; lints 0
 - [x] Visual gate: light (EN + VI) — coder's and QA's own runs; dark N/A (no dark theme — owner)
 - [x] BA (contract exit + after build) · code review · QA — no open P0/P1 (QA-1 fixed in
-      `cce4f4b`; QA re-check by the orchestrator)
+      `cce4f4b`; QA re-check at `199ac15`: CLOSED — swap probe end-to-end, live preset read 200,
+      full backend 687, touched vitest 35, no regression; QA-2 closed on the re-shot)
 - [x] ⟢ At a glance **Studied** line written
 - [ ] **Acceptance walk** (human reviewer) — ⬜ verdicts, `coverage: 0 of 11`. Setup (fake data):
       a dataset `calls_demo` (id, team, day, amount, at — e.g. 14 days of October); query **Calls
