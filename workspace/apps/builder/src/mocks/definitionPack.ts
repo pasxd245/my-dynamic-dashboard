@@ -139,12 +139,18 @@ export function mockPlan(
   const dsStatus = new Map(datasets.map((d) => [d.name, d.status]));
   const broken = new Set<string>(); // `${kind}:${name}` that cannot be imported
 
+  const idHere = (kind: PlanKind, name: string): string | undefined => {
+    const pool: readonly { id: string; name: string }[] =
+      kind === 'query' ? MOCK_QUERIES : kind === 'workflow' ? MOCK_WORKFLOWS : MOCK_DASHBOARDS;
+    return pool.find((n) => n.name === name)?.id;
+  };
   const decide = (kind: PlanKind, name: string, existing: unknown, mine: unknown): PlanItem => {
     if (existing === undefined) return { kind, name, action: 'create' };
-    if (same(existing, mine)) return { kind, name, action: 'unchanged', id: `${kind}-here` };
-    if (onConflict === 'replace') return { kind, name, action: 'replace', id: `${kind}-here` };
-    if (onConflict === 'skip') return { kind, name, action: 'skip', id: `${kind}-here` };
-    return { kind, name, action: 'conflict', id: `${kind}-here`, reason: 'exists' };
+    const id = idHere(kind, name);
+    if (same(existing, mine)) return { kind, name, action: 'unchanged', id };
+    if (onConflict === 'replace') return { kind, name, action: 'replace', id };
+    if (onConflict === 'skip') return { kind, name, action: 'skip', id };
+    return { kind, name, action: 'conflict', id, reason: 'exists' };
   };
   const invalid = (kind: PlanKind, name: string, reason: PlanItem['reason'], detail: string): PlanItem => {
     broken.add(`${kind}:${name}`);

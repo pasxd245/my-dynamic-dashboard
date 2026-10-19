@@ -29,6 +29,12 @@
 #                        R194 (dashboard-filters.md D3/D6).
 #   - param_invalid    — a supplied parameter value has the wrong type (422)
 #                        — R194.
+#   - pack_unresolved  — a definition-pack export met a reference to a deleted
+#                        noun (409) — R201.
+#   - pack_invalid     — a definition pack this install cannot read (422) —
+#                        R201.
+#   - pack_refused     — a definition-pack import cannot be applied whole;
+#                        nothing was written; carries the plan (409) — R201.
 #
 # Each variant uses `additionalProperties: false` to mirror the BE's
 # `extra='forbid'` Pydantic discipline (per the R16 conformance pattern).
@@ -59,6 +65,9 @@ components:
           read_only_workspace,
           param_unbound,
           param_invalid,
+          pack_unresolved,
+          pack_invalid,
+          pack_refused,
         ]
       description: |
         Closed enum. Any new error class lands as a new code in a future
@@ -554,3 +563,67 @@ components:
             Present when the value has the right type but cannot be used:
             `range_reversed` — a `between` whose bound came from this parameter
             ends before it starts. A number on an integer column must be whole.
+
+    ApiErrorPackUnresolved:
+      type: object
+      required: [code, problems]
+      additionalProperties: false
+      description: |
+        R201 (4.8) — `GET /workspaces/{id}/definitions` refused: a definition
+        names something that was deleted (a widget's query, a workflow's
+        source, a query's join dataset). Exporting it would make a pack that
+        imports as something else; one problem per reference to repair.
+      properties:
+        code:
+          type: string
+          enum: [pack_unresolved]
+        problems:
+          type: array
+          minItems: 1
+          items:
+            $ref: '../_shared/definition-pack.yaml#/components/schemas/UnresolvedProblem'
+
+    ApiErrorPackInvalid:
+      type: object
+      required: [code, reason, problems]
+      additionalProperties: false
+      description: |
+        R201 (4.8) — `POST /workspaces/{id}/definitions/import` cannot read the
+        pack; nothing was checked against the workspace, nothing written.
+        `version` — another `packVersion` (`packVersion`, `supported`);
+        `too_large` — over 10 MiB or 1 000 nouns; `duplicate` — a name twice in
+        one kind, or a slug twice; `reference` — a name not in the pack (a pack
+        is closed); `cycle` — workflows that read each other.
+      properties:
+        code:
+          type: string
+          enum: [pack_invalid]
+        reason:
+          type: string
+          enum: [version, too_large, duplicate, reference, cycle]
+        problems:
+          type: array
+          items:
+            $ref: '../_shared/definition-pack.yaml#/components/schemas/PackProblem'
+        packVersion:
+          type: integer
+        supported:
+          type: array
+          minItems: 1
+          items: { type: integer, minimum: 1 }
+
+    ApiErrorPackRefused:
+      type: object
+      required: [code, plan]
+      additionalProperties: false
+      description: |
+        R201 (4.8) — an import (not a dry run) whose plan is not `ok`: a dataset
+        missing or with other columns, a `conflict`, or an `invalid` noun. The
+        whole transaction was rolled back — nothing written. `plan` says why,
+        per dataset and per noun (`dryRun: false`, `applied: false`).
+      properties:
+        code:
+          type: string
+          enum: [pack_refused]
+        plan:
+          $ref: '../_shared/definition-pack.yaml#/components/schemas/ImportPlan'

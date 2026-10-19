@@ -61,6 +61,9 @@ export const ERROR_CODES = {
   READ_ONLY_WORKSPACE: "{{constants.error_codes.read_only_workspace}}",
   PARAM_UNBOUND: "{{constants.error_codes.param_unbound}}",
   PARAM_INVALID: "{{constants.error_codes.param_invalid}}",
+  PACK_UNRESOLVED: "{{constants.error_codes.pack_unresolved}}",
+  PACK_INVALID: "{{constants.error_codes.pack_invalid}}",
+  PACK_REFUSED: "{{constants.error_codes.pack_refused}}",
 } as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
@@ -84,3 +87,11 @@ export const DEFAULT_PAGE_SIZE = {{constants.default_page_size}};
 /** R104: dashboard widget fetch cap — a widget pulls at most this many rows
  *  (paged fetch-all), then stops + warns the view is partial. FE-only. */
 export const DASHBOARD_MAX_ROWS = {{constants.dashboard_max_rows}};
+
+/** R201 (4.8): the definition pack — the version this install reads, and the
+ *  import caps the server enforces (`pack_invalid`, `too_large`). */
+export const PACK = {
+  VERSION: {{constants.pack.version}},
+  MAX_BYTES: {{constants.pack.max_bytes}},
+  MAX_NOUNS: {{constants.pack.max_nouns}},
+} as const;

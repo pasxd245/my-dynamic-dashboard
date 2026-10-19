@@ -4,6 +4,8 @@
 // Lives in `_shared/` because both workspaces and datasets features consume the
 // same shapes — neither feature folder is the natural owner.
 
+import type { PackError } from '@/features/data-management/workspaces/definitionPack/types';
+
 /** Discriminated union for code-first error responses on R23 endpoints
  *  (PATCH/DELETE on workspaces and datasets, plus tightened POST /workspaces). */
 export type ApiError =
@@ -63,7 +65,11 @@ export type ApiError =
       expected: 'date' | 'number' | 'string';
       source: 'viewer' | 'dashboard' | 'default';
       reason?: 'range_reversed';
-    };
+    }
+  // R201 — the definition pack: an export over a deleted reference (409
+  // pack_unresolved), a pack this install cannot read (422 pack_invalid), an
+  // import that cannot be applied whole (409 pack_refused, with the plan).
+  | PackError;
 
 /** The batch-commit endpoint's 409 carries a `oneOf` over the legacy
  *  `{ error, detail }` envelope and the new `ApiError` variants. The FE
@@ -97,7 +103,10 @@ export function isApiError(body: unknown): body is ApiError {
     code === ERROR_CODES.READ_ONLY_WORKSPACE ||
     code === ERROR_CODES.PARAM_UNBOUND ||
     code === ERROR_CODES.PARAM_INVALID ||
-    code === ERROR_CODES.EXPORT_TOO_LARGE
+    code === ERROR_CODES.EXPORT_TOO_LARGE ||
+    code === ERROR_CODES.PACK_UNRESOLVED ||
+    code === ERROR_CODES.PACK_INVALID ||
+    code === ERROR_CODES.PACK_REFUSED
   );
 }
 

@@ -358,7 +358,12 @@ Contracts: `workspace/packages/contracts/workspaces/definitions-get.contract.yam
 | `GET /workspaces/{id}/definitions`                           | `200` `DefinitionPack`        | `404 not_found` · `409 pack_unresolved {problems}` · `422` (malformed id)                                                                     |
 | `POST /workspaces/{id}/definitions/import?dryRun&onConflict` | `200` `ImportPlan`            | `404 not_found` · `409 pack_refused {plan}` · `409 read_only_workspace` · `422 pack_invalid {reason, problems}` · `422` (not a pack / params) |
 
-New error codes: `pack_unresolved` (409), `pack_invalid` (422), `pack_refused` (409).
+New error codes: `pack_unresolved` (409), `pack_invalid` (422), `pack_refused` (409) — through
+the whole chain (`api-error.yaml` enum → `values.yaml` → the generated constants → the builder's
+`ApiError` union and `isApiError` → MSW → EN / VI). The version and the caps are constants too
+(`values.yaml` `constants.pack`: `version: 1`, `max_bytes: 10485760`, `max_nouns: 1000` →
+`PACK` / `PACK_VERSION`, `PACK_MAX_BYTES`, `PACK_MAX_NOUNS`). The route takes the optional writer
+token (`_shared/history.yaml#/WriterToken`).
 
 ---
 

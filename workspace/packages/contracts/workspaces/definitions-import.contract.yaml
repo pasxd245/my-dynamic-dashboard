@@ -1,0 +1,146 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — POST /workspaces/{id}/definitions/import
+  version: 0.1.0
+  description: |
+    R201 (item 4.8) — IMPORT a definition pack into a main workspace, by name.
+    The pack is read first (`422 pack_invalid`); its datasets are found by name
+    and columns in this workspace; each query, workflow and dashboard is planned
+    against its same-named noun (`create`, `unchanged`, or by `onConflict`
+    `replace` / `skip` / `conflict`; `invalid` when it cannot be imported) and
+    written through the noun's own create / update — every check those routes
+    run — inside ONE transaction. A dry run rolls it back and returns the plan;
+    an apply commits only a plan that is `ok`, else nothing is written
+    (`409 pack_refused` with the plan). Whole pack or nothing. Rationale:
+    definitions-import.contract.md. Shapes: _shared/definition-pack.yaml.
+paths:
+  /workspaces/{id}/definitions/import:
+    post:
+      operationId: importDefinitions
+      summary: Import a definition pack (dry run first)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, pattern: '^ws_[0-9a-f]{8}$' }
+        - name: dryRun
+          in: query
+          required: false
+          schema: { type: boolean, default: false }
+          description: |
+            `true` — plan only: the import runs in its transaction and is rolled
+            back; nothing is written whatever the plan says (200, `ok` true or
+            false).
+        - name: onConflict
+          in: query
+          required: false
+          schema: { $ref: '../_shared/definition-pack.yaml#/components/schemas/OnConflict' }
+          description: Default `refuse`.
+        - $ref: '../_shared/history.yaml#/components/parameters/WriterToken'
+      requestBody:
+        required: true
+        description: |
+          The pack, as exported. Read before anything else: another
+          `packVersion`, more than 10 MiB or 1 000 nouns, a name twice in one
+          kind (or a slug twice), a name the pack references but does not hold,
+          or workflows reading each other → `422 pack_invalid`.
+        content:
+          application/json:
+            schema: { $ref: '../_shared/definition-pack.yaml#/components/schemas/DefinitionPack' }
+      responses:
+        '200':
+          description: |
+            The plan. On a dry run: what an apply would do (`dryRun: true`,
+            `applied: false`; `ok` false lists every reason). On an apply:
+            everything was written (`applied: true`; each `create` carries its
+            new `id`). An `unchanged` noun is not written — re-importing the
+            same pack writes nothing.
+          content:
+            application/json:
+              schema: { $ref: '../_shared/definition-pack.yaml#/components/schemas/ImportPlan' }
+              examples:
+                dry_run:
+                  value:
+                    dryRun: true
+                    applied: false
+                    onConflict: refuse
+                    ok: false
+                    datasets:
+                      - { name: calls_demo, status: found }
+                      - name: teams_demo
+                        status: columns_differ
+                        columns:
+                          expected: [{ name: id, dtype: integer }, { name: team, dtype: string }]
+                          found: [{ name: team, dtype: string }, { name: id, dtype: integer }]
+                    items:
+                      - { kind: query, name: North calls, action: create }
+                      - { kind: query, name: Team list, action: invalid, reason: columns_differ, detail: teams_demo }
+                      - { kind: workflow, name: Calls rollup, action: unchanged, id: wf_0a1b2c3d }
+                      - { kind: dashboard, name: Weekly, action: conflict, id: dsh_0a1b2c3d, reason: exists }
+                    counts: { create: 1, replace: 0, unchanged: 1, skip: 0, conflict: 1, invalid: 1 }
+                applied:
+                  value:
+                    dryRun: false
+                    applied: true
+                    onConflict: replace
+                    ok: true
+                    datasets: [{ name: calls_demo, status: found }]
+                    items:
+                      - { kind: query, name: North calls, action: create, id: qr_1a2b3c4d }
+                      - { kind: workflow, name: Calls rollup, action: unchanged, id: wf_0a1b2c3d }
+                      - { kind: dashboard, name: Weekly, action: replace, id: dsh_0a1b2c3d }
+                    counts: { create: 1, replace: 1, unchanged: 1, skip: 0, conflict: 0, invalid: 0 }
+        '404':
+          description: No workspace with this id.
+          content:
+            application/json:
+              schema: { $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound' }
+              examples: { not_found: { value: { code: 'not_found' } } }
+        '409':
+          description: |
+            `pack_refused` — an apply whose plan is not `ok`; the transaction was
+            rolled back, nothing written; `plan` says why. `read_only_workspace`
+            — the target is a saved workspace (R193).
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - { $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorPackRefused' }
+                  - { $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorReadOnlyWorkspace' }
+              examples:
+                refused:
+                  value:
+                    code: pack_refused
+                    plan:
+                      dryRun: false
+                      applied: false
+                      onConflict: refuse
+                      ok: false
+                      datasets: [{ name: calls_demo, status: missing }]
+                      items:
+                        - { kind: query, name: North calls, action: invalid, reason: dataset_missing, detail: calls_demo }
+                        - { kind: dashboard, name: Weekly, action: invalid, reason: needs, detail: North calls }
+                      counts: { create: 0, replace: 0, unchanged: 0, skip: 0, conflict: 0, invalid: 2 }
+                read_only: { value: { code: 'read_only_workspace' } }
+        '422':
+          description: |
+            `pack_invalid` — the pack cannot be read (`reason`, `problems`); or
+            FastAPI's validation envelope for a body that is not a pack, a
+            malformed id or query parameter.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - { $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorPackInvalid' }
+                  - type: object
+                    required: [detail]
+                    properties:
+                      detail: { type: array, items: { type: object } }
+              examples:
+                newer_version:
+                  value: { code: pack_invalid, reason: version, problems: [], packVersion: 2, supported: [1] }
+                outside_reference:
+                  value:
+                    code: pack_invalid
+                    reason: reference
+                    problems: [{ kind: dashboard, name: Weekly, ref: North calls, refKind: query }]

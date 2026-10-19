@@ -1,11 +1,12 @@
 // R201 (item 4.8) — the import modal's pure rules: read a chosen file, name an
 // exported file, and decide what the Import button may do with a plan.
 
+import { PACK } from '@/_generated/constants';
 import type { DefinitionPack, ImportPlan, PackColumn } from './types';
 
 /** The request cap the server enforces (`pack_invalid`, `too_large`); the
  *  builder refuses a bigger file before reading it. */
-export const PACK_MAX_BYTES = 10 * 1024 * 1024;
+export const PACK_MAX_BYTES = PACK.MAX_BYTES;
 
 export type PackFileRead =
   | {

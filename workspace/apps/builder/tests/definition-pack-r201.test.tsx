@@ -11,6 +11,9 @@ import type React from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ERROR_CODES, PACK } from '@/_generated/constants';
+import { definitionsApi } from '@/api/definitionsApi';
+import { isApiError } from '@/features/data-management/_shared/types';
 import { useQueriesQuery } from '@/features/data-management/queries/hooks';
 import { WorkspacesPage } from '@/features/data-management/workspaces/WorkspacesPage';
 import {
@@ -24,6 +27,7 @@ import {
 } from '@/features/data-management/workspaces/definitionPack/plan';
 import type { DefinitionPack, ImportPlan } from '@/features/data-management/workspaces/definitionPack/types';
 import { i18n } from '@/i18n';
+import { validateResponse } from '@/mocks/contract-validator';
 import { mockPackOf } from '@/mocks/definitionPack';
 import { MOCK_QUERY, MOCK_SAVED_WORKSPACE, MOCK_WORKSPACE } from '@/mocks/fixtures';
 import { server } from '@/mocks/server';
@@ -184,6 +188,44 @@ describe('R201 pack rules (pure)', () => {
     expect(canImport(plan({ counts: none }))).toBe(false);
     expect(nothingToImport(plan({ counts: none }))).toBe(true);
     expect(nothingToImport(plan({ counts: none, ok: false }))).toBe(false);
+  });
+});
+
+describe('R201 contract (C): MSW answers the YAML, the codes are in the chain', () => {
+  it('the export and both plans validate; an extra field does not', async () => {
+    const pack = await definitionsApi.export(MOCK_WORKSPACE.id);
+    expect(validateResponse('exportDefinitions', pack)).toEqual({ ok: true });
+    expect(validateResponse('exportDefinitions', { ...pack, extra: 1 }).ok).toBe(false);
+    const dry = await definitionsApi.importPack(MOCK_WORKSPACE.id, changedPack(), {
+      dryRun: true,
+      onConflict: 'replace',
+    });
+    expect(validateResponse('importDefinitions', dry)).toEqual({ ok: true });
+    const blocked = await definitionsApi.importPack(CLEAN.id, pack, { dryRun: true, onConflict: 'refuse' });
+    expect(blocked.ok).toBe(false);
+    expect(validateResponse('importDefinitions', blocked)).toEqual({ ok: true });
+    const applied = await definitionsApi.importPack(MOCK_WORKSPACE.id, changedPack(), {
+      dryRun: false,
+      onConflict: 'replace',
+    });
+    expect(applied.applied).toBe(true);
+    expect(validateResponse('importDefinitions', applied)).toEqual({ ok: true });
+    expect(validateResponse('importDefinitions', { ...applied, counts: { ...applied.counts, extra: 1 } }).ok).toBe(
+      false,
+    );
+  });
+
+  it('the three pack codes are known to the shared error union; the caps come from values.yaml', () => {
+    expect([ERROR_CODES.PACK_UNRESOLVED, ERROR_CODES.PACK_INVALID, ERROR_CODES.PACK_REFUSED]).toEqual([
+      'pack_unresolved',
+      'pack_invalid',
+      'pack_refused',
+    ]);
+    expect(isApiError({ code: 'pack_refused', plan: {} })).toBe(true);
+    expect(isApiError({ code: 'pack_invalid', reason: 'version', problems: [] })).toBe(true);
+    expect(isApiError({ code: 'pack_unresolved', problems: [] })).toBe(true);
+    expect(PACK).toEqual({ VERSION: 1, MAX_BYTES: 10 * 1024 * 1024, MAX_NOUNS: 1000 });
+    expect(PACK_MAX_BYTES).toBe(PACK.MAX_BYTES);
   });
 });
 

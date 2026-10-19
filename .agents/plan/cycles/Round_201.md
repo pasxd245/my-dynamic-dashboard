@@ -70,7 +70,7 @@ rc.4 by the owner's call of 2026-10-19._
       (new, Draft); `workspaces.md` and `_noun-model.md` pointers; `flow-selector`
 - [x] **F1** — the builder against MSW before the contract (types, `definitionsApi`, hooks, the
       card actions, the import modal, MSW handlers, EN / VI, tests); interaction decisions frozen
-- [ ] **C** — `_shared/definition-pack.yaml`, `workspaces/definitions-get` +
+- [x] **C** — `_shared/definition-pack.yaml`, `workspaces/definitions-get` +
       `definitions-import` route contracts (+ rationale), the three error codes through the whole
       chain; MSW validated against the YAML. **BA pass 1 at Contract exit.**
 - [ ] **F2** — the confirmation pass against the contract-derived MSW
@@ -237,6 +237,38 @@ F2 against the contract-derived MSW after it.
   (a per-noun choice stays OUT with its trigger). Committed as `feat(R201): F1 — …`. The human
   feel-check the `dfcfbi-f1-needs-human-review` lesson asks for is not available in this session:
   the BA's Contract-exit pass reads the screenshots, and the owner's walk covers the rest.
+- **`gate-walker F1`** (structural): the F1-closed line above cites the design section; the
+  round file was clean after `332f4af` and `git log -- Round_201.md` shows the D and F1 commits —
+  **gate F1 closed**, may advance to Contract.
+
+### C
+
+- 2026-10-19 — **C**: new `_shared/definition-pack.yaml` — `PackColumn`, `PackDataset`,
+  `PackQuery` / `PackWorkflow` (+ `PackWorkflowSource`, `{query}` | `{workflow}`) /
+  `PackDashboard` (definitions free objects with the renamed reference fields documented — the pack
+  does not copy the three definition schemas; the target's own models read them), `DefinitionPack`
+  (closed envelope, `packVersion` integer ≥ 1, lists ≤ 1 000), `OnConflict`, `PlanKind`,
+  `PlanAction`, `PlanReason`, `PlanItem` (`id` only `qr_ / wf_ / dsh_`, `reason` + `detail`),
+  `PlanDataset` (both column lists only on `columns_differ`), `ImportPlan` (`counts` per action),
+  `PackProblem`, `UnresolvedProblem`. Route files `workspaces/definitions-get.contract.yaml`
+  (`exportDefinitions`; 200 pack, 404, 409 `pack_unresolved`, 422) and
+  `workspaces/definitions-import.contract.yaml` (`importDefinitions`; `dryRun`, `onConflict`,
+  `WriterToken`; body the pack; 200 plan, 404, 409 `pack_refused` | `read_only_workspace`, 422
+  `pack_invalid` | FastAPI) + one rationale `definitions-import.contract.md`. `_shared/api-error.yaml`:
+  three codes in the enum + `ApiErrorPackUnresolved`, `ApiErrorPackInvalid`, `ApiErrorPackRefused`.
+  The error-code chain in this one commit: `values.yaml` (`error_codes` + `constants.pack`: version
+  1, 10 MiB, 1 000 nouns) → both constants templates (rendered) → the builder's `ApiError` union +
+  `isApiError` → `definitionsApi` reads `ERROR_CODES`, `PACK_MAX_BYTES` reads `PACK.MAX_BYTES` → the
+  MSW mock's ids now match `PlanItem.id`'s pattern. No existing response shape changes. Contracts
+  **55** green (53 + 2); every example in the two route files validates against its schema (an
+  Ajv pass over the dereferenced files, scratch); the MSW export and plans (dry run ok / blocked,
+  apply) validate under the contract validator and an extra field does not (2 new builder tests →
+  20 in the file). Builder **621** green (601 + 20; detached full run), `tsc` clean. No backend
+  code yet (B): only the generated constants moved (`test_generated_constants` green).
+- **Contract gate closed** — request / response / error shapes frozen in the files above; the MSW
+  handlers `exportDefinitions` / `importDefinitions` validated against them; YAML committed as
+  `docs(R201): C — …`. **Halt for BA pass 1 (Contract exit)** — handed to the orchestrator (the
+  coder session cannot spawn reviewers, as in R198–R200); F2 / B wait for its findings.
 
 ## Check
 

@@ -1,0 +1,99 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — GET /workspaces/{id}/definitions
+  version: 0.1.0
+  description: |
+    R201 (item 4.8) — EXPORT a workspace's queries, workflows and dashboards as
+    a definition pack: every cross-reference written as a NAME, so the pack can
+    be imported into another workspace of this or another install (whose ids
+    differ). Datasets are named with their columns; their rows never travel.
+    A read — a saved workspace can be exported too. Rationale:
+    definitions-import.contract.md. Shapes: _shared/definition-pack.yaml.
+paths:
+  /workspaces/{id}/definitions:
+    get:
+      operationId: exportDefinitions
+      summary: Export the workspace's definitions as a pack (by name)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, pattern: '^ws_[0-9a-f]{8}$' }
+      responses:
+        '200':
+          description: |
+            The pack (`packVersion: 1`) — every query, workflow and dashboard of
+            the workspace, each list by name; the datasets the queries read
+            with their columns in order. No install id appears in it. A
+            workspace with no definitions answers an empty pack.
+          content:
+            application/json:
+              schema: { $ref: '../_shared/definition-pack.yaml#/components/schemas/DefinitionPack' }
+              examples:
+                pack:
+                  value:
+                    packVersion: 1
+                    exportedAt: '2026-10-19T09:00:00Z'
+                    exportedBy: '0.0.1.dev560'
+                    workspace: 'Acme demo'
+                    datasets:
+                      - name: calls_demo
+                        columns:
+                          - { name: id, dtype: integer }
+                          - { name: team, dtype: string }
+                          - { name: agent, dtype: string }
+                          - { name: amount, dtype: float }
+                    queries:
+                      - name: North calls
+                        dataset: calls_demo
+                        definition:
+                          filters: [{ col: 1, dtype: string, op: equals, val: North }]
+                          advanced: []
+                          relationships: []
+                          joins: []
+                          steps: []
+                    workflows:
+                      - name: Calls rollup
+                        definition:
+                          sources: [{ query: North calls }]
+                          steps: []
+                    dashboards:
+                      - name: Weekly
+                        slug: weekly
+                        definition:
+                          widgets:
+                            - id: wdg_0a1b2c3d
+                              query: North calls
+                              title: Calls
+                              chartType: stat
+                              agg: count
+                              span: 1
+        '404':
+          description: No workspace with this id.
+          content:
+            application/json:
+              schema: { $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound' }
+              examples: { not_found: { value: { code: 'not_found' } } }
+        '409':
+          description: |
+            A definition names something that was deleted — a widget's query, a
+            workflow's source, a query's join dataset. Nothing is exported; one
+            problem per reference to repair (`pack_unresolved`).
+          content:
+            application/json:
+              schema: { $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorPackUnresolved' }
+              examples:
+                widget_query_deleted:
+                  value:
+                    code: pack_unresolved
+                    problems:
+                      - { kind: dashboard, name: Weekly, reason: query_missing, ref: Calls by agent }
+        '422':
+          description: A malformed workspace id — FastAPI validation envelope.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [detail]
+                properties:
+                  detail: { type: array, items: { type: object } }

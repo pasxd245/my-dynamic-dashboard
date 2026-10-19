@@ -109,6 +109,9 @@ constants:
     read_only_workspace: 'read_only_workspace' # R193 — a write inside a saved (frozen-copies) workspace (409)
     param_unbound: 'param_unbound' # R194 — a query parameter has no value at any level (422; names `param`, a run also `sourceId`)
     param_invalid: 'param_invalid' # R194 — a supplied parameter value has the wrong type (422; names `param`)
+    pack_unresolved: 'pack_unresolved' # R201 — a definition-pack export met a reference to a deleted noun (409; problems[])
+    pack_invalid: 'pack_invalid' # R201 — a definition pack this install cannot read (422; reason + problems[])
+    pack_refused: 'pack_refused' # R201 — a definition-pack import not applicable whole; nothing written (409; carries the plan)
 
   # R29: name-length bounds enforced by Pydantic on BE + AntD Form rules on
   # FE. Workspace names globally unique, max 80; dataset names per-workspace
@@ -134,3 +137,12 @@ constants:
   # /queries/{id}/rows?unpaged=true caps its single-request response server-side at
   # this value (the unpaged path can't bypass the bound).
   dashboard_max_rows: 10000
+
+  # R201 (item 4.8): the definition pack — the format version this install
+  # writes and reads, and the import caps (a body over `pack_max_bytes`, or more
+  # than `pack_max_nouns` queries + workflows + dashboards → 422 pack_invalid,
+  # `too_large`). The builder checks the file size before sending it.
+  pack:
+    version: 1
+    max_bytes: 10485760 # 10 MiB
+    max_nouns: 1000

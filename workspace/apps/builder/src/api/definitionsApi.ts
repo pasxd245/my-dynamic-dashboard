@@ -3,6 +3,7 @@
 // run first). Contracts: workspaces/definitions-get + definitions-import.
 
 import { appConfig } from '../config';
+import { ERROR_CODES } from '@/_generated/constants';
 import { ApiErrorThrown, isApiError } from '@/features/data-management/_shared/types';
 import type {
   DefinitionPack,
@@ -13,7 +14,11 @@ import type {
 
 const API_BASE_URL = appConfig.apiBaseUrl();
 
-const PACK_CODES: ReadonlySet<string> = new Set(['pack_invalid', 'pack_refused', 'pack_unresolved']);
+const PACK_CODES: ReadonlySet<string> = new Set([
+  ERROR_CODES.PACK_INVALID,
+  ERROR_CODES.PACK_REFUSED,
+  ERROR_CODES.PACK_UNRESOLVED,
+]);
 
 /** A pack route's own refusal: the body carries the plan or the problems. */
 export class PackErrorThrown extends Error {

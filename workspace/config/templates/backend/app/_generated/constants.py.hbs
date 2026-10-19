@@ -51,6 +51,9 @@ ERROR_CODES: dict[str, str] = {
     "read_only_workspace": "{{constants.error_codes.read_only_workspace}}",
     "param_unbound": "{{constants.error_codes.param_unbound}}",
     "param_invalid": "{{constants.error_codes.param_invalid}}",
+    "pack_unresolved": "{{constants.error_codes.pack_unresolved}}",
+    "pack_invalid": "{{constants.error_codes.pack_invalid}}",
+    "pack_refused": "{{constants.error_codes.pack_refused}}",
 }
 
 # Name-length bounds enforced by Pydantic Field(max_length=...) on the BE
@@ -76,3 +79,9 @@ DEFAULT_PAGE_SIZE: int = {{constants.default_page_size}}
 # server-side and can't be bypassed by the unpaged path. Mirrors the FE
 # DASHBOARD_MAX_ROWS in apps/builder/src/_generated/constants.ts.
 DASHBOARD_MAX_ROWS: int = {{constants.dashboard_max_rows}}
+
+# R201 (item 4.8): the definition pack — the version this install writes and
+# reads, and the import caps (over either → 422 pack_invalid, `too_large`).
+PACK_VERSION: int = {{constants.pack.version}}
+PACK_MAX_BYTES: int = {{constants.pack.max_bytes}}
+PACK_MAX_NOUNS: int = {{constants.pack.max_nouns}}
