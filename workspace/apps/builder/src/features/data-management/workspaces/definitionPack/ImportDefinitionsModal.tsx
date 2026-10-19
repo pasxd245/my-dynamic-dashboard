@@ -384,7 +384,7 @@ export function ImportDefinitionsModal({ workspace, onClose }: ImportDefinitions
       footer={footer}
       width={760}
       destroyOnHidden
-      maskClosable={!busy}
+      mask={{ closable: !busy }}
       data-component="ImportDefinitionsModal"
     >
       <Typography.Paragraph type="secondary">{t('workspaces.pack.importIntro')}</Typography.Paragraph>
@@ -478,7 +478,13 @@ export function ImportDefinitionsModal({ workspace, onClose }: ImportDefinitions
         <Alert
           type="info"
           showIcon
-          title={t(plan.counts.deferred > 0 ? 'workspaces.pack.nothingToImportYet' : 'workspaces.pack.nothingToImport')}
+          title={t(
+            plan.counts.deferred > 0
+              ? 'workspaces.pack.nothingToImportYet'
+              : plan.counts.skip > 0
+                ? 'workspaces.pack.nothingToImportKept'
+                : 'workspaces.pack.nothingToImport',
+          )}
           data-component="PackNothingToImport"
           style={{ marginTop: 12 }}
         />

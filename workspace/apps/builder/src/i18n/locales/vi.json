@@ -402,11 +402,12 @@
       "importInto": "Nhập vào {{name}}",
       "nothingToImportYet": "Chưa có gì để nhập — các dòng hoãn lại đang chờ tập dữ liệu của chúng.",
       "next": {
-        "datasets": "hãy nạp {{names}} vào {{name}} trước (với các cột như trong gói);",
-        "conflicts": "{{names}}: hãy chọn Thay thế hoặc Giữ bản ở đây ở trên;",
-        "source_differs": "{{names}}: hãy đổi tên hoặc xoá truy vấn đó ở đây, hoặc đổi tên nó ở không gian làm việc của gói rồi xuất lại;",
-        "check_failed": "{{names}}: hãy sửa nó ở không gian làm việc mà gói được xuất ra rồi xuất lại."
-      }
+        "datasets": "hãy nạp {{names}} vào {{name}} trước (với các cột như trong gói)",
+        "conflicts": "{{names}}: hãy chọn Thay thế hoặc Giữ bản ở đây ở trên",
+        "source_differs": "{{names}}: hãy đổi tên hoặc xoá truy vấn đó ở đây, hoặc đổi tên nó ở không gian làm việc của gói rồi xuất lại",
+        "check_failed": "{{names}}: hãy sửa nó ở không gian làm việc mà gói được xuất ra rồi xuất lại"
+      },
+      "nothingToImportKept": "Không có gì để nhập — phần còn lại đã khớp với gói; các dòng Giữ bản ở đây được giữ nguyên."
     }
   },
   "datasets": {

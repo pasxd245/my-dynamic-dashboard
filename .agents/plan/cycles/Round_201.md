@@ -77,7 +77,7 @@ rc.4 by the owner's call of 2026-10-19._
 - [x] **F2** — the confirmation pass against the contract-derived MSW
 - [x] **B** — extract the six create / update bodies; `app/definition_pack.py`;
       `routers/definitions.py`; tests (criteria 1–13)
-- [ ] **I** — the builder against the real backend; visual gate (light EN + VI; dark N/A — no theme)
+- [x] **I** — the builder against the real backend; visual gate (light EN + VI; dark N/A — no theme)
 - [ ] Reviews: code review + QA in parallel, then BA pass 2; every P0/P1 fixed
 
 ## Risks / unknowns
@@ -386,6 +386,33 @@ F2 against the contract-derived MSW after it.
   response checked against the contracts. Backend **775** green (756 + 19), `ruff check` clean.
 - **Backend gate closed** — conformance (every route response validated against the two
   contracts) and behaviour tests green; committed as `feat(R201): B — …`.
+
+### I
+
+- 2026-10-19 — **I + visual gate (light, EN + VI; dark N/A — no theme, rolling log)**: the real
+  backend (uvicorn :8000) on an **isolated root** (`scratchpad/r201/vis/data`, asserted empty and
+  asserted as the app's DB and data root before seeding; the default
+  `workspace/apps/backend/data/app.sqlite` untouched — mtime 11:51, before the round), seeded
+  through the app with the parity fixture (`_build_a`: "Acme demo") plus "Acme copy" (the same
+  two uploads, no definitions) and "Acme empty"; Vite :3000 without mocks; headless Chromium.
+  Walked: export from Acme demo (downloads `Acme demo-definitions-2026-10-19.json`, toast) →
+  import into Acme copy (two datasets found, `team_totals` awaiting publish, 6 new · 2 deferred,
+  "Import 6 into Acme copy") → toast "Imported into Acme copy: 6 new, 2 deferred." → the Queries
+  list shows the new queries without a reload (the cache re-read, review-qa item 10) → run + publish
+  in Acme copy → import again (2 new · 6 unchanged) → the copy's dashboard **Weekly** reads as the
+  original (the date range, the Team filter, the note, the region bars, the totals table); a
+  changed pack into Acme demo: Don't import (conflict), Keep mine (the warning on the reader rows,
+  "2 with a warning"), Replace it (the History / slug / outside-readers warning, "Import 1 into Acme
+  demo"); the pack into Acme empty: blocked, the next step named, the disabled "Import into Acme
+  empty"; VI for the blocked and Keep-mine screens. Screenshots `scratchpad/r201/vis/shots/` (25).
+  **Found at the gate and fixed here:** under Keep mine with nothing to write the alert said
+  "everything here already matches the pack" — false for the kept rows → "the rest already
+  matches the pack; the rows marked Keep mine stay as they are here" (EN / VI, test); the modal's
+  `maskClosable` (deprecated in AntD 6) → `mask.closable`; the next-step lines lost their trailing
+  punctuation. Browser console: only the pre-existing `Drawer` `width` deprecation.
+- **Integration gate closed** — the builder against the real backend end to end (above); the
+  shared truth: the builder's MSW answers validate against the two contracts (builder tests) and
+  every backend answer does too (`tests/test_definition_pack.py`); committed as `feat(R201): I — …`.
 
 ## Check
 

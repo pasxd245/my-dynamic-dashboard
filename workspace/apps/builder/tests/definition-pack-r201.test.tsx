@@ -411,7 +411,8 @@ describe('R201 the import modal', () => {
     await waitFor(() => expect(planRow('query', MOCK_QUERY.name)?.textContent).toContain('Conflict'));
     fireEvent.click(screen.getByText('Keep mine'));
     await waitFor(() => expect(planRow('query', MOCK_QUERY.name)?.textContent).toContain('Keep mine'));
-    await el('[data-component="PackNothingToImport"]');
+    const nothing = await el('[data-component="PackNothingToImport"]');
+    expect(nothing.textContent).toContain('the rows marked Keep mine stay as they are here');
   });
 
   it('a 409 on Import shows the server’s new plan and says the workspace changed', async () => {
@@ -521,7 +522,7 @@ describe('R201 the import modal', () => {
     expect(importButton()?.textContent).toBe('Import into Acme copy');
     expect(importButton()).toBeDisabled();
     expect(document.querySelector('[data-component="PackNextStep"][data-cause="datasets"]')?.textContent).toBe(
-      "load q1_pipeline_Deals into Acme copy first (with the pack's columns);",
+      "load q1_pipeline_Deals into Acme copy first (with the pack's columns)",
     );
   });
 

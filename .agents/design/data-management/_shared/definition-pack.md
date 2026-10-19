@@ -173,7 +173,9 @@ export." A refusal opens a modal listing what to fix (see § Export).
   restored. A replaced dashboard takes the pack's address (slug) — links to its old address stop
   working. Dashboards and workflows outside the pack that read a replaced query change too."
   When nothing would be written: "Nothing to import — everything here already matches the pack."
-  (or, with deferred rows, "Nothing to import yet — the deferred rows wait for their datasets")
+  (with deferred rows, "Nothing to import yet — the deferred rows wait for their datasets"; with
+  Keep mine rows, "Nothing to import — the rest already matches the pack; the rows marked Keep
+  mine stay as they are here" — found at the R201 visual gate)
   and no Import button. An **empty pack** says once "This pack holds no definitions." (BA-C7).
 - **After Import**: the modal closes; one toast with the non-zero counts — "Imported into Acme
   copy: 2 new, 1 replaced, 1 deferred."; every list and noun read the import changed is fetched

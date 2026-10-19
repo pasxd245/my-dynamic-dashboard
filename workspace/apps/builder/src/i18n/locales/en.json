@@ -402,11 +402,12 @@
       "importInto": "Import into {{name}}",
       "nothingToImportYet": "Nothing to import yet — the deferred rows wait for their datasets.",
       "next": {
-        "datasets": "load {{names}} into {{name}} first (with the pack's columns);",
-        "conflicts": "{{names}}: choose Replace it or Keep mine above;",
-        "source_differs": "{{names}}: rename or delete that query here, or rename it in the pack's workspace and export again;",
-        "check_failed": "{{names}}: fix it in the workspace the pack came from and export again."
-      }
+        "datasets": "load {{names}} into {{name}} first (with the pack's columns)",
+        "conflicts": "{{names}}: choose Replace it or Keep mine above",
+        "source_differs": "{{names}}: rename or delete that query here, or rename it in the pack's workspace and export again",
+        "check_failed": "{{names}}: fix it in the workspace the pack came from and export again"
+      },
+      "nothingToImportKept": "Nothing to import — the rest already matches the pack; the rows marked Keep mine stay as they are here."
     }
   },
   "datasets": {
