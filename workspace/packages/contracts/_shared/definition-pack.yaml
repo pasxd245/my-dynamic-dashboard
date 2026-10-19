@@ -222,7 +222,8 @@ components:
         `check_failed`) or `deferred` (`awaits_publish`, `needs`). `detail`
         carries the name it is about — the slug, the dataset, the noun needed —
         or, for `check_failed`, the save check's own message; `via` the
-        publishing workflow of `awaits_publish`. On an `exists` conflict,
+        publishing workflow of `awaits_publish`, or the dashboard here that
+        holds the slug of `slug_taken` (BA-F3). On an `exists` conflict,
         `detail` (when present) names a conflicting noun it also reads — its own
         conflict is reported first (QA-1).
 
@@ -246,7 +247,10 @@ components:
         detail: { type: string }
         via:
           type: string
-          description: On `awaits_publish` — the pack's workflow that publishes the dataset.
+          description: |
+            On `awaits_publish` — the pack's workflow that publishes the dataset;
+            on `slug_taken` — the name of the dashboard here that holds the slug
+            (BA-F3).
         binds:
           type: array
           minItems: 1
@@ -254,6 +258,7 @@ components:
             BA-C1 — the nouns kept by `skip` (Keep mine) that this item reads
             and whose definition differs from the pack's: it binds to them by
             name, so its numbers may differ from the exporting workspace's.
+            Never on a `skip` item itself (BA-F7 — a kept noun is the user's own).
           items:
             type: object
             required: [kind, name]
@@ -320,9 +325,12 @@ components:
           description: |
             BA C10 — the hash of the plan's decisions (`onConflict`, each
             dataset's name and status, each item's kind, name, action, reason,
-            detail, `via`, `binds`; not ids, `dryRun`, `applied`). The client
-            sends the dry run's as `expectedPlan` on apply; a different plan at
-            apply time is refused (`pack_refused`, `plan_changed`).
+            detail, `via`, `binds`; not ids, `dryRun`, `applied`) and, for each
+            `replace` / `skip` / `unchanged` item, what its target holds now
+            (its definition version, with the slug for a dashboard — BA-F2), so
+            an edit made between the check and the click moves the hash. The
+            client sends the dry run's as `expectedPlan` on apply; a different
+            plan at apply time is refused (`pack_refused`, `plan_changed`).
         warnings:
           type: integer
           minimum: 0

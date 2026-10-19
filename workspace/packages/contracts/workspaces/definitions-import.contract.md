@@ -38,7 +38,8 @@ name** (unique per kind within a workspace), so one file moves them (R201, item 
      readers, is `deferred` — a planned state the next import of the same pack completes. A noun
      whose dataset is `missing` / `columns_differ`, that reads a noun that cannot be imported, or
      whose own save check refuses it is `invalid`;
-  4. the plan gets its `planHash`; dry run → roll back, 200 plan; apply → commit when `ok` and
+  4. the plan gets its `planHash` (its decisions plus each replaced / kept / unchanged target's
+     current definition version — BA-F2); dry run → roll back, 200 plan; apply → commit when `ok` and
      equal to `expectedPlan` (200, new ids), else roll back and `409 pack_refused` (`not_ok` /
      `plan_changed`) with the plan.
 - **Writes are the routes' own.** Each create / update runs the code of `POST

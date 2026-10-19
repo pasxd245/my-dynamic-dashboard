@@ -464,10 +464,142 @@ F2 against the contract-derived MSW after it.
   aggregate rows came back in two orders over 40 reads of one workspace (pre-existing path, not
   R201's); logged as a P2 candidate, the 4th occurrence of the explicit-order class.
 
+### Re-checks of the fix (b249f3a) and FIX2
+
+- **Code review re-check: PASS** — CR-1 … CR-5 closed; CR-6 (P2) raised: `planHash` covered the
+  decisions only, so an edit to a target between the check and the click applied over it (= BA-F2).
+- **QA re-check: CHANGES** — **QA-4 (P1)**: the parity test (`tests/test_definition_pack.py`) is
+  flaky — a widget's grouped `/aggregate` rows came back in two orders, so the strict `_reads`
+  byte comparison failed about one run in five (the rolling-log candidate of the fix round, now the
+  round's own gate); QA-1 at depth two: a noun two hops from the first conflict, whose same-named
+  target exists, had no id recorded, so its readers fell back to `needs` (QA's
+  `…two_hops_from_the_first_conflict`).
+- **BA pass 2: CHANGES** — **BA-F1 (P1) = QA-4**; P2: BA-F2 (= CR-6), BA-F3 (a taken address has its
+  own next step; Keep mine's toast counted an absent dashboard as kept), BA-F4 ("publish it as
+  <dataset>"), BA-F5 (no Export on a saved workspace; never download an empty pack), BA-F6 (the
+  decision alert under the summary; a one-line drop zone once a file is read; 1366×768), BA-F7 (a
+  kept row says so, carries no warning; a Keep mine alert to match Replace), BA-F8 (a refused save
+  check in words, the raw line collapsible), BA-F9 (the toast's single C6 word).
+- **Fixed (FIX2):**
+  - **QA-4 / BA-F1** — `rows_reader.build_aggregate_select` orders a grouped result by its group
+    keys (`_base.<key> ASC NULLS LAST`, typed — the base column, not the stringified alias). A
+    requested sort comes after it: `AggregateBody` takes no sort, and a later `sort` / `top_n` step
+    wraps the SELECT and orders on top, so it still wins. **`GROUP BY` survey of the path:**
+    `build_aggregate_select` is the one helper behind `POST /queries/{id}/aggregate`
+    (`execute_aggregate`), the aggregate step (`_apply_step`) and the exports that run steps — fixed
+    for all three; the other `GROUP BY` reads already order or are scalar — `merge.py` (duplicate
+    keys, `ORDER BY n DESC, keys`), `relationship_check.py` (counts joined into one scalar row),
+    `queries.py` value list (`ORDER BY <col> ASC LIMIT ?`). `_reads` stays a strict byte comparison.
+    Tests `tests/test_aggregate_order.py`: 20 reads of one widget aggregate are byte-identical (keys
+    East, North, South, West, then the blank); a numeric key orders as a number; a requested `sort`
+    step still wins. **Parity loop:** the two parity tests (one install, two installs) run **10×**
+    in a loop on fresh roots — **10 / 10 green**.
+  - **QA-1 depth two** — after each same-named lookup the target's id is recorded
+    (`t.ids[kind].setdefault(name, existing.id)`) even when the noun is blocked, so a reader two
+    hops away reports its own conflict; QA's test adopted into
+    `tests/test_definition_pack_adversarial.py`, green.
+  - **BA-F2 = CR-6** — each `replace` / `skip` / `unchanged` item hashes its target's current
+    `definition_version` (definition + slug for a dashboard + source for a query) into `planHash`
+    (popped before the plan is returned); test: an edit between the dry run and the apply answers
+    `409 pack_refused` `plan_changed` and writes nothing. Contract and design say so.
+  - **BA-F3** — a `slug_taken` item names the dashboard here holding the slug in `via`; its next
+    step is its own line per dashboard ("<name>: change the address of dashboard <holder> here, or
+    of <name> in the pack's workspace and export again, then import again"), out of the conflicts
+    line; under Keep mine the row reads "left out — dashboard <holder> here already uses the address
+    …" and the toast counts it apart ("1 left out (address taken here)"), not as kept.
+  - **BA-F4** — "run it and publish it as **<dataset>**" (the dataset line, bold) and "run workflow
+    <w> and publish it as <dataset>" (the row), EN / VI.
+  - **BA-F5** — Export removed from a saved workspace's menu (Delete only; the route still serves a
+    saved workspace); export checks the counts before downloading — an empty pack is never
+    downloaded, the toast says so.
+  - **BA-F6** — the decision alerts (blocked + next steps, Replace, Keep mine, nothing to import)
+    render inside the plan, directly under the summary line, above the rows; once a file is read the
+    drop zone becomes one line (file · workspace · date, "Choose another file").
+  - **BA-F7** — a kept row's Why: "kept as it is here (the pack's definition differs)"; a `skip`
+    item never carries `binds` (backend and MSW mock); a Keep mine alert ("Keep mine leaves each row
+    marked Keep mine as it is here …", plus the left-out sentence when a dashboard is left out).
+  - **BA-F8** — `checkFailedFamily` maps the save check's code (or a model path
+    `definition/widgets/0/kind`) to a family worded in EN / VI (columns, parameters, filter controls,
+    references, a source read twice, sources that do not line up, steps, shape, other); the raw line
+    sits under a collapsed **Details**. Found at the 1366 gate: `filter_col_out_of_range` fell into
+    "steps" → mapped to columns (with `filter_op_dtype_mismatch`, `incompatible_join_keys`,
+    `range_invalid`, `unknown_dataset`, `unknown_dashboard`).
+  - **BA-F9** — the toast says "N kept (Keep mine)" / "N được giữ (Giữ bản ở đây)".
+- **Tests added:** backend 6 (`test_aggregate_order.py` 3; adversarial: QA's two-hop test, BA-F2
+  edit-between-check-and-click, BA-F3/F7 holder + no binds on kept rows); builder 8 (pure:
+  `blockCauses` slug step, `keptCounts`, `checkFailedFamily`; card: saved workspace has no Export,
+  an empty pack is not downloaded; modal: one-line drop zone, the decision under the summary, a taken
+  address, Keep mine rows / alert / toast) and 4 updated for the new copy.
+- **Visual gate at 1366×768 (BA-F6)** — real backend on a fresh isolated root
+  (`scratchpad/r201/vis3/data2`, asserted as the app's DB before seeding; default `app.sqlite` mtime
+  11:51 unchanged), Vite without mocks, headless Chromium, light EN + VI (dark N/A):
+  `scratchpad/r201/vis3/shots/` (14) — the first plan (one-line file bar, `team_totals` "publish it
+  as **team_totals**", rows), conflict blocked, Keep mine (alert under the summary, kept row,
+  readers' warnings), the Keep mine toast "1 new, 7 unchanged, 1 kept (Keep mine)", Replace, **an
+  edit in another tab between the check and the click → refused, the new plan** (BA-F2, a definition
+  edit now — vis2 had to delete a query), a taken address + a refused save check with its readable
+  line and opened Details, blocked into the empty workspace (the next step above the fold),
+  exporting the empty workspace (toast, no download), the saved workspace's menu (Delete only), VI
+  Keep mine and VI blocked. Browser console: only the expected `409` of the refused apply.
+
 ## Check
 
-_Open._ Carried to the owner's walk — the F1 feel-check items the owner must still check by hand
-(no human at F1; BA pass 1, verbatim):
+Gates at the FIX2 head: backend **798** (792 + 6; `ruff check` clean); builder **636** (628 + 8; one detached
+full run with the backend idle), `tsc` clean; contracts **55**; md / plan / design lints 0; M3
+guard empty. Parity loop **10 / 10** (QA-4).
+
+Visual gate: `scratchpad/r201/vis2/shots/` (22, the fix head) + `scratchpad/r201/vis3/shots/` (14,
+FIX2, 1366×768, EN + VI) + QA's `scratchpad/r201/qa/shots/`; dark N/A (no theme).
+
+- ⬜ BA · code review · QA — no open P0/P1 — **re-check of QA-4 / QA-1 / BA-F1 … F9 pending**
+  (code review PASS at b249f3a).
+
+**Walk script** (the owner's, on fake data — `coverage: 0 of 17` — W1–W17, W0 is the setup). _The BA pass 2 report's
+verbatim W-lines were not among the coder's inputs; this script is the coder's draft of the BA's
+W0–W17 with the three adjustments it named (W5, W11, W15) — the BA to reconcile on re-check._
+
+- ⬜ **W0** Setup: an install with "Acme demo" (two uploads `calls_demo`, `teams_demo`; its queries,
+  the workflows "All calls" / "Calls by team", the dashboard "Weekly" with its date range, Team
+  filter and note), "Acme copy" (the same two uploads, nothing else) and "Acme empty".
+- ⬜ **W1** Export Acme demo: one file `Acme demo-definitions-<today>.json`; the toast names what it
+  holds.
+- ⬜ **W2** Export Acme empty: no file downloads; "This workspace has no queries, dashboards or
+  workflows to export."
+- ⬜ **W3** Import into Acme copy, drop the file: the drop zone becomes one line (file · from "Acme
+  demo" · date · Choose another file); the plan appears without a click.
+- ⬜ **W4** The summary line, the decision alert right under it, then the rows (kind, name, action,
+  why) — readable at 1366×768 without scrolling to the decision.
+- ⬜ **W5** `team_totals` ◷: "published by workflow Calls by team: run it and publish it as
+  **team_totals**, then import this pack again"; its readers Deferred.
+- ⬜ **W6** Import: "Imported into Acme copy: 6 new, 2 deferred."; the Queries / Workflows /
+  Dashboards lists show them without a reload.
+- ⬜ **W7** In Acme copy run "All calls" and "Calls by team", publish the latter as `team_totals`;
+  import the pack again: the two deferred rows are New, the rest Unchanged; Acme copy's "Weekly"
+  reads like Acme demo's (date range, Team filter, note, bars, totals).
+- ⬜ **W8** Import the same pack a third time: "Nothing to import — everything here already matches
+  the pack."; no Import button.
+- ⬜ **W9** Change "North calls" in a copy of the pack; import into Acme demo with Don't import:
+  Conflict, the next step "choose Replace it or Keep mine above", Import disabled.
+- ⬜ **W10** Keep mine: the kept row says "kept as it is here (the pack's definition differs)" with no
+  warning; its readers warn "numbers may differ"; the Keep mine alert under the summary; (with a new
+  query in the pack) Import → "… 1 kept (Keep mine)".
+- ⬜ **W11** Replace it: the History / slug / outside-readers warning; **edit "North calls" in
+  another tab before clicking Import → "This workspace changed since the check", the new plan,
+  nothing written**; Import again → replaced; its History shows #2 over #1 (restorable).
+- ⬜ **W12** A pack dashboard renamed but keeping the address "weekly": "dashboard Weekly here already
+  uses the address “weekly”"; its own next step names both ways out; Keep mine → "left out …", and
+  the toast counts "1 left out (address taken here)", not kept.
+- ⬜ **W13** A pack query that cannot save here (a filter on a column the dataset lacks): "would not
+  save here: a column it uses is not in the dataset here, or has another type"; Details shows the
+  server's line.
+- ⬜ **W14** A pack whose `packVersion` is 2: "This pack was made by a newer version …"; no plan.
+- ⬜ **W15** A saved workspace's menu: **Delete only — no Export, no Import**.
+- ⬜ **W16** Delete a query a dashboard of Acme copy uses, then export Acme copy: "Fix these before
+  exporting" lists the widget.
+- ⬜ **W17** In VI: W4, W5, W10 and W12 read naturally ("Giữ bản ở đây" the one word for Keep mine).
+
+Carried from BA pass 1 (the F1 feel-check, verbatim) — now: (e) answered by BA-F5 (no Export on a
+saved workspace); (f) addressed by BA-F6 (the decision under the summary; checked at 1366×768):
 
 - ⬜ (a) whether Stop / Replace it / Keep mine (now "Don't import if anything conflicts" / "Replace
   it" / "Keep mine") and the help line make clear what Keep mine does to the pack's dashboards;
@@ -475,23 +607,52 @@ _Open._ Carried to the owner's walk — the F1 feel-check items the owner must s
 - ⬜ (c) whether "Import into <workspace>" plus the title is enough confirmation before writing many
   definitions into the right workspace;
 - ⬜ (d) whether the raw dtype words (integer, string) are acceptable in VI;
-- ⬜ (e) whether Export should appear on saved workspaces;
-- ⬜ (f) the modal's height with a long plan — the blocked alert fell below the fold in
-  `06_blocked_*`.
+- ✅ (e) whether Export should appear on saved workspaces — no (BA-F5);
+- ⬜ (f) the modal's height with a long plan — the decision now sits under the summary (BA-F6),
+  `vis3/10_blocked_1366`.
 
 ## Act
 
-_Open._ Owner questions (BA pass 1, verbatim):
+**Owner questions** (BA pass 2, verbatim; they supersede pass 1's three, folded into 1–3):
 
-1. For a dataset that a workflow in the pack publishes (BA-C2): should the import create the
-   workflow and leave its readers for a second import (breaks "whole pack or nothing"), or must the
-   user upload that dataset first? — built: readers deferred, second import adds them.
-2. Should a target dataset whose columns *extend* the pack's columns at the end (a newer export
-   with one more column) be accepted? Index-addressed filters stay correct, but query outputs gain
-   a column.
-3. Under Keep mine, should the pack's readers bind to the user's own different definition at all,
-   or be refused? — built: they bind, with a "numbers may differ" warning.
+1. Confirm the built answer: readers of a published dataset are deferred, and a second import adds
+   them.
+2. Confirm the built answer: a target whose columns extend the pack's at the end is refused as
+   `columns_differ` ("column N here … is not in the pack").
+3. Confirm the built answer: under Keep mine, readers bind to your own version, with a "numbers may
+   differ" warning.
+4. If a definition is edited (e.g. in another tab) after the check, should Import with Replace stop
+   and show the new plan, or overwrite it (restorable from History)? — built after BA-F2 fold: it
+   stops (plan_changed).
+5. Dashboard row order: fix now (changes the row order of an existing route) or loosen the test? —
+   built by orchestrator default: grouped rows get a stable order (group keys as the tiebreaker
+   after any requested sort); owner may reverse.
+6. If a weekly CRM export infers a column's type differently (e.g. a column blank one week), the
+   whole import is blocked as "columns differ". Acceptable, or should a type difference only warn?
+
+**Rolling log:** the `/aggregate` `GROUP BY` row → **fixed** R201 (QA-4 = BA-F1). Still open from
+this round: none new (the stepped / joined exports without `ORDER BY` stay the R199 row).
+
+**Promotion:** the explicit-order class recurred a **fourth** time (R165, R172, R199, R201) and
+this time behind `review-cr` item 13 — a few-row `GROUP BY` that passed every gate run of the
+round's own parity test and only showed under repetition. Promoted in this round:
+[`review-qa`](../../skills/review-qa/SKILL.md) item 11 (loop an equality gate ≥ 5× before
+trusting it; record the count) + the R201 row in
+[`2026-10-19-explicit-order-not-engine-default`](../../memory/2026-10-19-explicit-order-not-engine-default.md);
+logged in [`promotions.md`](../promotions.md).
+
+**Prune check:** nothing in the repo stopped earning its place this round. The scratch screenshot
+sets `vis/` (superseded by `vis2/`) and `vis2/` for the BA-F items (superseded by `vis3/`) are
+scratch only.
+
+**agents.csv:** the R201 row appended — P0 0; P1 6 distinct (BA-C1 … C4, CR-1, QA-4 = BA-F1),
+1 duplicate between roles; P2 22 distinct (BA-C5 … C12, CR-2 … CR-6 with CR-3 = QA-3 and
+CR-6 = BA-F2, QA-1, QA-2, BA-F3 … F9); 3 review rounds.
 
 ## Feeds into → Round_202
 
-_Written at close-out._
+- **rc.4 exit gate** — every rc.4 item in Review (4.2 R198, 4.3 R199, 4.4 R200, 4.8 R201; 4.1
+  deferred), the owner's walks (R198–R201 scripts), then the `v0.0.1-rc.4` tag (owner).
+- From R201: the owner's answers to questions 1–6 above (5 may reverse the grouped-row order; 6 may
+  turn a type-only column difference into a warning); the BA re-check of BA-F1 … F9 and QA's of
+  QA-4 / QA-1.

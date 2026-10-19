@@ -352,12 +352,11 @@
       "reason": {
         "exists": "already here with a different definition",
         "source_differs": "here it reads another dataset — a query cannot change its dataset",
-        "slug_taken": "another dashboard here uses the address “{{detail}}”",
+        "slug_taken": "dashboard {{via}} here already uses the address “{{detail}}”",
         "dataset_missing": "needs dataset {{detail}}, which is not in this workspace",
         "columns_differ": "dataset {{detail}} has different columns here",
         "needs": "needs {{detail}}, which is not imported now",
-        "check_failed": "would not save: {{detail}}",
-        "awaits_publish": "needs {{detail}}, which workflow {{via}} publishes — run and publish it, then import this pack again"
+        "awaits_publish": "needs {{detail}} — run workflow {{via}} and publish it as {{detail}}, then import this pack again"
       },
       "nothingToImport": "Nothing to import — everything here already matches the pack.",
       "replaceWarning": "Replacing saves the pack's definition as a new version; the current one stays in its History, so it can be restored. A replaced dashboard takes the pack's address (slug) — links to its old address stop working. Dashboards and workflows outside the pack that read a replaced query change too.",
@@ -382,7 +381,7 @@
         "extra": "columns differ — column {{n}} here, {{found}}, is not in the pack"
       },
       "listAnd": "{{head}} and {{last}}",
-      "datasetAwaitsPublish": "published by workflow {{workflow}}: run and publish it, then import this pack again",
+      "datasetAwaitsPublish": "published by workflow {{workflow}}: run it and publish it as <strong>{{dataset}}</strong>, then import this pack again",
       "datasetUnused": "not used by the pack",
       "done": {
         "create_one": "{{count}} new",
@@ -391,10 +390,12 @@
         "replace_other": "{{count}} replaced",
         "unchanged_one": "{{count}} unchanged",
         "unchanged_other": "{{count}} unchanged",
-        "skip_one": "{{count}} kept as yours",
-        "skip_other": "{{count}} kept as yours",
+        "skip_one": "{{count}} kept (Keep mine)",
+        "skip_other": "{{count}} kept (Keep mine)",
         "deferred_one": "{{count}} deferred",
-        "deferred_other": "{{count}} deferred"
+        "deferred_other": "{{count}} deferred",
+        "leftOut_one": "{{count}} left out (address taken here)",
+        "leftOut_other": "{{count}} left out (address taken here)"
       },
       "binds": "uses the {{kind}} {{name}} here, which differs from the pack — numbers may differ",
       "importNInto_one": "Import {{count}} into {{name}}",
@@ -405,10 +406,28 @@
         "datasets": "load {{names}} into {{name}} first (with the pack's columns)",
         "conflicts": "{{names}}: choose Replace it or Keep mine above",
         "source_differs": "{{names}}: rename or delete that query here, or rename it in the pack's workspace and export again",
-        "check_failed": "{{names}}: fix it in the workspace the pack came from and export again"
+        "check_failed": "{{names}}: fix it in the workspace the pack came from and export again",
+        "slug_taken": "{{names}}: change the address of dashboard {{holder}} here, or of {{names}} in the pack’s workspace and export again, then import again"
       },
       "nothingToImportKept": "Nothing to import — the rest already matches the pack; the rows marked Keep mine stay as they are here.",
-      "alsoNeeds": "also reads {{detail}}, which conflicts too"
+      "alsoNeeds": "also reads {{detail}}, which conflicts too",
+      "leftOutRow": "left out — dashboard {{via}} here already uses the address “{{detail}}”",
+      "keptRow": "kept as it is here (the pack’s definition differs)",
+      "keepMineWarning": "Keep mine leaves each row marked Keep mine as it is here; the pack’s version of it is not imported. What the pack adds on top of a kept query or workflow reads your version, so its numbers may differ from the pack’s.",
+      "checkFailed": {
+        "columns": "would not save here: a column it uses is not in the dataset here, or has another type",
+        "params": "would not save here: a parameter’s type or saved value does not fit",
+        "controls": "would not save here: one of its filter controls does not fit its widgets",
+        "references": "would not save here: it points at something that is not here",
+        "duplicateSource": "would not save here: it reads the same source twice",
+        "sourcesDiverge": "would not save here: its sources’ columns do not line up",
+        "rules": "would not save here: one of its steps does not fit the data here",
+        "shape": "would not save here: its part {{path}} is not in the shape this app takes",
+        "other": "would not save here",
+        "details": "Details"
+      },
+      "chooseAnother": "Choose another file",
+      "keepMineLeftOut": "A dashboard whose address is taken here is left out."
     }
   },
   "datasets": {

@@ -23,12 +23,13 @@ export function useExportDefinitions(): { exportDefinitions: (ws: Workspace) => 
       { workspaceId: ws.id },
       {
         onSuccess: (pack) => {
-          downloadPack(pack, packFileName(ws.name));
+          // BA-F5 — count first: an empty pack is never downloaded.
           const c = packCounts(pack);
           if (c.queries + c.dashboards + c.workflows === 0) {
             message.info(t('workspaces.pack.exportEmpty'));
             return;
           }
+          downloadPack(pack, packFileName(ws.name));
           // BA C7 — a kind with none is left out of the toast.
           const parts = (
             [

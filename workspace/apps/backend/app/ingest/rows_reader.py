@@ -497,7 +497,8 @@ def build_aggregate_select(
     ``col`` (``COUNT(*)``), ``agg='sum'`` totals a validated numeric ``col``
     (``COALESCE(SUM(col), 0)`` so an all-NULL group reads 0, matching the client
     ``toNum``). The dashboard filters apply as a WHERE over the base BEFORE the
-    grouping; ``dimensions`` are the GROUP BY keys (empty = one scalar row).
+    grouping; ``dimensions`` are the GROUP BY keys (empty = one scalar row) and
+    the result's order (R201, explicit and stable).
 
     ``stringify`` (default True) casts output cells to ``VARCHAR`` (the rows-
     response shape). The R121 step engine passes ``False`` for a NON-final
@@ -513,7 +514,14 @@ def build_aggregate_select(
         alias = '"count"' if agg == "count" else _quote_ident(col or "")
         select_terms.append(_agg_term(_measure_expr(agg, col), alias, stringify))
     group_by = ("GROUP BY " + ", ".join(_quote_ident(d) for d in dimensions)) if dimensions else ""
-    sql = f"SELECT {', '.join(select_terms)} FROM ({inner_sql}) AS _base {where_sql} {group_by}"
+    # R201 (QA-4 / BA-F1, review-cr item 13) — a grouped result has an explicit,
+    # stable order: its group keys, typed (the base column, not the stringified
+    # alias), blanks last. A sort the caller asks for (a later `sort` / `top_n`
+    # step) wraps this SELECT and orders on top, so it still wins.
+    order_by = (
+        "ORDER BY " + ", ".join(f"_base.{_quote_ident(d)} ASC NULLS LAST" for d in dimensions) if dimensions else ""
+    )
+    sql = f"SELECT {', '.join(select_terms)} FROM ({inner_sql}) AS _base {where_sql} {group_by} {order_by}"
     return sql, [*inner_params, *where_params]
 
 

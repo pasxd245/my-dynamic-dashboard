@@ -18,8 +18,11 @@ import { useQueriesQuery } from '@/features/data-management/queries/hooks';
 import { WorkspacesPage } from '@/features/data-management/workspaces/WorkspacesPage';
 import {
   PACK_MAX_BYTES,
+  blockCauses,
   canImport,
+  checkFailedFamily,
   columnDifference,
+  keptCounts,
   nothingToImport,
   packFileName,
   readPackText,
@@ -205,6 +208,56 @@ describe('R201 pack rules (pure)', () => {
     expect(nothingToImport(plan({ counts: none }))).toBe(false); // an empty pack says so instead
     expect(nothingToImport(plan({ counts: none, ok: false }))).toBe(false);
   });
+
+  it('a taken address is its own next step, naming the holder (BA-F3)', () => {
+    const p = plan({
+      ok: false,
+      items: [
+        { kind: 'query', name: 'Calls', action: 'conflict', reason: 'exists' },
+        {
+          kind: 'dashboard',
+          name: 'Weekly',
+          action: 'conflict',
+          reason: 'slug_taken',
+          detail: 'weekly',
+          via: 'Old weekly',
+        },
+      ],
+    });
+    expect(blockCauses(p)).toEqual([
+      { cause: 'conflicts', names: ['Calls'], key: 'conflicts' },
+      { cause: 'slug_taken', names: ['Weekly'], holder: 'Old weekly', key: 'slug_taken:Weekly' },
+    ]);
+  });
+
+  it('Keep mine counts kept nouns apart from dashboards left out (BA-F3/F9)', () => {
+    const p = plan({
+      items: [
+        { kind: 'query', name: 'Calls', action: 'skip' },
+        { kind: 'dashboard', name: 'Weekly', action: 'skip', reason: 'slug_taken', detail: 'weekly', via: 'Old' },
+        { kind: 'workflow', name: 'Rollup', action: 'create' },
+      ],
+    });
+    expect(keptCounts(p)).toEqual({ kept: 1, leftOut: 1 });
+  });
+
+  it('words a refused save check by its code or model path (BA-F8)', () => {
+    expect(checkFailedFamily('unknown_column: col 9')).toEqual({ family: 'columns' });
+    expect(checkFailedFamily('relationship_columns_missing: x')).toEqual({ family: 'columns' });
+    expect(checkFailedFamily('filter_col_out_of_range: column 99 does not exist')).toEqual({ family: 'columns' });
+    expect(checkFailedFamily('param_type: p')).toEqual({ family: 'params' });
+    expect(checkFailedFamily('duplicate_control: ctl_1 appears twice')).toEqual({ family: 'controls' });
+    expect(checkFailedFamily('unknown_query: qr_1 is not a query')).toEqual({ family: 'references' });
+    expect(checkFailedFamily('duplicate_source: twice')).toEqual({ family: 'duplicateSource' });
+    expect(checkFailedFamily('sources_diverge: column 2')).toEqual({ family: 'sourcesDiverge' });
+    expect(checkFailedFamily('window_order_required: x')).toEqual({ family: 'rules' });
+    expect(checkFailedFamily('definition/widgets/0/kind: Input should be a valid string')).toEqual({
+      family: 'shape',
+      path: 'definition/widgets/0/kind',
+    });
+    expect(checkFailedFamily('Something went wrong')).toEqual({ family: 'other' });
+    expect(checkFailedFamily(undefined)).toEqual({ family: 'other' });
+  });
 });
 
 describe('R201 contract (C): MSW answers the YAML, the codes are in the chain', () => {
@@ -253,12 +306,42 @@ describe('R201 the card actions', () => {
     expect(main).toEqual(expect.arrayContaining(['Export definitions', 'Import definitions…']));
   });
 
-  it('a saved workspace offers Export only (it is read-only)', async () => {
+  it('a saved workspace offers neither Export nor Import (BA-F5 — it is read-only)', async () => {
     serveWorkspaces(MOCK_WORKSPACE, MOCK_SAVED_WORKSPACE);
     renderPage();
     const saved = await openMenu(MOCK_SAVED_WORKSPACE.id);
-    expect(saved).toContain('Export definitions');
+    expect(saved).not.toContain('Export definitions');
     expect(saved).not.toContain('Import definitions…');
+    expect(saved).toContain('Delete');
+  });
+
+  it('an empty pack is never downloaded — the toast says so instead (BA-F5)', async () => {
+    serveWorkspaces(MOCK_WORKSPACE);
+    server.use(
+      http.get('*/workspaces/:id/definitions', () =>
+        HttpResponse.json({
+          ...mockPackOf(MOCK_WORKSPACE.name),
+          datasets: [],
+          queries: [],
+          workflows: [],
+          dashboards: [],
+        }),
+      ),
+    );
+    const clicks: string[] = [];
+    const orig = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function click(this: HTMLAnchorElement) {
+      clicks.push(this.download);
+    };
+    try {
+      renderPage();
+      await openMenu(MOCK_WORKSPACE.id);
+      fireEvent.click(await screen.findByText('Export definitions'));
+      await screen.findByText('This workspace has no queries, dashboards or workflows to export.');
+      expect(clicks).toHaveLength(0);
+    } finally {
+      HTMLAnchorElement.prototype.click = orig;
+    }
   });
 
   it('Export downloads <name>-definitions-<date>.json and says what it holds', async () => {
@@ -464,7 +547,15 @@ describe('R201 the import modal', () => {
     fireEvent.click(importButton() as HTMLButtonElement);
     await el('[data-component="PackRefusedOnApply"]');
     expect(screen.getByText('This workspace changed since the check. Review the new plan.')).toBeInTheDocument();
-    expect(planRow('query', MOCK_QUERY.name)?.textContent).toContain('would not save: unknown_column: col 9');
+    // BA-F8 — the check's code in plain words; the server's line stays under Details.
+    const failed = planRow('query', MOCK_QUERY.name)?.querySelector('[data-component="PlanCheckFailed"]');
+    expect(failed?.getAttribute('data-family')).toBe('columns');
+    expect(failed?.textContent).toContain(
+      'would not save here: a column it uses is not in the dataset here, or has another type',
+    );
+    expect(failed?.querySelector('[data-component="PlanCheckFailedRaw"]')?.textContent).toBe(
+      'Detailsunknown_column: col 9',
+    );
     expect(importButton()).toBeDisabled();
     expect(document.querySelector('[data-component="ImportDefinitionsModal"]')).not.toBeNull();
   });
@@ -511,13 +602,17 @@ describe('R201 the import modal', () => {
     });
     await chooseFile(JSON.stringify(pack));
     const ds = await el('[data-component="PackDatasetLine"][data-status="awaits_publish"]');
-    expect(ds.textContent).toContain(`published by workflow ${wf}: run and publish it, then import this pack again`);
+    // BA-F4 — the name to publish under, in bold.
+    expect(ds.textContent).toContain(
+      `published by workflow ${wf}: run it and publish it as rollup_out, then import this pack again`,
+    );
+    expect(ds.querySelector('strong')?.textContent).toBe('rollup_out');
     expect(document.querySelector('[data-component="PackDatasetLine"][data-status="unused"]')?.textContent).toContain(
       'zz_spare not used by the pack',
     );
     expect(planRow('query', 'Rollup view')?.textContent).toContain('Deferred');
     expect(planRow('query', 'Rollup view')?.textContent).toContain(
-      `needs rollup_out, which workflow ${wf} publishes — run and publish it, then import this pack again`,
+      `needs rollup_out — run workflow ${wf} and publish it as rollup_out, then import this pack again`,
     );
     expect(planRow('dashboard', 'Rollup board')?.textContent).toContain('needs Rollup view, which is not imported now');
     expect(importButton()?.textContent).toBe('Import 1 into Marketing');
@@ -645,6 +740,127 @@ describe('R201 the import modal', () => {
     expect(alert.textContent).toContain(
       "Query Team list names dataset teams_demo, which is not in the pack's datasets.",
     );
+  });
+
+  it('once a file is read the drop zone is one line, and another file can be chosen (BA-F6)', async () => {
+    serveWorkspaces(MOCK_WORKSPACE);
+    renderPage();
+    await openImport(MOCK_WORKSPACE);
+    expect(document.querySelector('[data-component="PackDropZone"]')).not.toBeNull();
+    await chooseFile(JSON.stringify(mockPackOf(MOCK_WORKSPACE.name)), 'first.json');
+    await el('[data-component="PackNothingToImport"]');
+    expect(document.querySelector('[data-component="PackDropZone"]')).toBeNull();
+    const bar = await el('[data-component="PackFileBar"]');
+    expect(bar.textContent).toContain('first.json');
+    expect(bar.textContent).toContain('Choose another file');
+    await chooseFile('{"hello": 1}', 'second.json');
+    await screen.findByText('This file is not a definitions pack.');
+    expect((await el('[data-component="PackFileBar"]')).textContent).toContain('second.json');
+  });
+
+  it('the decision sits right under the summary line, above the rows (BA-F6)', async () => {
+    serveWorkspaces(MOCK_WORKSPACE);
+    renderPage();
+    await openImport(MOCK_WORKSPACE);
+    await chooseFile(JSON.stringify(changedPack()));
+    await waitFor(() => expect(planRow('query', MOCK_QUERY.name)?.textContent).toContain('Conflict'));
+    const summary = await el('[data-component="PackPlanSummary"]');
+    const decision = summary.nextElementSibling as HTMLElement;
+    expect(decision.getAttribute('data-component')).toBe('PackDecision');
+    expect(decision.querySelector('[data-component="PackBlocked"]')).not.toBeNull();
+    expect(
+      decision.compareDocumentPosition(planRow('query', MOCK_QUERY.name) as Node) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('a taken address names the dashboard holding it and its own next step (BA-F3)', async () => {
+    serveWorkspaces(MOCK_WORKSPACE);
+    server.use(
+      http.post('*/workspaces/:id/definitions/import', () =>
+        HttpResponse.json(
+          plan({
+            ok: false,
+            items: [
+              {
+                kind: 'dashboard',
+                name: 'Weekly copy',
+                action: 'conflict',
+                reason: 'slug_taken',
+                detail: 'weekly',
+                via: 'Weekly report',
+              },
+            ],
+            counts: { create: 0, replace: 0, unchanged: 0, skip: 0, deferred: 0, conflict: 1, invalid: 0 },
+          }),
+        ),
+      ),
+    );
+    renderPage();
+    await openImport(MOCK_WORKSPACE);
+    await chooseFile(JSON.stringify(mockPackOf('Marketing')));
+    await waitFor(() => expect(planRow('dashboard', 'Weekly copy')?.textContent).toContain('Conflict'));
+    expect(planRow('dashboard', 'Weekly copy')?.textContent).toContain(
+      'dashboard Weekly report here already uses the address “weekly”',
+    );
+    expect(document.querySelector('[data-component="PackNextStep"][data-cause="slug_taken"]')?.textContent).toBe(
+      'Weekly copy: change the address of dashboard Weekly report here, or of Weekly copy in the pack’s workspace and export again, then import again',
+    );
+    expect(document.querySelector('[data-component="PackNextStep"][data-cause="conflicts"]')).toBeNull();
+  });
+
+  it('Keep mine: kept rows say so, carry no warning, get their own alert; the toast counts them apart (BA-F3/F7/F9)', async () => {
+    serveWorkspaces(MOCK_WORKSPACE);
+    const kept = (dryRun: boolean) =>
+      plan({
+        dryRun,
+        applied: !dryRun,
+        onConflict: 'skip',
+        items: [
+          { kind: 'query', name: MOCK_QUERY.name, action: 'skip', id: MOCK_QUERY.id },
+          {
+            kind: 'dashboard',
+            name: 'Weekly copy',
+            action: 'skip',
+            reason: 'slug_taken',
+            detail: 'weekly',
+            via: 'Weekly report',
+          },
+          {
+            kind: 'workflow',
+            name: 'Calls rollup',
+            action: 'create',
+            binds: [{ kind: 'query', name: MOCK_QUERY.name }],
+          },
+        ],
+        warnings: 1,
+        counts: { create: 1, replace: 0, unchanged: 0, skip: 2, deferred: 0, conflict: 0, invalid: 0 },
+      });
+    server.use(
+      http.post('*/workspaces/:id/definitions/import', ({ request }) =>
+        HttpResponse.json(kept(new URL(request.url).searchParams.get('dryRun') === 'true')),
+      ),
+    );
+    renderPage();
+    await openImport(MOCK_WORKSPACE);
+    await chooseFile(JSON.stringify(changedPack()));
+    await waitFor(() => expect(planRow('query', MOCK_QUERY.name)?.textContent).toContain('Keep mine'));
+    const q = planRow('query', MOCK_QUERY.name) as HTMLElement;
+    expect(q.querySelector('[data-component="PlanKeptLine"]')?.textContent).toBe(
+      'kept as it is here (the pack’s definition differs)',
+    );
+    expect(q.querySelector('[data-component="PlanBindsWarning"]')).toBeNull();
+    expect(planRow('dashboard', 'Weekly copy')?.textContent).toContain(
+      'left out — dashboard Weekly report here already uses the address “weekly”',
+    );
+    expect(planRow('workflow', 'Calls rollup')?.querySelector('[data-component="PlanBindsWarning"]')).not.toBeNull();
+    expect(document.querySelector('[data-component="PackKeepMineWarning"]')?.textContent).toContain(
+      'Keep mine leaves each row marked Keep mine as it is here',
+    );
+    expect(document.querySelector('[data-component="PackKeepMineWarning"]')?.textContent).toContain(
+      'A dashboard whose address is taken here is left out.',
+    );
+    fireEvent.click(importButton() as HTMLButtonElement);
+    await screen.findByText('Imported into Marketing: 1 new, 1 kept (Keep mine), 1 left out (address taken here).');
   });
 
   it('VI copy', async () => {

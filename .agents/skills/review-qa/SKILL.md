@@ -58,6 +58,12 @@ metadata:
     once. Write that test with the app's `QueryClient` defaults (`staleTime` 60 s, `main.tsx`) —
     a bare client re-fetches on mount and hides a missing invalidation (R200 QA-1, BA-F1). Memory:
     [stale-cache-after-a-write](../../memory/2026-10-19-stale-cache-after-a-write.md).
+11. **Equality gates run more than once** — a parity, byte-equality or "same answer twice" test
+    is re-run **at least 5×** (a loop, fresh state each time) before its green is trusted; one
+    red run in the loop is a P1 until its cause is named — usually a read with no explicit order
+    (R201 QA-4: a grouped `/aggregate` read with no `ORDER BY` passed every gate run of the
+    coder's parity test and failed QA's 40-read probe). Record the loop count. Memory:
+    [explicit-order-not-engine-default](../../memory/2026-10-19-explicit-order-not-engine-default.md).
 
 ## Output
 

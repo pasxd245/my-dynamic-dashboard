@@ -201,7 +201,7 @@ export function mockPlan(
     if (onConflict === 'replace') return { kind, name, action: 'replace', id, ...binds };
     if (onConflict === 'skip') {
       kept.add(`${kind}:${name}`);
-      return { kind, name, action: 'skip', id, ...binds };
+      return { kind, name, action: 'skip', id }; // BA-F7 — a kept row carries no binds
     }
     return { kind, name, action: 'conflict', id, reason: 'exists' };
   };

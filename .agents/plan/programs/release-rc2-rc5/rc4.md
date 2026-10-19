@@ -115,6 +115,14 @@ changed_by)`; written in the same transaction as the definition update.
 | Depends on | 4.4 (an import writes history rows through the normal write path; a replaced definition stays restorable); 3.7 / 4.2 / 4.3 (controls travel as-is) |
 | Design     | [`_shared/definition-pack.md`](../../../design/data-management/_shared/definition-pack.md) (Draft, R201)                                            |
 
+_Built `Round_201` (2026-10-19, review) — see
+[`_shared/definition-pack.md`](../../../design/data-management/_shared/definition-pack.md):
+export / dry-run / import by name in one transaction, the write routes extracted (no parallel
+writer), deferred readers of a dataset the pack's workflow publishes, Keep mine with a "numbers may
+differ" warning, `planHash` over the decisions and the targets' current versions; the builder's
+Export (main workspaces) and Import modal, EN / VI. Grouped `/aggregate` reads now have a stable
+order (found by the round's parity test, rolling log)._
+
 _Added to rc.4 by the owner, 2026-10-19 (specified and built in rc.4) — an addition to the rc.4
 scope of settled decision 3, recorded there. Track: 1. Pulled by: a named product gap — a second
 install, or a clean re-install, that should carry the same analysis as an existing one re-creates
@@ -153,8 +161,8 @@ built by hand for the same reason (`Round_183` § Do), and `Round_200` § Feeds 
   governed relationships, runs / outputs / the publish link, history, partial export, a per-noun
   conflict choice, remapping columns by name, mapping a dataset to a differently named one — each
   with a trigger in the design doc.
-- **Builder:** **Export definitions** (main and saved workspaces) and **Import definitions…**
-  (main only) in the workspace card menu; the import modal reads the file, checks it at once
+- **Builder:** **Export definitions** and **Import definitions…** in a main workspace's card menu
+  (a saved workspace offers neither — R201 BA-F5); the import modal reads the file, checks it at once
   (the dry run), shows the datasets and the plan, and imports on one click; EN / VI.
 - **Tests:** export A → import into a clean workspace B with same-named fake datasets → every
   query's rows, every widget's aggregate and every workflow's output (after running) equal A's

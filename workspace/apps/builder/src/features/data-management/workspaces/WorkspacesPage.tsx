@@ -116,19 +116,10 @@ function WorkspaceCard({
         <Dropdown
           menu={{
             // R193 — a saved (frozen-copies) workspace is read-only: Delete only
-            // (R201 — and Export definitions, a read).
+            // (R201 BA-F5 — no Export either: its copies are the main workspace's).
             items:
               workspace.kind === 'saved'
                 ? [
-                    {
-                      key: 'export-definitions',
-                      icon: <DownloadOutlined />,
-                      label: t('workspaces.pack.exportAction'),
-                      onClick: ({ domEvent }) => {
-                        domEvent.stopPropagation();
-                        onExport(workspace);
-                      },
-                    },
                     {
                       key: 'delete',
                       icon: <DeleteOutlined />,

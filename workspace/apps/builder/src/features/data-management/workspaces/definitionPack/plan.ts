@@ -95,21 +95,105 @@ export function emptyPack(plan: ImportPlan): boolean {
 }
 
 /** The next step a blocked plan needs, one per cause (BA C5), in this order. */
-export type BlockCause = 'datasets' | 'conflicts' | 'source_differs' | 'check_failed';
+export type BlockCause = 'datasets' | 'conflicts' | 'slug_taken' | 'source_differs' | 'check_failed';
 
-export function blockCauses(plan: ImportPlan): { cause: BlockCause; names: string[] }[] {
-  const out: { cause: BlockCause; names: string[] }[] = [];
+export type BlockStep = {
+  cause: BlockCause;
+  names: string[];
+  /** On `slug_taken` — the dashboard here that holds the address (BA-F3). */
+  holder?: string;
+  /** A stable React key. */
+  key: string;
+};
+
+export function blockCauses(plan: ImportPlan): BlockStep[] {
+  const out: BlockStep[] = [];
   const bad = plan.datasets.filter((d) => d.status === 'missing' || d.status === 'columns_differ').map((d) => d.name);
-  if (bad.length) out.push({ cause: 'datasets', names: bad });
-  const conflicts = plan.items
-    .filter((i) => i.action === 'conflict' && i.reason !== 'source_differs')
-    .map((i) => i.name);
-  if (conflicts.length) out.push({ cause: 'conflicts', names: conflicts });
+  if (bad.length) out.push({ cause: 'datasets', names: bad, key: 'datasets' });
+  const conflicts = plan.items.filter((i) => i.action === 'conflict' && i.reason === 'exists').map((i) => i.name);
+  if (conflicts.length) out.push({ cause: 'conflicts', names: conflicts, key: 'conflicts' });
+  // BA-F3 — a taken address has its own step, one per dashboard: the choice cannot
+  // clear it; renaming either address can.
+  for (const i of plan.items) {
+    if (i.action === 'conflict' && i.reason === 'slug_taken')
+      out.push({ cause: 'slug_taken', names: [i.name], holder: i.via, key: `slug_taken:${i.name}` });
+  }
   const sources = plan.items.filter((i) => i.reason === 'source_differs').map((i) => i.name);
-  if (sources.length) out.push({ cause: 'source_differs', names: sources });
+  if (sources.length) out.push({ cause: 'source_differs', names: sources, key: 'source_differs' });
   const failed = plan.items.filter((i) => i.reason === 'check_failed').map((i) => i.name);
-  if (failed.length) out.push({ cause: 'check_failed', names: failed });
+  if (failed.length) out.push({ cause: 'check_failed', names: failed, key: 'check_failed' });
   return out;
+}
+
+/** BA-F3/F9 — what Keep mine kept: a `skip` that left a noun as it is here
+ *  (`kept`), apart from a dashboard left out because its address is taken here
+ *  (`leftOut` — nothing of it exists here to keep). */
+export function keptCounts(plan: ImportPlan): { kept: number; leftOut: number } {
+  let kept = 0;
+  let leftOut = 0;
+  for (const i of plan.items) {
+    if (i.action !== 'skip') continue;
+    if (i.reason === 'slug_taken') leftOut += 1;
+    else kept += 1;
+  }
+  return { kept, leftOut };
+}
+
+/** BA-F8 — the save check's refusal as a family the modal words in plain
+ *  language; the raw line stays available under it. */
+export type CheckFamily =
+  | 'columns'
+  | 'params'
+  | 'controls'
+  | 'references'
+  | 'duplicateSource'
+  | 'sourcesDiverge'
+  | 'rules'
+  | 'shape'
+  | 'other';
+
+const CHECK_FAMILIES: Record<string, CheckFamily> = {
+  unknown_column: 'columns',
+  filter_col_out_of_range: 'columns',
+  filter_op_dtype_mismatch: 'columns',
+  incompatible_join_keys: 'columns',
+  column_exists: 'columns',
+  wrong_dtype: 'columns',
+  duplicate_group_column: 'columns',
+  duplicate_output_column: 'columns',
+  param_type: 'params',
+  duplicate_param: 'params',
+  control_without_dashboard: 'params',
+  duplicate_control: 'controls',
+  duplicate_column: 'controls',
+  duplicate_target: 'controls',
+  range_same_param: 'controls',
+  range_reversed: 'controls',
+  range_invalid: 'controls',
+  unknown_source: 'references',
+  unknown_query: 'references',
+  unknown_widget: 'references',
+  unknown_dataset: 'references',
+  unknown_dashboard: 'references',
+  unresolved_source: 'references',
+  duplicate_source: 'duplicateSource',
+  sources_diverge: 'sourcesDiverge',
+};
+
+export function checkFailedFamily(detail: string | undefined): { family: CheckFamily; path?: string } {
+  if (!detail) return { family: 'other' };
+  const code = /^([a-z][a-z0-9_]*):/.exec(detail)?.[1];
+  if (code) {
+    if (CHECK_FAMILIES[code]) return { family: CHECK_FAMILIES[code] };
+    if (code.startsWith('relationship_') || code.startsWith('stale_')) return { family: 'columns' };
+    if (code.startsWith('param_')) return { family: 'params' };
+    return { family: 'rules' };
+  }
+  // A model error reads `definition/widgets/0/kind: …` — a part of the definition
+  // this app's shape does not take.
+  const path = /^([\w-]+(?:\/[\w-]+)+):/.exec(detail)?.[1];
+  if (path) return { family: 'shape', path };
+  return { family: 'other' };
 }
 
 /** The non-zero counts, in a fixed order (toasts and the summary line — BA C7). */

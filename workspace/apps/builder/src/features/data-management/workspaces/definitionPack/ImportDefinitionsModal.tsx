@@ -4,11 +4,12 @@ import {
   CloseCircleOutlined,
   InboxOutlined,
   MinusCircleOutlined,
+  UploadOutlined,
 } from '@ant-design/icons';
 import { Alert, App, Button, Modal, Radio, Space, Spin, Table, Tag, Typography, Upload, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useState, type ReactNode } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 
 import { PackErrorThrown } from '@/api/definitionsApi';
 import type { Workspace } from '../types';
@@ -17,8 +18,10 @@ import {
   PACK_MAX_BYTES,
   blockCauses,
   canImport,
+  checkFailedFamily,
   columnDifference,
   emptyPack,
+  keptCounts,
   nonZero,
   nothingToImport,
   readPackText,
@@ -78,7 +81,12 @@ function DatasetLine({ ds }: Readonly<{ ds: PlanDataset }>) {
       <li data-component="PackDatasetLine" data-status="awaits_publish">
         <ClockCircleOutlined style={{ color: token.colorWarning }} aria-hidden="true" /> {ds.name} —{' '}
         <Typography.Text type="warning">
-          {t('workspaces.pack.datasetAwaitsPublish', { workflow: ds.publishedBy ?? '' })}
+          {/* BA-F4 — the name to publish under is the one the pack reads. */}
+          <Trans
+            i18nKey="workspaces.pack.datasetAwaitsPublish"
+            values={{ workflow: ds.publishedBy ?? '', dataset: ds.name }}
+            components={{ strong: <strong /> }}
+          />
         </Typography.Text>
       </li>
     );
@@ -156,7 +164,52 @@ function PackInvalidAlert({ err }: Readonly<{ err: PackInvalid }>) {
   );
 }
 
-function PlanView({ plan }: Readonly<{ plan: ImportPlan }>) {
+/** BA-F8 — a refused save check in plain words; the server's own line stays
+ *  one click away. */
+function CheckFailedLine({ detail }: Readonly<{ detail?: string }>) {
+  const { t } = useTranslation();
+  const { family, path } = checkFailedFamily(detail);
+  return (
+    <div data-component="PlanCheckFailed" data-family={family}>
+      <Typography.Text type="secondary">
+        {t(`workspaces.pack.checkFailed.${family}`, { path: path ?? '' })}
+      </Typography.Text>
+      {detail ? (
+        <details data-component="PlanCheckFailedRaw">
+          <summary style={{ cursor: 'pointer', fontSize: 12 }}>{t('workspaces.pack.checkFailed.details')}</summary>
+          <Typography.Text code style={{ fontSize: 12 }}>
+            {detail}
+          </Typography.Text>
+        </details>
+      ) : null}
+    </div>
+  );
+}
+
+/** The Why cell: the reason, in the words the row's action needs. */
+function WhyLine({ item }: Readonly<{ item: PlanItem }>) {
+  const { t } = useTranslation();
+  if (item.action === 'skip') {
+    // BA-F7 — a kept row says so; BA-F3 — a dashboard whose address is taken here
+    // is left out (nothing of it is here to keep).
+    return (
+      <Typography.Text type="secondary" data-component="PlanKeptLine">
+        {item.reason === 'slug_taken'
+          ? t('workspaces.pack.leftOutRow', { detail: item.detail ?? '', via: item.via ?? '' })
+          : t('workspaces.pack.keptRow')}
+      </Typography.Text>
+    );
+  }
+  if (item.reason === 'check_failed') return <CheckFailedLine detail={item.detail} />;
+  if (!item.reason) return null;
+  return (
+    <Typography.Text type="secondary">
+      {t(`workspaces.pack.reason.${item.reason}`, { detail: item.detail ?? '', via: item.via ?? '' })}
+    </Typography.Text>
+  );
+}
+
+function PlanView({ plan, decision }: Readonly<{ plan: ImportPlan; decision?: ReactNode }>) {
   const { t } = useTranslation();
   if (emptyPack(plan)) {
     // BA C7 — an empty pack says so once; no datasets, no table, no counts.
@@ -196,11 +249,7 @@ function PlanView({ plan }: Readonly<{ plan: ImportPlan }>) {
       key: 'why',
       render: (_: unknown, item: PlanItem) => (
         <>
-          {item.reason ? (
-            <Typography.Text type="secondary">
-              {t(`workspaces.pack.reason.${item.reason}`, { detail: item.detail ?? '', via: item.via ?? '' })}
-            </Typography.Text>
-          ) : null}
+          <WhyLine item={item} />
           {item.action === 'conflict' && item.reason === 'exists' && item.detail ? (
             // QA-1 — its own conflict comes first; the noun it also needs is a second line.
             <div data-component="PlanAlsoNeeds">
@@ -209,7 +258,8 @@ function PlanView({ plan }: Readonly<{ plan: ImportPlan }>) {
               </Typography.Text>
             </div>
           ) : null}
-          {(item.binds ?? []).map((b) => (
+          {/* BA-F7 — a kept row is the user's own: it carries no binds warning. */}
+          {(item.action === 'skip' ? [] : (item.binds ?? [])).map((b) => (
             <div key={`${b.kind}:${b.name}`} data-component="PlanBindsWarning">
               <Typography.Text type="warning">
                 {t('workspaces.pack.binds', { kind: t(`workspaces.pack.kind.${b.kind}`).toLowerCase(), name: b.name })}
@@ -235,6 +285,12 @@ function PlanView({ plan }: Readonly<{ plan: ImportPlan }>) {
       <Typography.Paragraph type="secondary" style={{ marginBottom: 8 }} data-component="PackPlanSummary">
         {summary}
       </Typography.Paragraph>
+      {/* BA-F6 — the decision sits right under the summary, above the rows. */}
+      {decision ? (
+        <div data-component="PackDecision" style={{ marginBottom: 12 }}>
+          {decision}
+        </div>
+      ) : null}
       {plan.items.length > 0 ? (
         <Table<PlanItem>
           size="small"
@@ -344,9 +400,17 @@ export function ImportDefinitionsModal({ workspace, onClose }: ImportDefinitions
         onSuccess: (applied) => {
           // BA C7 — the non-zero counts only. (Never an interpolation value named
           // `replace` — an i18next option that swallows every value.)
-          const parts = nonZero(applied.counts, ['create', 'replace', 'unchanged', 'skip', 'deferred'] as const).map(
-            ([a, n]) => t(`workspaces.pack.done.${a}`, { count: n }),
-          );
+          // BA-F3/F9 — "kept (Keep mine)" counts only nouns kept as they are here; a
+          // dashboard left out for a taken address is counted apart.
+          const { kept, leftOut } = keptCounts(applied);
+          const parts = nonZero({ ...applied.counts, skip: kept, leftOut }, [
+            'create',
+            'replace',
+            'unchanged',
+            'skip',
+            'leftOut',
+            'deferred',
+          ] as const).map(([a, n]) => t(`workspaces.pack.done.${a}`, { count: n }));
           message.success(t('workspaces.pack.imported', { name: workspace.name, parts: parts.join(', ') }));
           reset();
           onClose();
@@ -355,6 +419,80 @@ export function ImportDefinitionsModal({ workspace, onClose }: ImportDefinitions
       },
     );
   };
+
+  // BA-F6 — the decision alerts, shown by PlanView right under its summary line.
+  let decision: ReactNode = null;
+  if (plan && nothingToImport(plan)) {
+    decision = (
+      <Alert
+        type="info"
+        showIcon
+        title={t(
+          plan.counts.deferred > 0
+            ? 'workspaces.pack.nothingToImportYet'
+            : plan.counts.skip > 0
+              ? 'workspaces.pack.nothingToImportKept'
+              : 'workspaces.pack.nothingToImport',
+        )}
+        data-component="PackNothingToImport"
+      />
+    );
+  } else if (plan && plan.ok) {
+    const warnings: ReactNode[] = [];
+    if (plan.counts.replace > 0)
+      warnings.push(
+        <Alert
+          key="replace"
+          type="warning"
+          showIcon
+          title={t('workspaces.pack.replaceWarning')}
+          data-component="PackReplaceWarning"
+        />,
+      );
+    // BA-F7 — Keep mine says what it keeps, as Replace says what it replaces.
+    if (plan.counts.skip > 0)
+      warnings.push(
+        <Alert
+          key="keep"
+          type="info"
+          showIcon
+          title={
+            keptCounts(plan).leftOut > 0
+              ? `${t('workspaces.pack.keepMineWarning')} ${t('workspaces.pack.keepMineLeftOut')}`
+              : t('workspaces.pack.keepMineWarning')
+          }
+          data-component="PackKeepMineWarning"
+        />,
+      );
+    if (warnings.length)
+      decision = (
+        <Space orientation="vertical" size={8} style={{ width: '100%' }}>
+          {warnings}
+        </Space>
+      );
+  } else if (plan) {
+    decision = (
+      <Alert
+        type="error"
+        showIcon
+        title={t('workspaces.pack.blocked')}
+        description={
+          <ul style={{ paddingInlineStart: 20, marginBottom: 0 }}>
+            {blockCauses(plan).map((c) => (
+              <li key={c.key} data-component="PackNextStep" data-cause={c.cause}>
+                {t(`workspaces.pack.next.${c.cause}`, {
+                  names: c.names.join(', '),
+                  name: workspace?.name ?? '',
+                  holder: c.holder ?? '',
+                })}
+              </li>
+            ))}
+          </ul>
+        }
+        data-component="PackBlocked"
+      />
+    );
+  }
 
   const writes = plan ? writeCount(plan) : 0;
   const busy = planMutation.isPending || applyMutation.isPending;
@@ -396,33 +534,52 @@ export function ImportDefinitionsModal({ workspace, onClose }: ImportDefinitions
       data-component="ImportDefinitionsModal"
     >
       <Typography.Paragraph type="secondary">{t('workspaces.pack.importIntro')}</Typography.Paragraph>
-      <Upload.Dragger
-        accept=".json,application/json"
-        multiple={false}
-        showUploadList={false}
-        disabled={applyMutation.isPending}
-        beforeUpload={(f) => {
-          void onFile(f);
-          return false;
-        }}
-        data-component="PackDropZone"
-      >
-        <p className="ant-upload-drag-icon">
-          <InboxOutlined />
-        </p>
-        <p className="ant-upload-text">{t('workspaces.pack.dropHint')}</p>
-      </Upload.Dragger>
       {file ? (
-        <Typography.Paragraph type="secondary" style={{ marginTop: 8 }} data-component="PackFileLine">
-          {file.read.ok
-            ? t('workspaces.pack.fileLine', {
-                file: file.name,
-                workspace: file.read.workspace ?? '—',
-                date: (file.read.exportedAt ?? '').slice(0, 10) || '—',
-              })
-            : file.name}
-        </Typography.Paragraph>
-      ) : null}
+        // BA-F6 — once a file is read, the drop zone shrinks to one line.
+        <Space wrap style={{ width: '100%', justifyContent: 'space-between' }} data-component="PackFileBar">
+          <Typography.Text type="secondary" data-component="PackFileLine">
+            {file.read.ok
+              ? t('workspaces.pack.fileLine', {
+                  file: file.name,
+                  workspace: file.read.workspace ?? '—',
+                  date: (file.read.exportedAt ?? '').slice(0, 10) || '—',
+                })
+              : file.name}
+          </Typography.Text>
+          <Upload
+            accept=".json,application/json"
+            multiple={false}
+            showUploadList={false}
+            disabled={applyMutation.isPending}
+            beforeUpload={(f) => {
+              void onFile(f);
+              return false;
+            }}
+            data-component="PackChooseAnother"
+          >
+            <Button size="small" icon={<UploadOutlined />} disabled={applyMutation.isPending}>
+              {t('workspaces.pack.chooseAnother')}
+            </Button>
+          </Upload>
+        </Space>
+      ) : (
+        <Upload.Dragger
+          accept=".json,application/json"
+          multiple={false}
+          showUploadList={false}
+          disabled={applyMutation.isPending}
+          beforeUpload={(f) => {
+            void onFile(f);
+            return false;
+          }}
+          data-component="PackDropZone"
+        >
+          <p className="ant-upload-drag-icon">
+            <InboxOutlined />
+          </p>
+          <p className="ant-upload-text">{t('workspaces.pack.dropHint')}</p>
+        </Upload.Dragger>
+      )}
       {file && !file.read.ok ? (
         <Alert
           type="error"
@@ -481,49 +638,7 @@ export function ImportDefinitionsModal({ workspace, onClose }: ImportDefinitions
           </Typography.Paragraph>
         </div>
       ) : null}
-      {plan && !planMutation.isPending ? <PlanView plan={plan} /> : null}
-      {plan && !planMutation.isPending && nothingToImport(plan) ? (
-        <Alert
-          type="info"
-          showIcon
-          title={t(
-            plan.counts.deferred > 0
-              ? 'workspaces.pack.nothingToImportYet'
-              : plan.counts.skip > 0
-                ? 'workspaces.pack.nothingToImportKept'
-                : 'workspaces.pack.nothingToImport',
-          )}
-          data-component="PackNothingToImport"
-          style={{ marginTop: 12 }}
-        />
-      ) : null}
-      {plan && !planMutation.isPending && plan.ok && plan.counts.replace > 0 ? (
-        <Alert
-          type="warning"
-          showIcon
-          title={t('workspaces.pack.replaceWarning')}
-          data-component="PackReplaceWarning"
-          style={{ marginTop: 12 }}
-        />
-      ) : null}
-      {plan && !planMutation.isPending && !plan.ok ? (
-        <Alert
-          type="error"
-          showIcon
-          title={t('workspaces.pack.blocked')}
-          description={
-            <ul style={{ paddingInlineStart: 20, marginBottom: 0 }}>
-              {blockCauses(plan).map((c) => (
-                <li key={c.cause} data-component="PackNextStep" data-cause={c.cause}>
-                  {t(`workspaces.pack.next.${c.cause}`, { names: c.names.join(', '), name: workspace?.name ?? '' })}
-                </li>
-              ))}
-            </ul>
-          }
-          data-component="PackBlocked"
-          style={{ marginTop: 12 }}
-        />
-      ) : null}
+      {plan && !planMutation.isPending ? <PlanView plan={plan} decision={decision} /> : null}
     </Modal>
   );
 }

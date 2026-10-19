@@ -559,19 +559,35 @@ def _decide(
         t.ids[kind][name] = noun_id  # type: ignore[assignment]
         return {"action": "create", "id": noun_id}
     t.ids[kind][name] = existing["id"]
+    # BA-F2 / CR-6 — what the target holds NOW (read before any write of this
+    # import), so an edit made between the check and the click moves the hash.
+    target = _target_version(existing)
     if same:
-        return {"action": "unchanged", "id": existing["id"]}
+        return {"action": "unchanged", "id": existing["id"], "_target": target}
     if on_conflict == "refuse":
         t.broken.add((kind, name))
         return {"action": "conflict", "id": existing["id"], "reason": "exists"}
     if on_conflict == "skip":
         t.kept.add((kind, name))
-        return {"action": "skip", "id": existing["id"]}
+        return {"action": "skip", "id": existing["id"], "_target": target}
     _id, err = _savepoint(t.con, update)
     if err is not None:
         t.broken.add((kind, name))
         return {"action": "invalid", "reason": "check_failed", "detail": err}
-    return {"action": "replace", "id": existing["id"]}
+    return {"action": "replace", "id": existing["id"], "_target": target}
+
+
+def _target_version(existing: sqlite3.Row) -> str:
+    """The target noun's current definition version (+ a dashboard's slug, + a
+    query's source) — part of `planHash` (BA-F2)."""
+    keys = existing.keys()
+    return definition_version(
+        {
+            "definition": json.loads(existing["definition_json"]),
+            "slug": existing["slug"] if "slug" in keys else None,
+            "source": existing["source_id"] if "source_id" in keys else None,
+        }
+    )
 
 
 def _existing(con: sqlite3.Connection, kind: str, workspace_id: str, name: str) -> sqlite3.Row | None:
@@ -602,6 +618,8 @@ def plan_import(
         waiting = [n for n in names if status[n]["status"] == "awaits_publish"]
         bad = [n for n in names if status[n]["status"] in ("missing", "columns_differ")]
         existing = _existing(con, "query", workspace_id, q["name"])
+        if existing is not None:  # QA-1 (depth two) — a blocked noun's same-named id is known too
+            t.ids["query"].setdefault(q["name"], existing["id"])
         if bad:
             st = status[bad[0]]["status"]
             item.update(
@@ -648,6 +666,8 @@ def plan_import(
         refs = _source_refs(w)
         blocked, binds = _readers_state(t, refs)
         existing = _existing(con, "workflow", workspace_id, w["name"])
+        if existing is not None:  # QA-1 (depth two) — a blocked noun's same-named id is known too
+            t.ids["workflow"].setdefault(w["name"], existing["id"])
         if blocked is not None:
             blocked = _own_conflict(
                 t,
@@ -691,7 +711,7 @@ def plan_import(
                         ),
                     )
                 )
-                if binds and item["action"] not in ("invalid", "conflict"):
+                if binds and item["action"] not in ("invalid", "conflict", "skip"):
                     item["binds"] = binds
         items.append(item)
 
@@ -700,6 +720,8 @@ def plan_import(
         refs = [("query", n) for n in _widget_queries(d)]
         blocked, binds = _readers_state(t, refs)
         existing = _existing(con, "dashboard", workspace_id, d["name"])
+        if existing is not None:  # QA-1 (depth two) — a blocked noun's same-named id is known too
+            t.ids["dashboard"].setdefault(d["name"], existing["id"])
         holder = con.execute(
             "SELECT id, name FROM dashboards WHERE workspace_id = ? AND slug = ? AND name <> ?",
             (workspace_id, d["slug"], d["name"]),
@@ -723,9 +745,9 @@ def plan_import(
             (t.later if blocked["action"] == "deferred" else t.broken).add(("dashboard", d["name"]))
         elif holder is not None:
             if on_conflict == "skip":
-                item.update(action="skip", reason="slug_taken", detail=d["slug"])
+                item.update(action="skip", reason="slug_taken", detail=d["slug"], via=holder["name"])
             else:
-                item.update(action="conflict", reason="slug_taken", detail=d["slug"])
+                item.update(action="conflict", reason="slug_taken", detail=d["slug"], via=holder["name"])
                 t.broken.add(("dashboard", d["name"]))
         else:
             try:
@@ -754,7 +776,7 @@ def plan_import(
                         ),
                     )
                 )
-                if binds and item["action"] not in ("invalid", "conflict"):
+                if binds and item["action"] not in ("invalid", "conflict", "skip"):
                     item["binds"] = binds
         items.append(item)
 
@@ -775,12 +797,15 @@ def plan_import(
         "counts": counts,
     }
     plan["planHash"] = plan_hash(plan)
+    for it in items:  # hashed, never sent
+        it.pop("_target", None)
     return plan
 
 
 def plan_hash(plan: dict) -> str:
-    """BA C10 — the hash of a plan's decisions (not ids, `dryRun`, `applied`)."""
-    keys = ("kind", "name", "action", "reason", "detail", "via", "binds")
+    """BA C10 — the hash of a plan's decisions (not ids, `dryRun`, `applied`) and,
+    BA-F2, of what each kept / replaced / unchanged target holds now."""
+    keys = ("kind", "name", "action", "reason", "detail", "via", "binds", "_target")
     return definition_version(
         {
             "onConflict": plan["onConflict"],

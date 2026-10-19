@@ -8,6 +8,7 @@ that module's helpers and the autouse isolated-data-root fixture of conftest.py)
 from __future__ import annotations
 
 import copy
+import json
 import re
 
 import pytest
@@ -218,7 +219,10 @@ def test_cr1_deferred_workflow_check_still_refuses_duplicates_and_diverging_know
     with TestClient(app) as client:
         pack = _export(client, _build_a(client)["ws"])
         pack["workflows"].append(
-            {"name": "Dup", "definition": {"sources": [{"workflow": "All calls"}, {"workflow": "All calls"}], "steps": []}}
+            {
+                "name": "Dup",
+                "definition": {"sources": [{"workflow": "All calls"}, {"workflow": "All calls"}], "steps": []},
+            }
         )
         pack["workflows"].append(
             {
@@ -249,3 +253,64 @@ def test_cr2_a_deeply_nested_body_is_a_shape_error_not_a_500() -> None:
         r = _import(client, ws, deep, dry_run=True)
         assert r.status_code == 422 and r.json()["reason"] == "shape", r.text
         assert _dump() == before
+
+
+# --- re-check of b249f3a: QA-1 at two hops, BA-F2, BA-F3, BA-F7 -----------------------
+
+
+@pytest.mark.unit
+def test_qa_refuse_names_a_conflicting_noun_two_hops_from_the_first_conflict() -> None:
+    with TestClient(app) as client:
+        a = _build_a(client)
+        pack = _export(client, a["ws"])
+        next(q for q in pack["queries"] if q["name"] == "North calls")["definition"]["filters"][0]["val"] = "East"
+        # "Calls by team" reads "All calls", which reads "North calls"; change "Calls by team" itself.
+        team = next(w for w in pack["workflows"] if w["name"] == "Calls by team")
+        team["definition"]["steps"][0]["measures"][0]["agg"] = "max"
+        plan = _import(client, a["ws"], pack, dry_run=True).json()
+        items = _items(plan)
+        assert items[("workflow", "All calls")]["action"] == "invalid"  # unchanged itself: needs North calls
+        assert items[("workflow", "Calls by team")]["action"] == "conflict", items[("workflow", "Calls by team")]
+        assert plan["counts"]["conflict"] == 2
+
+
+@pytest.mark.unit
+def test_baf2_an_edit_between_the_check_and_the_click_refuses_the_apply() -> None:
+    with TestClient(app) as client:
+        a = _build_a(client)
+        pack = _export(client, a["ws"])
+        next(q for q in pack["queries"] if q["name"] == "North calls")["definition"]["filters"][0]["val"] = "East"
+        dry = _import(client, a["ws"], pack, dry_run=True, on_conflict="replace").json()
+        assert "_target" not in json.dumps(dry)
+        # someone edits the query the plan replaces (the decision stays "replace")
+        q = client.get(f"/queries/{a['q']['north']}").json()
+        q["definition"]["filters"][0]["val"] = "South"
+        assert client.put(f"/queries/{a['q']['north']}", json={"definition": q["definition"]}).status_code == 200
+        before = _dump()
+        r = _import(client, a["ws"], pack, on_conflict="replace", expected=dry["planHash"])
+        assert r.status_code == 409 and r.json()["reason"] == "plan_changed"
+        assert _items(r.json()["plan"])[("query", "North calls")]["action"] == "replace"  # same decision, other target
+        assert _dump() == before
+        # an unchanged workspace keeps its hash
+        again = _import(client, a["ws"], pack, dry_run=True, on_conflict="replace").json()
+        assert _import(client, a["ws"], pack, on_conflict="replace", expected=again["planHash"]).status_code == 200
+
+
+@pytest.mark.unit
+def test_baf3_baf7_slug_holder_named_and_kept_rows_carry_no_warnings() -> None:
+    with TestClient(app) as client:
+        a = _build_a(client)
+        pack = _export(client, a["ws"])
+        next(q for q in pack["queries"] if q["name"] == "North calls")["definition"]["filters"][0]["val"] = "East"
+        weekly = next(d for d in pack["dashboards"] if d["name"] == "Weekly")
+        weekly["name"] = "Weekly copy"  # same slug as the target's "Weekly"
+        items = _items(_import(client, a["ws"], pack, dry_run=True, on_conflict="skip").json())
+        copy_row = items[("dashboard", "Weekly copy")]
+        assert (copy_row["action"], copy_row["reason"], copy_row["detail"], copy_row["via"]) == (
+            "skip",
+            "slug_taken",
+            "weekly",
+            "Weekly",
+        )
+        assert "binds" not in items[("query", "North calls")]  # the kept row itself
+        assert items[("workflow", "All calls")]["binds"] == [{"kind": "query", "name": "North calls"}]

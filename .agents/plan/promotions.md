@@ -445,3 +445,20 @@ the code-side question; the QA item makes the live after-state the check. No lin
 (agent-method), artifact-only.
 **Promoted by**: drafted by the coding agent in Round_200 under the standing rc3 § Execution rule
 (human, 2026-10-18); human review on merge to `main`.
+
+## 2026-10-19: Loop an equality gate before trusting it → `skills/review-qa` item 11 (+ the explicit-order memory)
+
+**What**: (1) item 11 of [`review-qa`](../skills/review-qa/SKILL.md): a parity / byte-equality
+test is re-run at least 5× in a loop before its green is trusted, and the count is recorded; a
+red run in the loop is a P1 until its cause is named. (2)
+[`2026-10-19-explicit-order-not-engine-default.md`](../memory/2026-10-19-explicit-order-not-engine-default.md)
+gains the R201 row (grouped `/aggregate` with no `ORDER BY`).
+**Rationale**: the in-round rule of
+[rc3.md § Execution](programs/release-rc2-rc5/rc3.md#execution--the-four-role-loop-from-2026-10-18)
+— the explicit-order class recurred a fourth time in Round_201 (QA-4 = BA-F1)
+although `review-cr` item 13 already asked the code-side question: the coder's parity test passed
+in every gate run and QA's 40-read probe found two orders. The code-side item did not catch a
+few-row `GROUP BY`; repetition did, so the QA checklist makes repetition the check. No lint.
+Track 2 (agent-method), artifact-only.
+**Promoted by**: drafted by the coding agent in Round_201 under the standing rc3 § Execution rule
+(human, 2026-10-18); human review on merge to `main`.

@@ -352,12 +352,11 @@
       "reason": {
         "exists": "đã có ở đây với định nghĩa khác",
         "source_differs": "ở đây nó đọc một tập dữ liệu khác — truy vấn không thể đổi tập dữ liệu",
-        "slug_taken": "một bảng điều khiển khác ở đây đang dùng địa chỉ “{{detail}}”",
+        "slug_taken": "bảng điều khiển {{via}} ở đây đã dùng địa chỉ “{{detail}}”",
         "dataset_missing": "cần tập dữ liệu {{detail}}, không có trong không gian làm việc này",
         "columns_differ": "tập dữ liệu {{detail}} ở đây có các cột khác",
         "needs": "cần {{detail}}, mục này chưa được nhập lúc này",
-        "check_failed": "không lưu được: {{detail}}",
-        "awaits_publish": "cần {{detail}}, do quy trình {{via}} xuất bản — hãy chạy và xuất bản nó, rồi nhập lại gói này"
+        "awaits_publish": "cần {{detail}} — hãy chạy quy trình {{via}} và xuất bản nó với tên {{detail}}, rồi nhập lại gói này"
       },
       "nothingToImport": "Không có gì để nhập — mọi thứ ở đây đã khớp với gói.",
       "replaceWarning": "Thay thế sẽ lưu định nghĩa trong gói thành một phiên bản mới; bản hiện tại vẫn nằm trong Lịch sử của nó và có thể khôi phục. Bảng điều khiển bị thay thế sẽ lấy địa chỉ (slug) trong gói — liên kết tới địa chỉ cũ sẽ không còn dùng được. Các bảng điều khiển và quy trình ngoài gói đọc một truy vấn bị thay thế cũng thay đổi theo.",
@@ -382,7 +381,7 @@
         "extra": "các cột khác nhau — cột {{n}} ở đây, {{found}}, không có trong gói"
       },
       "listAnd": "{{head}} và {{last}}",
-      "datasetAwaitsPublish": "được quy trình {{workflow}} xuất bản: hãy chạy và xuất bản nó, rồi nhập lại gói này",
+      "datasetAwaitsPublish": "do quy trình {{workflow}} xuất bản: hãy chạy và xuất bản nó với tên <strong>{{dataset}}</strong>, rồi nhập lại gói này",
       "datasetUnused": "gói không dùng tới",
       "done": {
         "create_one": "{{count}} mới",
@@ -391,10 +390,12 @@
         "replace_other": "{{count}} đã thay thế",
         "unchanged_one": "{{count}} không đổi",
         "unchanged_other": "{{count}} không đổi",
-        "skip_one": "{{count}} giữ bản ở đây",
-        "skip_other": "{{count}} giữ bản ở đây",
+        "skip_one": "{{count}} được giữ (Giữ bản ở đây)",
+        "skip_other": "{{count}} được giữ (Giữ bản ở đây)",
         "deferred_one": "{{count}} hoãn lại",
-        "deferred_other": "{{count}} hoãn lại"
+        "deferred_other": "{{count}} hoãn lại",
+        "leftOut_one": "{{count}} bỏ qua (địa chỉ đã được dùng ở đây)",
+        "leftOut_other": "{{count}} bỏ qua (địa chỉ đã được dùng ở đây)"
       },
       "binds": "dùng {{kind}} {{name}} ở đây, khác với trong gói — số liệu có thể khác",
       "importNInto_one": "Nhập {{count}} vào {{name}}",
@@ -405,10 +406,28 @@
         "datasets": "hãy nạp {{names}} vào {{name}} trước (với các cột như trong gói)",
         "conflicts": "{{names}}: hãy chọn Thay thế hoặc Giữ bản ở đây ở trên",
         "source_differs": "{{names}}: hãy đổi tên hoặc xoá truy vấn đó ở đây, hoặc đổi tên nó ở không gian làm việc của gói rồi xuất lại",
-        "check_failed": "{{names}}: hãy sửa nó ở không gian làm việc mà gói được xuất ra rồi xuất lại"
+        "check_failed": "{{names}}: hãy sửa nó ở không gian làm việc mà gói được xuất ra rồi xuất lại",
+        "slug_taken": "{{names}}: hãy đổi địa chỉ của bảng điều khiển {{holder}} ở đây, hoặc của {{names}} ở không gian làm việc của gói rồi xuất lại, sau đó nhập lại"
       },
       "nothingToImportKept": "Không có gì để nhập — phần còn lại đã khớp với gói; các dòng Giữ bản ở đây được giữ nguyên.",
-      "alsoNeeds": "cũng đọc {{detail}}, mục này cũng xung đột"
+      "alsoNeeds": "cũng đọc {{detail}}, mục này cũng xung đột",
+      "leftOutRow": "bỏ qua — bảng điều khiển {{via}} ở đây đã dùng địa chỉ “{{detail}}”",
+      "keptRow": "giữ nguyên như ở đây (định nghĩa trong gói khác)",
+      "keepMineWarning": "Giữ bản ở đây để nguyên mỗi dòng Giữ bản ở đây như hiện có; phiên bản trong gói của nó không được nhập. Những gì gói thêm vào dựa trên một truy vấn hoặc quy trình được giữ sẽ đọc bản của bạn, nên số liệu có thể khác với trong gói.",
+      "checkFailed": {
+        "columns": "không lưu được ở đây: một cột nó dùng không có trong tập dữ liệu ở đây, hoặc có kiểu khác",
+        "params": "không lưu được ở đây: kiểu hoặc giá trị đã lưu của một tham số không phù hợp",
+        "controls": "không lưu được ở đây: một bộ lọc của nó không khớp với các tiện ích",
+        "references": "không lưu được ở đây: nó trỏ tới thứ không có ở đây",
+        "duplicateSource": "không lưu được ở đây: nó đọc cùng một nguồn hai lần",
+        "sourcesDiverge": "không lưu được ở đây: các cột của các nguồn không khớp nhau",
+        "rules": "không lưu được ở đây: một bước của nó không phù hợp với dữ liệu ở đây",
+        "shape": "không lưu được ở đây: phần {{path}} không đúng cấu trúc ứng dụng này nhận",
+        "other": "không lưu được ở đây",
+        "details": "Chi tiết"
+      },
+      "chooseAnother": "Chọn tệp khác",
+      "keepMineLeftOut": "Bảng điều khiển có địa chỉ đã được dùng ở đây sẽ bị bỏ qua."
     }
   },
   "datasets": {

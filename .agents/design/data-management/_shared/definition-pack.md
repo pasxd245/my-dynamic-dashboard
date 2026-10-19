@@ -91,15 +91,17 @@ Every tag carries its word (not colour alone).
 
 ## Layout — ASCII intent
 
-The workspace card's overflow menu (⋯) gains two items: **Export definitions** (main and saved
-workspaces — a read) and **Import definitions…** (main workspaces only — a saved workspace is
-read-only, R193).
+The workspace card's overflow menu (⋯) gains two items on a **main** workspace: **Export
+definitions** and **Import definitions…**. A saved workspace offers neither (read-only, R193; its
+frozen copies are the main workspace's definitions, so its menu keeps Delete only — BA-F5; the
+export route still reads a saved workspace).
 
 **Export** downloads `<workspace name>-definitions-<YYYY-MM-DD>.json` (the user's local date,
 CR-5) and toasts what it holds,
 leaving out a kind with none ("Exported 4 queries and 2 workflows."). A workspace with nothing to
-export downloads an empty pack and says "This workspace has no queries, dashboards or workflows to
-export." A refusal opens a modal listing what to fix (see § Export).
+export **downloads nothing** — the counts are checked first — and says "This workspace has no
+queries, dashboards or workflows to export." (BA-F5). A refusal opens a modal listing what to fix
+(see § Export).
 
 **Import** opens a modal (width 760):
 
@@ -108,43 +110,42 @@ export." A refusal opens a modal listing what to fix (see § Export).
 │ Bring queries, dashboards and workflows exported from another workspace.  │
 │ Data is not imported: the datasets they read must already be here, under   │
 │ the same names and with the same columns.                                  │
-│ ┌──────────────────────────────────────────────────────────────────────┐   │
-│ │   ⬆  Drop a definitions file (.json) here, or click to choose one     │   │
-│ └──────────────────────────────────────────────────────────────────────┘   │
-│ acme-demo-definitions-2026-10-19.json · from "Acme demo" · 2026-10-19     │
-│                                                                            │
+│ acme-demo-definitions-2026-10-19.json · from "Acme demo" · 2026-10-19      │
+│                                                    [⬆ Choose another file] │
+│   (before a file is read: the drop zone — "Drop a definitions file (.json) │
+│    here, or click to choose one"; once read it shrinks to this line, F6)   │
 │ If a name already exists here:                                             │
 │  (•) Don't import if anything conflicts  ( ) Replace it  ( ) Keep mine     │
 │ ────────────────────────────────────────────────────────────────────────── │
 │ Datasets needed                                                            │
 │   ✓ calls_demo                                                             │
-│   ◷ calls_rollup — published by workflow Calls rollup: run and publish it, │
-│                   then import this pack again                              │
+│   ◷ calls_rollup — published by workflow Calls rollup: run it and publish  │
+│                   it as **calls_rollup**, then import this pack again      │
 │   ✗ agents_demo — not in this workspace                                    │
 │   ✗ teams_demo — columns differ — column 1 is id (integer) in the pack,    │
 │                  team (string) here                                        │
 │ ────────────────────────────────────────────────────────────────────────── │
 │ 2 new · 1 replace · 1 deferred · 1 can't import                            │
+│ ✗ Nothing is imported yet: load agents_demo into Acme copy first (with the │
+│   pack's columns).                                                         │
 │  Kind       Name              Action           Why                         │
 │  Query      North calls       [New]                                        │
-│  Query      Rollup by team    [Deferred]       needs calls_rollup, which   │
-│                                                workflow Calls rollup        │
-│                                                publishes — run and publish  │
-│                                                it, then import again        │
+│  Query      Rollup by team    [Deferred]       needs calls_rollup — run     │
+│                                                workflow Calls rollup and    │
+│                                                publish it as calls_rollup,  │
+│                                                then import this pack again  │
 │  Query      Agent calls       [Can't import]   needs dataset agents_demo   │
 │  Workflow   Calls rollup      [New]                                        │
 │  Dashboard  Weekly            [Replace]                                    │
-│ ────────────────────────────────────────────────────────────────────────── │
-│ ✗ Nothing is imported yet: load agents_demo into Acme copy first (with the │
-│   pack's columns).                                                         │
 │                                         [Cancel] [Import into Acme copy]   │
 └────────────────────────────────────────────────────────────────────────────┘
 ```
 
 - **Choosing a file** reads it in the browser; a file that is not JSON, or JSON without
   `packVersion`, shows "This file is not a definitions pack." and no plan. A readable file is
-  checked at once (the dry run); the line under the drop zone names the file, the workspace it
-  came from and when.
+  checked at once (the dry run). Once a file is read the drop zone **shrinks to one line** — the
+  file, the workspace it came from and when, and "Choose another file" (BA-F6), so the plan gets
+  the room.
 - **The conflict choice** (`Don't import if anything conflicts` = `refuse`, the default;
   `Replace it` = `replace`; `Keep mine` = `skip`) re-runs the dry run when changed. Help text under
   the radio: "Don't import if anything conflicts: nothing is imported while a name here holds a
@@ -152,8 +153,9 @@ export." A refusal opens a modal listing what to fix (see § Export).
   left as it is here." **Keep mine** is the one word for `skip` everywhere (radio, tag, count,
   toast — BA-C6).
 - **Datasets needed**: one line per dataset the pack names — found (✓); missing ("not in this
-  workspace"); **awaiting publish** (◷ — missing here, published by a workflow of the pack: "run and
-  publish it, then import this pack again", BA-C2); columns differ, said at the **first place the
+  workspace"); **awaiting publish** (◷ — missing here, published by a workflow of the pack: "run it
+  and publish it as **<dataset name>**, then import this pack again" — the name the pack reads,
+  BA-C2 / BA-F4); columns differ, said at the **first place the
   two lists part**: "column 3 is amount (integer) in the pack, deal_id (string) here", "column 8,
   region (string), is not here", or "column 8 here, region (string), is not in the pack". A dataset
   nothing in the pack reads is listed last as "not used by the pack" and blocks nothing (BA-C4).
@@ -162,24 +164,42 @@ export." A refusal opens a modal listing what to fix (see § Export).
   summary line counts each action shown (zero counts left out). A row that **reads a noun kept by
   Keep mine whose definition differs from the pack's** carries the warning "uses the query North
   calls here, which differs from the pack — numbers may differ" and the summary adds "N with a
-  warning" (BA-C1).
+  warning" (BA-C1). A **kept row** itself says "kept as it is here (the pack's definition
+  differs)" and carries no such warning — it is the user's own (BA-F7); a dashboard Keep mine leaves
+  out because its address is taken here says "left out — dashboard <holder> here already uses the
+  address “<slug>”" (BA-F3). A row that **would not save** names the check in words — a column not
+  in the dataset here (or of another type), a parameter, a filter control, something not here, a
+  source read twice, sources whose columns do not line up, a step that does not fit, a part of the
+  definition in a shape this app does not take — with the server's own line under a collapsed
+  **Details** (BA-F8).
+- **The decision alert sits directly under the summary line**, above the rows (BA-F6): the
+  blocked alert with its next steps, the Replace warning, the Keep mine alert, or "Nothing to
+  import".
 - **Import** — enabled only when the plan is `ok` and writes something (a _New_ or _Replace_); its
   label counts and names the target: "Import 3 into Acme copy". A blocked plan keeps a **disabled
   "Import into Acme copy"** with no count, and the alert under the plan names the next step per
   cause (BA-C5): conflicts — "choose Replace it or Keep mine above"; a ✗ dataset — "load <names>
   into <workspace> first (with the pack's columns)"; a row that would not save — "fix it in the
   workspace it came from and export again"; a `source_differs` conflict — "rename or delete the
-  query here, or rename it in the pack's workspace". With a _Replace_ row, the warning: "Replacing
+  query here, or rename it in the pack's workspace"; a taken address, one line per dashboard —
+  "<name>: change the address of dashboard <holder> here, or of <name> in the pack's workspace and
+  export again, then import again" (BA-F3; choosing Replace it or Keep mine does not clear it,
+  so it is not among the conflicts). With a _Replace_ row, the warning: "Replacing
   saves the pack's definition as a new version; the current one stays in its History, so it can be
   restored. A replaced dashboard takes the pack's address (slug) — links to its old address stop
   working. Dashboards and workflows outside the pack that read a replaced query change too."
-  When nothing would be written: "Nothing to import — everything here already matches the pack."
+  With a _Keep mine_ row, its match (BA-F7): "Keep mine leaves each row marked Keep mine as it is
+  here; the pack's version of it is not imported. What the pack adds on top of a kept query or
+  workflow reads your version, so its numbers may differ from the pack's." — adding "A dashboard
+  whose address is taken here is left out." when one is. When nothing would be written: "Nothing to import — everything here already matches the pack."
   (with deferred rows, "Nothing to import yet — the deferred rows wait for their datasets"; with
   Keep mine rows, "Nothing to import — the rest already matches the pack; the rows marked Keep
   mine stay as they are here" — found at the R201 visual gate)
   and no Import button. An **empty pack** says once "This pack holds no definitions." (BA-C7).
 - **After Import**: the modal closes; one toast with the non-zero counts — "Imported into Acme
-  copy: 2 new, 1 replaced, 1 deferred."; every list and noun read the import changed is fetched
+  copy: 2 new, 1 replaced, 1 kept (Keep mine), 1 left out (address taken here), 1 deferred." — a
+  dashboard left out for a taken address is not counted as kept, there being nothing of it here
+  (BA-F3 / BA-F9); every list and noun read the import changed is fetched
   again (queries, dashboards, workflows, widget reads, the history drawers, notes).
 - **A refusal on Import** (`409 pack_refused` — the workspace changed between the check and the
   click, `reason: plan_changed`, or the plan is not ok): the plan is replaced by the one the server
@@ -211,8 +231,9 @@ round's Do log; amended at Contract exit by BA pass 1, C1–C7):**
 5. Success closes the modal with one toast (non-zero counts only) and re-reads every list, single
    read, widget read, workflow output, history and note an import can change
    (`IMPORT_INVALIDATES`), checked under the app's 60 s `staleTime`.
-6. Export downloads at once and toasts the non-zero counts; an empty workspace downloads an empty
-   pack and says so; `pack_unresolved` opens "Fix these before exporting" with one line per problem.
+6. Export downloads at once and toasts the non-zero counts; an empty workspace downloads nothing
+   and says so (BA-F5); `pack_unresolved` opens "Fix these before exporting" with one line per
+   problem. Export is offered on a main workspace only (BA-F5).
 
 What F1 handed to the contract (shape questions, not answers): a plan item carries a **reason
 code** plus a **detail** (a name or the save check's message) so the builder words it in EN / VI;
@@ -362,7 +383,8 @@ not differ itself and reads a conflicting or refused noun is `invalid` (`needs`)
 - `skip` (Keep mine) leaves the target's noun as it is; pack nouns that reference it bind to it by
   name, and each such reader carries `binds: [{kind, name}]` (the kept nouns it reads whose
   definition differs from the pack's) — the warning "numbers may differ"; the plan counts them in
-  `warnings` (BA-C1).
+  `warnings` (BA-C1). A `skip` item itself never carries `binds` (BA-F7). A `slug_taken` item names
+  the dashboard here that holds the slug in `via` (BA-F3).
 - `create` goes through the noun's create: a fresh id, history `#1 create`.
 - **`deferred`** (BA-C2) — a query whose dataset is `awaits_publish`, and every noun that reads a
   deferred noun, is not written by this import (`reason: awaits_publish`, `detail` the dataset,
@@ -388,7 +410,10 @@ not differ itself and reads a conflicting or refused noun is `invalid` (`needs`)
 connection (the writes in step 3 happen there, so a later noun validates against an earlier one).
 The plan then gets its `planHash` — the 12-hex hash of its decisions (`onConflict`, each dataset's
 name and status, each item's kind, name, action, reason, detail, `via`, `binds`; not ids, `dryRun`
-or `applied`). Then:
+or `applied`) **and of what each `replace` / `skip` / `unchanged` item's target holds now** (its
+definition version, with the slug for a dashboard — BA-F2 / CR-6): an edit made in another tab
+between the check and the click moves the hash, so the apply stops with `plan_changed` and the new
+plan rather than overwriting it. Then:
 
 - **dry run** → `ROLLBACK`; 200 with the plan (`dryRun: true`, `applied: false`, `ok` true or
   false). Nothing is written — the dry run and the apply are the same code up to the last line.
@@ -496,7 +521,11 @@ import over it with **Replace it**: only the changed definitions move, each keep
    in B → import again (the deferred rows created) → every B query's rows, every B widget's
    aggregate (with the dashboard's saved control values) and every B workflow's output equal A's,
    row for row and cell for cell (the read envelopes' `dataVersions` keys are dataset ids and
-   differ by design). Also with B in another install (a second data root).
+   differ by design). Also with B in another install (a second data root). The comparison is a
+   strict byte comparison, so a grouped read needs a stable order: `/aggregate` and an aggregate
+   step order their rows by the group keys (blanks last) under any sort the caller asks for
+   (QA-4 / BA-F1 — before the fix the parity test flaked on SQL's unspecified group order); the
+   parity tests ran 10× in a row green before the round trusted a green run.
 4. **Re-import is idempotent** _(pytest)_ — importing the same pack into B again plans every noun
    `unchanged` (no deferred left), writes no row in any table (no history row), and B's nouns are
    byte-identical.
@@ -507,7 +536,9 @@ import over it with **Replace it**: only the changed definitions move, each keep
 6. **Dry run writes nothing** _(pytest)_ — a dry run of a pack that would create, replace, defer
    and refuse leaves every table byte-identical (a dump before and after); its plan equals the
    apply's plan (except `dryRun`, `applied` and the new ids), `planHash` included; an apply with a
-   stale `expectedPlan` answers `409 pack_refused` `plan_changed` and writes nothing.
+   stale `expectedPlan` answers `409 pack_refused` `plan_changed` and writes nothing — including
+   when only a replaced / kept / unchanged target's definition was edited between the dry run and
+   the apply (BA-F2).
 7. **Conflict rules** _(pytest)_ — `refuse`: a same-named, different noun → `conflict`, apply
    refused; `replace`: the target keeps its id, its history gains one `update` row, a replaced
    workflow's output is cleared, a widget note follows its widget, a dashboard takes the pack's
@@ -538,10 +569,10 @@ import over it with **Replace it**: only the changed definitions move, each keep
 14. **Workflow on workflow** _(pytest)_ — a workflow reading a never-run workflow imports
     (the shape check deferred); when the two sources' shapes then diverge, its run answers the
     existing refusal (BA C8).
-15. **Export in the UI** _(FE)_ — the card menu of a main and of a saved workspace has **Export
-    definitions**; it downloads `<name>-definitions-<date>.json` (the file name made safe) and
-    toasts the non-zero counts; a `pack_unresolved` refusal opens "Fix these before exporting"
-    with one line per problem.
+15. **Export in the UI** _(FE)_ — the card menu of a main workspace has **Export definitions**
+    (a saved one does not — BA-F5); it downloads `<name>-definitions-<date>.json` (the file name
+    made safe) and toasts the non-zero counts; an empty workspace downloads nothing and says so;
+    a `pack_unresolved` refusal opens "Fix these before exporting" with one line per problem.
 16. **Import in the UI** _(FE)_ — **Import definitions…** only on a main workspace; a file that
     is not a pack says so; a pack is checked at once and on every conflict-choice change; the
     datasets (found / missing / awaiting publish / columns differ / unused) and the plan rows
@@ -549,7 +580,11 @@ import over it with **Replace it**: only the changed definitions move, each keep
     that writes something, disabled without a count when blocked with the next step per cause,
     absent when nothing would be written; the apply sends `expectedPlan`; the replace warning
     names History, the slug and outside readers; an empty pack says so once; a `409` on Import
-    shows the server's new plan and the alert; a `422 pack_invalid` shows its lines; after Import
+    shows the server's new plan and the alert; a `422 pack_invalid` shows its lines; the decision
+    alert sits under the summary and the drop zone shrinks to one line once a file is read
+    (BA-F6); kept rows say so without a warning and Keep mine has its alert (BA-F7); a taken
+    address names its holder and its own next step (BA-F3); a refused save check reads in words
+    with the raw line under Details (BA-F8); the toast counts kept and left-out apart (BA-F9); after Import
     the query, dashboard and workflow lists and the history drawers read fresh with the app's
     `QueryClient` defaults (review-qa item 10); EN and VI.
 
