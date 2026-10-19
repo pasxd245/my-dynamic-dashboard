@@ -556,8 +556,17 @@ def dashboard_values(con: sqlite3.Connection, ref: dict | None, query: sqlite3.R
     ``date_range``) that reach its widget — read by the server, never asserted by
     a client (BA contract-exit F1). An unknown dashboard or widget, or one in
     another workspace → 422."""
+    definition = dashboard_definition(con, ref, query, loc)
+    return saved_for_widget(definition, ref["widgetId"]) if definition is not None and ref else {}
+
+
+def dashboard_definition(con: sqlite3.Connection, ref: dict | None, query: sqlite3.Row, loc: list) -> dict | None:
+    """R199 — the definition of ``ref``'s dashboard, checked: it exists in the
+    query's workspace and its widget shows this query (422 otherwise). ``None``
+    without a ref. Both the parameter level (``saved_for_widget``) and the
+    shared filters (``app.shared_filters``) read from it."""
     if not ref:
-        return {}
+        return None
     import json
 
     workspace_id = query["workspace_id"]
@@ -588,7 +597,7 @@ def dashboard_values(con: sqlite3.Connection, ref: dict | None, query: sqlite3.R
                 }
             ],
         )
-    return saved_for_widget(definition, ref["widgetId"])
+    return definition
 
 
 def targets_widget(control: dict, widget_id: str) -> bool:

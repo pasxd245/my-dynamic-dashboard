@@ -106,7 +106,7 @@ def build_xlsx(
     *,
     percent_columns: set[str],
     sheet_title: str,
-    filters: list[tuple[str, list[str | None]]],
+    filters: list[tuple[str, list[str | None], str, str | None, str | None]],
     meta: list[tuple[str, str]],
     filters_sheet_title: str,
     totalled: frozenset[str] = frozenset(),
@@ -146,12 +146,16 @@ def build_xlsx(
     for k, v in meta:
         fs.append([k, v])
     fs.append([])
-    fs.append(["column", "values"])
-    fs[fs.max_row][0].font = bold
-    fs[fs.max_row][1].font = bold
+    # R199 (D7) — `scope` tells a widget filter from a dashboard one (a shared
+    # `values` control, by label); `source` says whether the dashboard one was
+    # the viewer's selection or the control's saved one.
+    fs.append(["column", "values", "scope", "source"])
+    for cell in fs[fs.max_row]:
+        cell.font = bold
     if filters:
-        for col, values in filters:
-            fs.append([col, ", ".join("(blank)" if v is None else str(v) for v in values)])
+        for col, values, scope, label, source in filters:
+            scope_text = f"dashboard filter {label}" if scope == "dashboard" else "widget filter"
+            fs.append([col, ", ".join("(blank)" if v is None else str(v) for v in values), scope_text, source])
     else:
         fs.append(["—", "no filter"])
     # R194 (D7) — the parameter values the rows were read under, and where each
@@ -165,7 +169,7 @@ def build_xlsx(
             cell.font = bold
         for name, value, source in params:
             fs.append([name, value, source])
-        fs.column_dimensions["C"].width = 12
+        fs.column_dimensions["C"].width = 24
     # R196 (3.2c) — the data the rows were read from: each dataset's version.
     if data_versions:
         fs.append([])
@@ -176,9 +180,10 @@ def build_xlsx(
             cell.font = bold
         for name, ds_id, version in data_versions:
             fs.append([name, ds_id, version])
-        fs.column_dimensions["C"].width = 12
     fs.column_dimensions["A"].width = 24
     fs.column_dimensions["B"].width = 60
+    fs.column_dimensions["C"].width = 24
+    fs.column_dimensions["D"].width = 12
 
     _keep_text(wb)
     out = io.BytesIO()

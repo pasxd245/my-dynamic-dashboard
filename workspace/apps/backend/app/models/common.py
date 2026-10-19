@@ -943,6 +943,10 @@ class AggregateFilter(BaseModel):
 
     column: Annotated[str, Field(min_length=1)]
     values: list[str | None]
+    # R199 (item 4.3) — set, the item is a SHARED filter: the viewer's selection
+    # for that `values` control of the dashboard the request names; absent, the
+    # widget's own drawer filter. Mirrors `_shared/query.yaml#/RuntimeFilter`.
+    control: Annotated[str, Field(pattern=r"^ctl_[0-9a-f]{8}$")] | None = None
 
 
 class TotalsBody(BaseModel):
@@ -1240,7 +1244,30 @@ class DateRangeControl(BaseModel):
         return data
 
 
-DashboardControl = Annotated[ParamControl | DateRangeControl, Field(discriminator="kind")]
+class ValuesControl(BaseModel):
+    """R199 (item 4.3, dashboard-filters.md D4) — a SHARED FILTER: a name-based
+    one-of on one result column, reaching the targeted widgets whose result has
+    the column. `saved` is the dashboard's selection (D3 level 2, applied by the
+    server); `None` in it is the `(blank)` option. Mirrors
+    `_shared/dashboard.yaml#/ValuesControl`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: Annotated[str, Field(pattern=r"^ctl_[0-9a-f]{8}$")]
+    kind: Literal["values"]
+    label: Annotated[str, Field(min_length=1, max_length=60)]
+    column: Annotated[str, Field(min_length=1, max_length=200)]
+    targets: ControlTargets
+    saved: Annotated[list[StrictStr | None], Field(min_length=1, max_length=200)] | None = None
+
+    @model_validator(mode="after")
+    def _unique_saved(self) -> ValuesControl:
+        if self.saved is not None and len(set(self.saved)) != len(self.saved):
+            raise ValueError("saved: a value is listed twice")
+        return self
+
+
+DashboardControl = Annotated[ParamControl | DateRangeControl | ValuesControl, Field(discriminator="kind")]
 
 
 class DashboardDefinition(BaseModel):

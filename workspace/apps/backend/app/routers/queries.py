@@ -28,14 +28,22 @@ from fastapi.responses import JSONResponse, Response
 
 from app._generated.constants import DASHBOARD_MAX_ROWS, ID_PATTERNS, PAGE_SIZES
 from app import params as qparams
+from app import shared_filters
 from app.db import get_conn
 from app.ingest.filters import build_definition_predicates
 from app import duck
 from app.ingest.export import EXPORT_MAX_ROWS, attachment_disposition, build_csv, build_xlsx, file_stem
-from app.ingest.rows_reader import _name_in_sql, build_steps_relation, query_aggregate_rows, query_dataset_rows
+from app.ingest.rows_reader import (
+    _name_in_sql,
+    _quote_ident,
+    build_steps_relation,
+    query_aggregate_rows,
+    query_dataset_rows,
+)
 from app.models.common import (
     AggregateBody,
     ApiErrorExportTooLarge,
+    ApiErrorUnknownColumn,
     ExportBody,
     TotalsBody,
     ApiErrorNameTaken,
@@ -257,7 +265,10 @@ def run_query(  # noqa: A002
 
     R194 — ``p.<name>=`` query parameters are the viewer's parameter values;
     ``dashboard`` + ``widget`` name the dashboard widget whose saved control values
-    apply (D3)."""
+    apply (D3). R199 — ``f.<controlId>=v1,v2`` keys (the dashboard URL spelling,
+    read from the RAW query string) are the viewer's shared-filter selections; the
+    targeted ``values`` controls' saved selections apply too, BEFORE paging and
+    the cap, with the same SQL as the drawer's filters on ``/aggregate``."""
     if (dashboard is None) != (widget is None):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -265,6 +276,19 @@ def run_query(  # noqa: A002
         )
     viewer = {k[2:]: v for k, v in request.query_params.items() if k.startswith("p.") and len(k) > 2}
     dash_ref = {"id": dashboard, "widgetId": widget} if dashboard else None
+    f_keys = shared_filters.parse_f_keys(request.url.query)
+    if f_keys and dash_ref is None:
+        first = next(iter(f_keys))
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=[
+                {
+                    "loc": ["query", f"f.{first}"],
+                    "msg": "control_without_dashboard: a shared filter needs dashboard + widget",
+                    "type": "value_error",
+                }
+            ],
+        )
     if unpaged:
         # Unpaged: read the first page sized to the cap. `total` (computed
         # separately) stays the full matched count, preserving the over-cap warning.
@@ -288,7 +312,9 @@ def run_query(  # noqa: A002
         definition = json.loads(qrow["definition_json"])
         chain = _chain_of(definition)
         plan, reason = _resolve_plan(con, qrow["source_id"], chain, _rels_of(definition), qrow["workspace_id"])
-        dash_values = qparams.dashboard_values(con, dash_ref, qrow, ["query", "dashboard"])
+        dash_def = qparams.dashboard_definition(con, dash_ref, qrow, ["query", "dashboard"])
+    dash_values = qparams.saved_for_widget(dash_def, widget) if dash_def is not None and widget else {}
+    shared = shared_filters.resolve(dash_def, widget, [(None, v, cid) for cid, v in f_keys.items()], ["query", "f"])
 
     if reason == "source_missing":
         # Defensive: the app-level cascade (R79) removes queries when their source
@@ -323,16 +349,27 @@ def run_query(  # noqa: A002
     # kind; row-preserving steps (derive/filter/sort/date_bucket) keep the source
     # cardinality. `unpaged` (the widget path) stays one capped response.
     if step_plan is not None:
-        rows, total = _run_steps(plan, q, filters, advanced, step_plan, page=eff_page, page_size=eff_page_size)
+        # R199 — the shared filters apply over the FINAL (post-step) columns.
+        name_filters = shared_filters.pairs(shared, {c["name"] for c in step_plan[1]})
+        rows, total = _run_steps(
+            plan, q, filters, advanced, step_plan, page=eff_page, page_size=eff_page_size, name_filters=name_filters
+        )
         echoed_page_size = len(rows) if unpaged else eff_page_size
         body = RowsPage(rows=rows, page=eff_page, pageSize=echoed_page_size, total=total)
         return JSONResponse(
             status_code=status.HTTP_200_OK, content=_stamped(body.model_dump(), resolved_params, _data_versions(plan))
         )
 
+    name_filters = shared_filters.pairs(shared, {c["name"] for c in plan["columns"]})
     if plan["kind"] == "join":
         rows, total = _execute_chain(
-            plan["payload"], page=eff_page, page_size=eff_page_size, q=q, filters=filters, advanced=advanced
+            plan["payload"],
+            page=eff_page,
+            page_size=eff_page_size,
+            q=q,
+            filters=filters,
+            advanced=advanced,
+            name_filters=name_filters,
         )
     else:
         ds = plan["ds"]
@@ -345,6 +382,7 @@ def run_query(  # noqa: A002
             q=q,
             filters=filters,
             advanced=advanced,
+            name_filters=name_filters,
         )
 
     # Unpaged response echoes the returned row count as pageSize (it's not a
@@ -378,9 +416,12 @@ def aggregate_query(id: QueryIdPath, body: AggregateBody) -> JSONResponse:  # no
         definition = json.loads(qrow["definition_json"])
         chain = _chain_of(definition)
         plan, reason = _resolve_plan(con, qrow["source_id"], chain, _rels_of(definition), qrow["workspace_id"])
-        dash_values = qparams.dashboard_values(
-            con, body.dashboard.model_dump() if body.dashboard else None, qrow, ["body", "dashboard"]
-        )
+        dash_ref = body.dashboard.model_dump() if body.dashboard else None
+        dash_def = qparams.dashboard_definition(con, dash_ref, qrow, ["body", "dashboard"])
+    widget_id = dash_ref["widgetId"] if dash_ref else None
+    dash_values = qparams.saved_for_widget(dash_def, widget_id) if dash_def is not None and widget_id else {}
+    # R199 — the widget's own filters + the shared ones (viewer items, then saved).
+    shared = shared_filters.resolve(dash_def, widget_id, _filter_items(body.filters), ["body", "filters"])
 
     if reason == "source_missing":
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
@@ -403,8 +444,7 @@ def aggregate_query(id: QueryIdPath, body: AggregateBody) -> JSONResponse:  # no
         raise
 
     # A dashboard filter on a column this query lacks is skipped (R103 semantics).
-    col_names = {c["name"] for c in plan["columns"]}
-    dashboard_filters = [(f.column, f.values) for f in body.filters if f.column in col_names]
+    dashboard_filters = shared_filters.pairs(shared, {c["name"] for c in plan["columns"]})
 
     inner_sql, inner_params = _build_inner_relation(plan, definition.get("q"), filters, advanced)
     rows = query_aggregate_rows(
@@ -421,16 +461,24 @@ def aggregate_query(id: QueryIdPath, body: AggregateBody) -> JSONResponse:  # no
     )
 
 
+def _filter_items(filters: list) -> list[tuple[str | None, list, str | None]]:
+    """The request's ``RuntimeFilter`` items as ``shared_filters.resolve`` takes them."""
+    return [(f.column, f.values, f.control) for f in filters]
+
+
 def _final_relation(
     id: str,  # noqa: A002
     viewer: dict | None = None,
     dashboard: dict | None = None,
+    filters: list | None = None,
 ) -> tuple[dict | None, JSONResponse | None]:
     """R181/R182 — the saved query's FINAL relation: its resolved plan + own
     predicates, then its transform steps when it has any (the rows a table
-    widget shows). Returns ``({sql, params, columns, name}, None)`` or
+    widget shows). Returns ``({sql, params, columns, name, filters}, None)`` or
     ``(None, error)`` with the run path's drift semantics: 404 absent · 409
-    `relationship_stale` / `query_stale`."""
+    `relationship_stale` / `query_stale`. R199 — ``filters`` (the request's
+    ``RuntimeFilter`` items) resolve with the dashboard's shared filters into
+    ``relation["filters"]`` (``SharedFilter`` list, not yet column-skipped)."""
     with get_conn() as con:
         qrow = con.execute(_SELECT_QUERY, (id,)).fetchone()
         if qrow is None:
@@ -439,7 +487,10 @@ def _final_relation(
         chain = _chain_of(definition)
         plan, reason = _resolve_plan(con, qrow["source_id"], chain, _rels_of(definition), qrow["workspace_id"])
         name = qrow["name"]
-        dash_values = qparams.dashboard_values(con, dashboard, qrow, ["body", "dashboard"])
+        dash_def = qparams.dashboard_definition(con, dashboard, qrow, ["body", "dashboard"])
+    widget_id = dashboard["widgetId"] if dashboard else None
+    dash_values = qparams.saved_for_widget(dash_def, widget_id) if dash_def is not None and widget_id else {}
+    shared = shared_filters.resolve(dash_def, widget_id, _filter_items(filters or []), ["body", "filters"])
 
     if reason == "source_missing":
         return None, JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
@@ -476,6 +527,7 @@ def _final_relation(
         "name": name,
         "resolvedParams": resolved_params,
         "dataVersions": _data_versions(plan),
+        "filters": shared,
     }, None
 
 
@@ -495,13 +547,13 @@ def _version_rows(versions: dict[str, int]) -> list[tuple[str, str, int]]:
     return [(names.get(i, i), i, v) for i, v in versions.items()]
 
 
-def _totals_over(relation: dict, columns: list[str], filters: list) -> tuple[dict[str, str | None], int]:
-    """Σ of `columns` + the row count over `relation` under the dashboard
-    `filters` (a filter on a column the result lacks is skipped). 422 on an
-    unknown / non-numeric column."""
+def _totals_over(relation: dict, columns: list[str]) -> tuple[dict[str, str | None], int]:
+    """Σ of `columns` + the row count over `relation` under its resolved
+    runtime `filters` (a filter on a column the result lacks is skipped). 422
+    on an unknown / non-numeric column."""
     measures = _validate_aggregate([], [{"col": c, "agg": "sum"} for c in columns], relation["columns"], ["body"])
     col_names = {c["name"] for c in relation["columns"]}
-    dashboard_filters = [(f.column, f.values) for f in filters if f.column in col_names]
+    dashboard_filters = shared_filters.pairs(relation["filters"], col_names)
     rows = query_aggregate_rows(
         relation["sql"],
         relation["params"],
@@ -523,11 +575,13 @@ def totals_query(id: QueryIdPath, body: TotalsBody) -> JSONResponse:  # noqa: A0
     skipped). One DuckDB query; no row cap, so a table widget's footer is right
     even when its rows are capped. Non-numeric or unknown columns → 422.
     Drift semantics follow the run path: 404 absent · 409 stale."""
-    relation, err = _final_relation(id, body.params, body.dashboard.model_dump() if body.dashboard else None)
+    relation, err = _final_relation(
+        id, body.params, body.dashboard.model_dump() if body.dashboard else None, body.filters
+    )
     if err is not None:
         return err
     assert relation is not None  # noqa: S101 — the pair is exclusive
-    sums, row_count = _totals_over(relation, body.columns, body.filters)
+    sums, row_count = _totals_over(relation, body.columns)
     content = _stamped({"sums": sums, "rowCount": row_count}, relation["resolvedParams"], relation["dataVersions"])
     return JSONResponse(status_code=status.HTTP_200_OK, content=content)
 
@@ -542,8 +596,12 @@ def export_query(id: QueryIdPath, body: ExportBody) -> Response:  # noqa: A002
 
     R194 (D7) — parameters resolved for the read go into the XLSX Filters sheet's
     `Parameters` block and, on both formats, the `X-MDD-Params` header (ASCII
-    JSON)."""
-    relation, err = _final_relation(id, body.params, body.dashboard.model_dump() if body.dashboard else None)
+    JSON). R199 (D7) — the Filters sheet's filter rows say whether each was the
+    widget's own (`widget filter`) or a dashboard one (`dashboard filter <label>`,
+    with its `source`)."""
+    relation, err = _final_relation(
+        id, body.params, body.dashboard.model_dump() if body.dashboard else None, body.filters
+    )
     if err is not None:
         return err
     assert relation is not None  # noqa: S101 — the pair is exclusive
@@ -559,7 +617,7 @@ def export_query(id: QueryIdPath, body: ExportBody) -> Response:  # noqa: A002
         param_headers["X-MDD-Data-Versions"] = json.dumps(versions, separators=(",", ":"))
     columns: list[dict] = relation["columns"]
     col_names = {c["name"] for c in columns}
-    dashboard_filters = [(f.column, f.values) for f in body.filters if f.column in col_names]
+    dashboard_filters = shared_filters.pairs(relation["filters"], col_names)
     where_sql, where_params = _name_in_sql(dashboard_filters)
     sql = f"SELECT * FROM ({relation['sql']}) AS _final {where_sql}"  # noqa: S608 — composed from validated parts
     params = [*relation["params"], *where_params]
@@ -579,7 +637,7 @@ def export_query(id: QueryIdPath, body: ExportBody) -> Response:  # noqa: A002
             {c for spec in body.totals.values() for c in ([spec.num, spec.den] if spec.agg == "ratio" else [])}
             | {c for c, spec in body.totals.items() if spec.agg == "sum"}
         )
-        sums, _count = _totals_over(relation, need, body.filters)
+        sums, _count = _totals_over(relation, need)
 
         def num(v: str | None) -> float | None:
             try:
@@ -633,7 +691,10 @@ def export_query(id: QueryIdPath, body: ExportBody) -> Response:  # noqa: A002
         "Total",
         percent_columns=percent_columns,
         sheet_title=title,
-        filters=dashboard_filters,
+        filters=[
+            (f.column, list(f.values), f.scope, f.label, f.source)
+            for f in shared_filters.applied(relation["filters"], col_names)
+        ],
         meta=[("query", relation["name"]), ("widget", title), ("exported_at", _now_iso()), ("rows", str(total))],
         filters_sheet_title="Filters",
         totalled=totalled,
@@ -644,6 +705,64 @@ def export_query(id: QueryIdPath, body: ExportBody) -> Response:  # noqa: A002
         content=data,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": disposition("xlsx"), **param_headers},
+    )
+
+
+# R199 (D4) — a shared filter's option list holds at most this many non-blank
+# values; past it the list is `partial` (a cascading / typed-search control is
+# the named trigger, not a bigger list).
+VALUES_MAX = 1_000
+
+
+@router.get("/queries/{id}/values")
+def query_values(  # noqa: A002
+    id: QueryIdPath,
+    request: Request,
+    column: Annotated[str, Query(min_length=1, max_length=200)],
+    dashboard: Annotated[str | None, Query(pattern=ID_PATTERNS["dashboard"])] = None,
+    widget: Annotated[str | None, Query(pattern=ID_PATTERNS["widget"])] = None,
+) -> JSONResponse:
+    """R199 (item 4.3, dashboard-filters.md D4) — the DISTINCT values of one
+    column of the saved query's FINAL relation (post-step when it has steps):
+    a `values` control's option list. Blank (NULL / empty) is ONE `null`, first;
+    the rest ascending in the column's own order (numeric / chronological /
+    text — BA-C3), stringified; at most `VALUES_MAX` non-blank, `partial` when
+    more exist. Parameters resolve as on `/rows` (`p.*`, `dashboard` +
+    `widget`); NO runtime filter applies (no cascading, not its own saved).
+    422 `unknown_column` when the column is not in the result."""
+    if (dashboard is None) != (widget is None):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=[{"loc": ["query", "dashboard"], "msg": "dashboard and widget go together", "type": "value_error"}],
+        )
+    viewer = {k[2:]: v for k, v in request.query_params.items() if k.startswith("p.") and len(k) > 2}
+    dash_ref = {"id": dashboard, "widgetId": widget} if dashboard else None
+    relation, err = _final_relation(id, viewer, dash_ref)
+    if err is not None:
+        return err
+    assert relation is not None  # noqa: S101 — the pair is exclusive
+    if column not in {c["name"] for c in relation["columns"]}:
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, content=ApiErrorUnknownColumn(column=column).model_dump()
+        )
+    ident = _quote_ident(column)
+    blank = f"({ident} IS NULL OR CAST({ident} AS VARCHAR) = '')"
+    # Ordered by the TYPED column (numbers numerically, dates chronologically),
+    # cast only in the projection; the cap takes the first VALUES_MAX + 1 to
+    # know whether more exist.
+    sql = (
+        f"SELECT CAST({ident} AS VARCHAR) AS v FROM ({relation['sql']}) AS _final "  # noqa: S608 — validated parts
+        f"WHERE NOT {blank} GROUP BY {ident} ORDER BY {ident} ASC LIMIT ?"
+    )
+    blank_sql = f"SELECT COUNT(*) FROM ({relation['sql']}) AS _final WHERE {blank}"  # noqa: S608
+    with duck.connect() as con:
+        found = [r[0] for r in con.execute(sql, [*relation["params"], VALUES_MAX + 1]).fetchall()]
+        has_blank = int(con.execute(blank_sql, relation["params"]).fetchone()[0]) > 0
+    partial = len(found) > VALUES_MAX
+    values: list[str | None] = ([None] if has_blank else []) + found[:VALUES_MAX]
+    content = {"column": column, "values": values, "partial": partial}
+    return JSONResponse(
+        status_code=status.HTTP_200_OK, content=_stamped(content, relation["resolvedParams"], relation["dataVersions"])
     )
 
 

@@ -404,10 +404,11 @@ def _execute_chain(
     q: str | None,
     filters: list,
     advanced: list,
+    name_filters: list | None = None,
 ) -> tuple[list[list[str | None]], int]:
     """Run a resolved graph plan through the unified engine (shared by the saved
     run + the stateless preview). Each source is a parquet leaf or a composed
-    sub-relation (R76)."""
+    sub-relation (R76). R199 — ``name_filters``: the shared filters."""
     return query_joined_rows(
         payload["relations"],
         join_keys=payload["join_keys"],
@@ -418,6 +419,7 @@ def _execute_chain(
         q=q,
         filters=filters,
         advanced=advanced,
+        name_filters=name_filters,
     )
 
 
@@ -1064,14 +1066,22 @@ def _run_steps(
     *,
     page: int = 1,
     page_size: int | None = None,
+    name_filters: list | None = None,
 ) -> tuple[list[list[str | None]], int]:
     """Execute a query's chained transform steps over its resolved + filtered
     relation → ``(shaped rows, total)`` (typed intermediates, final stringify).
-    R144 — pages the shaped relation (see ``run_steps``)."""
+    R144 — pages the shaped relation (see ``run_steps``). R199 — the shared
+    ``name_filters`` apply over the FINAL relation."""
     normalized, _final_cols = step_plan
     inner_sql, inner_params = _build_inner_relation(plan, q, filters, advanced)
     return run_steps(
-        inner_sql, inner_params, [c["name"] for c in plan["columns"]], normalized, page=page, page_size=page_size
+        inner_sql,
+        inner_params,
+        [c["name"] for c in plan["columns"]],
+        normalized,
+        page=page,
+        page_size=page_size,
+        name_filters=name_filters,
     )
 
 

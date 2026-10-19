@@ -100,7 +100,8 @@ def _validate_controls(con: sqlite3.Connection, workspace_id: str, definition: d
     targets that are widgets of this dashboard (no note), and a saved value of the
     parameter's type in the targeted queries that use it (422 naming the field).
     R198 — a ``date_range`` control binds two distinct date parameters; its saved
-    period must resolve and run forwards."""
+    period must resolve and run forwards. R199 — one ``values`` control per
+    column (``duplicate_column``); its column is not checked against the queries."""
     controls = definition.get("controls") or []
     widgets = {w["id"]: w for w in definition.get("widgets", [])}
 
@@ -112,14 +113,24 @@ def _validate_controls(con: sqlite3.Connection, workspace_id: str, definition: d
 
     seen_ids: set[str] = set()
     seen_params: set[str] = set()
+    seen_columns: set[str] = set()
     for i, c in enumerate(controls):
         if c["id"] in seen_ids:
             raise bad(i, "id", f"duplicate_control: {c['id']} appears twice")
         seen_ids.add(c["id"])
         is_range = c["kind"] == "date_range"
+        is_values = c["kind"] == "values"
         if is_range and c["from"] == c["to"]:
             raise bad(i, "to", "range_same_param: from and to must be two different parameters")
-        for field, name in (("from", c["from"]), ("to", c["to"])) if is_range else (("param", c["param"]),):
+        if is_values:
+            # R199 (D4) — one shared filter per column, as one control per parameter.
+            if c["column"] in seen_columns:
+                raise bad(i, "column", f"duplicate_column: one values control per column ({c['column']!r})")
+            seen_columns.add(c["column"])
+            bound: tuple = ()
+        else:
+            bound = (("from", c["from"]), ("to", c["to"])) if is_range else (("param", c["param"]),)
+        for field, name in bound:
             if name in seen_params:
                 raise bad(i, field, f"duplicate_param: one control per parameter ({name!r})")
             seen_params.add(name)
@@ -129,6 +140,11 @@ def _validate_controls(con: sqlite3.Connection, workspace_id: str, definition: d
         for wid in targets:
             if wid not in widgets:
                 raise bad(i, "targets", f"unknown_widget: {wid} is not a widget of this dashboard")
+        if is_values:
+            # The column is NOT checked against the targeted queries: a result that
+            # lacks it skips the filter at read (D5), so a control may be added
+            # before a query grows the column.
+            continue
         if is_range:
             _validate_range_control(con, workspace_id, widgets, targets, i, c, bad)
             continue

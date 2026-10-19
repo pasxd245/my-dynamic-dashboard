@@ -98,8 +98,13 @@ def query_dataset_rows(
     q: str | None,
     filters: list[FilterPredicate] | None = None,
     advanced: list[list[FilterPredicate]] | None = None,
+    name_filters: list[tuple[str, list[Any]]] | None = None,
 ) -> tuple[list[list[str | None]], int]:
     """Return ``(rows, total)`` for the requested page.
+
+    R199 — ``name_filters`` are the shared (dashboard-level) filters, name-based
+    one-of pairs applied with the same SQL as ``/aggregate`` (``_name_in_terms``),
+    BEFORE paging — so ``total`` and the page are the filtered ones.
 
     `columns` is the canonical column order (from the dataset's
     committed `columns_json`); rows in the returned list line up
@@ -133,12 +138,13 @@ def query_dataset_rows(
 
     # Compose the fragments with AND: chips ∧ advanced(OR-of-AND) ∧ q.
     # Param order must match the fragment order in the WHERE clause.
-    where_terms = [t for t in (filter_sql, advanced_sql, q_sql) if t]
+    name_terms, name_params = _name_in_terms(name_filters or [])
+    where_terms = [t for t in (filter_sql, advanced_sql, q_sql, *name_terms) if t]
     if where_terms:
         where_clause = "WHERE " + " AND ".join(where_terms)
     else:
         where_clause = ""
-    where_params: list[Any] = [*filter_params, *advanced_params, *q_params]
+    where_params: list[Any] = [*filter_params, *advanced_params, *q_params, *name_params]
 
     offset = (page - 1) * page_size
 
@@ -231,9 +237,11 @@ def _build_where(
     q: str | None,
     filters: list[FilterPredicate] | None,
     advanced: list[list[FilterPredicate]] | None,
+    name_filters: list[tuple[str, list[Any]]] | None = None,
 ) -> tuple[str, list[Any]]:
     """The composed WHERE clause + params over the EFFECTIVE column space:
-    chips ∧ advanced(OR-of-AND) ∧ ``?q=`` substring. Empty when no predicate."""
+    chips ∧ advanced(OR-of-AND) ∧ ``?q=`` substring ∧ (R199) the shared
+    name-based filters. Empty when no predicate."""
     filter_sql, filter_params = build_filter_sql(filters or [])
     advanced_sql, advanced_params = build_advanced_sql(advanced or [])
     if q:
@@ -242,9 +250,10 @@ def _build_where(
         q_params: list[Any] = [like] * len(quoted_eff)
     else:
         q_sql, q_params = "", []
-    where_terms = [t for t in (filter_sql, advanced_sql, q_sql) if t]
+    name_terms, name_params = _name_in_terms(name_filters or [])
+    where_terms = [t for t in (filter_sql, advanced_sql, q_sql, *name_terms) if t]
     where_clause = ("WHERE " + " AND ".join(where_terms)) if where_terms else ""
-    return where_clause, [*filter_params, *advanced_params, *q_params]
+    return where_clause, [*filter_params, *advanced_params, *q_params, *name_params]
 
 
 def build_joined_select(
@@ -257,6 +266,7 @@ def build_joined_select(
     filters: list[FilterPredicate] | None = None,
     advanced: list[list[FilterPredicate]] | None = None,
     order_expr: str | None = None,
+    name_filters: list[tuple[str, list[Any]]] | None = None,
 ) -> tuple[str, list[Any]]:
     """Build the TYPED relational SELECT (no CAST, no pagination) producing a
     (possibly joined) query's rows under their EFFECTIVE column names, with the
@@ -282,7 +292,7 @@ def build_joined_select(
     relation_params: list[Any] = [p for (_, params) in relations for p in params]
 
     quoted_eff = [_quote_ident(c) for c in effective_columns]
-    where_clause, where_params = _build_where(quoted_eff, q, filters, advanced)
+    where_clause, where_params = _build_where(quoted_eff, q, filters, advanced, name_filters)
     # R172 — carry the driving source's ordering column through the projection
     # (and through the filter wrapper's `SELECT *`) so the PAGED caller can
     # `ORDER BY` it. It is never cast into the output: `query_joined_rows`
@@ -331,6 +341,14 @@ def _name_in_sql(dashboard_filters: list[tuple[str, list[Any]]]) -> tuple[str, l
     each is a categorical one-of on an effective column by NAME (AND-composed
     across filters). A ``None`` value matches a NULL/empty cell — the
     ``(blank)`` option — mirroring the client ``applyFilters``/``labelOf``."""
+    terms, params = _name_in_terms(dashboard_filters)
+    where = ("WHERE " + " AND ".join(terms)) if terms else ""
+    return where, params
+
+
+def _name_in_terms(dashboard_filters: list[tuple[str, list[Any]]]) -> tuple[list[str], list[Any]]:
+    """The bare AND-terms of ``_name_in_sql`` — R199: the rows path composes them
+    into its own WHERE (a shared filter rides the same SQL as the drawer's)."""
     terms: list[str] = []
     params: list[Any] = []
     for col, values in dashboard_filters:
@@ -346,8 +364,7 @@ def _name_in_sql(dashboard_filters: list[tuple[str, list[Any]]]) -> tuple[str, l
             ors.append(f"({ident} IS NULL OR CAST({ident} AS VARCHAR) = '')")
         if ors:
             terms.append("(" + " OR ".join(ors) + ")")
-    where = ("WHERE " + " AND ".join(terms)) if terms else ""
-    return where, params
+    return terms, params
 
 
 def _agg_term(expr: str, alias: str, stringify: bool) -> str:
@@ -666,6 +683,7 @@ def run_steps(
     *,
     page: int = 1,
     page_size: int | None = None,
+    name_filters: list[tuple[str, list[Any]]] | None = None,
 ) -> tuple[list[list[str | None]], int]:
     """R121 — apply an ordered list of TYPED transform steps over the inner
     relation, then stringify the FINAL relation to rows. ``steps`` are normalized
@@ -679,6 +697,11 @@ def run_steps(
     row-preserving steps (derive/filter/sort/date_bucket). ``page_size=None``
     returns everything (the callers' unpaged path is capped upstream)."""
     sql, params, cols = build_steps_relation(inner_sql, inner_params, base_columns, steps)
+    # R199 — the shared filters apply over the FINAL (shaped) relation, the
+    # columns a widget sees — the same relation `/totals` and `/export` filter.
+    name_where, name_params = _name_in_sql(name_filters or [])
+    if name_where:
+        sql, params = f"SELECT * FROM ({sql}) AS _shared {name_where}", [*params, *name_params]
     quoted = [_quote_ident(c) for c in cols]
     select_list = ", ".join(f"CAST({c} AS VARCHAR)" for c in quoted)
     page_sql = f"SELECT {select_list} FROM ({sql}) AS _final"
@@ -824,6 +847,7 @@ def query_joined_rows(
     q: str | None,
     filters: list[FilterPredicate] | None = None,
     advanced: list[list[FilterPredicate]] | None = None,
+    name_filters: list[tuple[str, list[Any]]] | None = None,
 ) -> tuple[list[list[str | None]], int]:
     """Return ``(rows, total)`` for one page of a join over ``relations`` (the
     ordered sources ``T0, T1, …, Tn``). Each source is a ``read_parquet(?)`` leaf
@@ -848,6 +872,7 @@ def query_joined_rows(
         filters=filters,
         advanced=advanced,
         order_expr=order_expr,
+        name_filters=name_filters,
     )
     quoted_eff = [_quote_ident(c) for c in effective_columns]
     select_list = ", ".join(f"CAST({c} AS VARCHAR)" for c in quoted_eff)

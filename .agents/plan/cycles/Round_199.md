@@ -90,7 +90,7 @@ _Track: 1 (product). Pulled by: release program item 4.3
       facet check on the bar control + editor row
 - [x] **C** — `ValuesControl` / `FilterValues`, `RuntimeFilter.control`, `f.*` on `/rows`,
       `GET /queries/{id}/values`, the Filters sheet split. **BA pass 1 at Contract exit.**
-- [ ] **B** — control validation; shared-filter resolution (viewer item → saved); `f.*` parsing;
+- [x] **B** — control validation; shared-filter resolution (viewer item → saved); `f.*` parsing;
       the `/values` route; the export rows; tests
 - [ ] **F** — types, bar control, URL state, per-widget routing, reach badge, editor, share link,
       MSW, EN/VI; tests
@@ -188,8 +188,27 @@ DateRangeControl | ValuesControl` (discriminator `kind`), `FilterValues`;
   - **BA-C5 (P2)** — folded via BA-C2.
   - One more test asked for design call 4: a post-step (derived) column lists values and filters
     identically on `/rows` and `/export`.
-- **Contract fold commit** — see the next sha in `git log`; contracts 50 green, md / plan /
-  design lints 0.
+- **Contract fold (`e475f5d`)** — contracts 50 green, md / plan / design lints 0.
+- **B** — `models/common.py`: `ValuesControl` (unique `saved`), `AggregateFilter.control`;
+  `dashboards.py`: `duplicate_column`, the column unchecked against the queries (D5);
+  `params.py`: `dashboard_definition` split out of `dashboard_values` (one load serves the
+  parameter level and the shared filters); new `app/shared_filters.py`: `parse_f_keys` (raw
+  query string, split before decode, `~blank`, edges BA-C2/C5), `resolve` (viewer items →
+  saved; stale / non-targeting control ignored — BA-C1; `control_without_dashboard`,
+  `control_column`), `pairs` (skip a missing column), `applied` (the export rows);
+  `rows_reader.py`: `_name_in_terms` composes the shared filters into the dataset, joined and
+  stepped readers' own WHERE (one SQL for the drawer and the shared filter; stepped: over the
+  FINAL relation); `queries.py`: `/rows` reads `f.*`, `/aggregate` · `/totals` · `/export`
+  resolve through `_final_relation`, new `GET /queries/{id}/values` (`SELECT DISTINCT` over the
+  final relation, typed `ORDER BY`, `VALUES_MAX + 1` probe for `partial`, blank first, 422
+  `unknown_column`); `export.py`: `column | values | scope | source`. `tests/test_shared_filters.py`
+  (13): save checks, criterion 6 (targets, skip, `~blank`, cleared, before the cap), the URL
+  parsing edges, an encoded comma, a stale control (GET + POST), the refusals, aggregate /
+  totals / the drawer AND, criterion 7 (sheet rows: saved · viewer · cleared · skipped · no
+  dashboard), `/values` (blank first, numeric order, `unknown_column`, a post-step column that
+  filters identically on `/rows` and `/export`, the 1 000 cap, parameters). Backend 700 green,
+  ruff clean. Seen: under an OR predicate (`North` ∪ blank) the parquet scan does not keep file
+  order — the R171 `preserve_insertion_order` reliance; the test sorts; rolling-log row.
 
 ## Check
 
