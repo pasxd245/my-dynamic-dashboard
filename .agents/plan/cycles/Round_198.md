@@ -154,7 +154,7 @@ saying so beats an empty table that looks like "no calls". Row updated; the BA m
   values keyed by parameter name, `withParams` writes both URL dates in one history entry),
   `WidgetView.tsx` + `ChartCard.tsx` ("Data only through <max>" note under the badge),
   `params.ts` `withParams`, EN/VI (`dashboard.params.range.*`; the editor hint says a period sets
-  two). `tests/date-range-r198.test.tsx` (9); R195 tests follow the per-name keying. Builder 549
+  two). `tests/date-range-r198.test.tsx` (10, incl. MSW contract parity for the new control); R195 tests follow the per-name keying. Builder 550
   green, `tsc` clean.
 - **Visual gate (light, EN + VI; dark N/A — no theme):** real backend on an isolated data dir,
   fake `calls_demo` (Acme, 14 days), a **Weekly** dashboard with a `Period` control saved
@@ -170,7 +170,7 @@ saying so beats an empty table that looks like "no calls". Row updated; the BA m
 
 ## Check
 
-- [x] backend 677 · builder 549 · contracts 49 green; `tsc --noEmit`; `ruff check`; lints 0
+- [x] backend 677 · builder 550 · contracts 49 green; `tsc --noEmit`; `ruff check`; lints 0
 - [x] Visual gate: light (EN + VI); dark N/A (no dark theme — owner)
 - [ ] BA (contract exit + after build) · code review · QA — no open P0/P1
 - [ ] ⟢ At a glance **Studied** line written

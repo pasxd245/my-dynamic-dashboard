@@ -12,6 +12,7 @@ import { HttpResponse, http } from 'msw';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
+import { dashboardsApi } from '@/api/dashboardsApi';
 import { DashboardDetailPage } from '@/features/dashboard/DashboardDetailPage';
 import {
   DashboardParamsContext,
@@ -173,6 +174,24 @@ describe('R198 pure rules', () => {
       widgets: [w],
       controls: [{ ...some, targets: ['wdg_00000001'] }],
     });
+  });
+});
+
+describe('R198 contract parity (MSW validates the echoed definition against the contract)', () => {
+  it('accepts a date_range control saved as a preset, as a fixed pair, and beside a param control', async () => {
+    const pair: DateRangeControl = {
+      ...RANGE,
+      id: 'ctl_00000002',
+      from: 'a',
+      to: 'b',
+      saved: { from: '2026-10-01', to: { kind: 'today', offsetDays: -1 } },
+    };
+    const definition = widgetsToDefinition(
+      [widget('wdg_00000001', PERIOD_QUERY.id)],
+      [RANGE, pair, { id: 'ctl_00000003', kind: 'param', label: 'N', param: 'n', targets: 'all', saved: 5 }],
+    );
+    const echoed = await dashboardsApi.update(MOCK_DASHBOARD.id, { name: 'W', slug: 'w', definition });
+    expect(echoed.definition.controls).toEqual(definition.controls);
   });
 });
 
