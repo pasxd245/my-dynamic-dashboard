@@ -155,8 +155,8 @@
       "tooLarge": "Too many rows to export ({{rows}}; the limit is {{max}}). Narrow the filters or the query."
     },
     "params": {
-      "edit": "Parameters",
-      "editorTitle": "Dashboard parameters",
+      "edit": "Parameters & filters",
+      "editorTitle": "Dashboard parameters & filters",
       "editorHint": "Each control sets a query parameter for the widgets it targets (a period sets two: from and to), or filters them on one column (a shared filter). The saved value is what everyone sees until they change it — their change stays in the link and is never saved.",
       "noParams": "No query on this dashboard declares a parameter yet — declare one on a query page to add a parameter control. A shared filter needs none.",
       "label": "Label",
@@ -170,7 +170,7 @@
       "relativeOption": "Today ± days",
       "relative": "today {{n}} d",
       "add": "Add a control for…",
-      "savedToast": "Parameters saved.",
+      "savedToast": "Parameters & filters saved.",
       "reset": "Reset to saved",
       "copyLink": "Copy link",
       "copied": "Link copied — it opens this view.",

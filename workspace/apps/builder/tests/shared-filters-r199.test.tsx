@@ -353,6 +353,34 @@ describe('R199 dashboard bar — criterion 6 and the URL round trip', () => {
 });
 
 describe('R199 editor', () => {
+  it('re-binding a values control to another column gives it a new id, so an old f. key goes stale (BA-F4)', async () => {
+    const { posts } = serve([{ ...STAGE, saved: ['won'] }]);
+    wrap(`/dashboards/${MOCK_WORKSPACE.id}/${MOCK_DASHBOARD.slug}`);
+    await waitFor(() => expect(document.querySelector('[data-component="DashboardEditControls"]')).not.toBeNull());
+    fireEvent.click(document.querySelector('[data-component="DashboardEditControls"]') as HTMLElement);
+    await waitFor(() => expect(document.querySelector('[data-component="ValuesColumn"]')).not.toBeNull());
+    const option = '.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option[title="deal_id"]';
+    await waitFor(() => {
+      fireEvent.mouseDown(document.querySelector('[data-component="ValuesColumn"]') as HTMLElement);
+      expect(document.querySelector(option)).not.toBeNull();
+    });
+    fireEvent.click(document.querySelector(option) as HTMLElement);
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-component="ControlRow"][data-kind="values"]')?.getAttribute('data-column'),
+      ).toBe('deal_id'),
+    );
+    fireEvent.click(document.querySelector('[data-component="ControlsSave"]') as HTMLElement);
+    await waitFor(() => expect(posts.length).toBe(1));
+    const [c] = (posts[0] as { definition: { controls: ValuesControl[] } }).definition.controls;
+    expect(c.column).toBe('deal_id');
+    expect(c.id).not.toBe(CTL);
+    expect(c.id).toMatch(/^ctl_[0-9a-f]{8}$/);
+    expect('saved' in c).toBe(false); // the old column's selection does not carry over
+    // An old link to the previous id is now a stale key — dropped on load (BA-C1).
+    expect(staleFilterKeys(`?f.${CTL}=won`, [c])).toEqual([CTL]);
+  });
+
   it('adds a values control on a text column, targets all, and saves it with the dashboard', async () => {
     const { posts } = serve([]);
     wrap(`/dashboards/${MOCK_WORKSPACE.id}/${MOCK_DASHBOARD.slug}`);

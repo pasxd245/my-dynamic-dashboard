@@ -848,8 +848,11 @@ export function ControlsEditor({
                   <Select
                     showSearch
                     value={c.column}
-                    // A new column drops a saved selection made for the old one.
-                    onChange={(col: string) => set(i, { column: col, saved: undefined })}
+                    // A new column drops a saved selection made for the old one, and
+                    // takes a NEW id (BA-F4): a link holding `f.<old id>=North` then
+                    // names no control and is dropped (BA-C1) instead of applying
+                    // "North" to the new column.
+                    onChange={(col: string) => set(i, { column: col, saved: undefined, id: newControlId() })}
                     options={columns
                       .filter((col) => !otherColumns.has(col.name))
                       .map((col) => ({ value: col.name, label: col.name }))}

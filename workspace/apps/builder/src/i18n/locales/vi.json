@@ -155,8 +155,8 @@
       "tooLarge": "Quá nhiều dòng để xuất ({{rows}}; giới hạn {{max}}). Thu hẹp bộ lọc hoặc query."
     },
     "params": {
-      "edit": "Tham số",
-      "editorTitle": "Tham số của dashboard",
+      "edit": "Tham số & bộ lọc",
+      "editorTitle": "Tham số & bộ lọc của dashboard",
       "editorHint": "Mỗi điều khiển đặt một tham số truy vấn cho các widget nó áp dụng (một kỳ đặt hai tham số: từ và đến), hoặc lọc chúng theo một cột (bộ lọc dùng chung). Giá trị đã lưu là giá trị mọi người thấy cho đến khi họ đổi — thay đổi của họ chỉ nằm trong liên kết và không bao giờ được lưu.",
       "noParams": "Chưa có truy vấn nào trên dashboard này khai báo tham số — hãy khai báo trên trang truy vấn để thêm điều khiển tham số. Bộ lọc dùng chung thì không cần.",
       "label": "Nhãn",
@@ -170,7 +170,7 @@
       "relativeOption": "Hôm nay ± ngày",
       "relative": "hôm nay {{n}} ngày",
       "add": "Thêm điều khiển cho…",
-      "savedToast": "Đã lưu tham số.",
+      "savedToast": "Đã lưu tham số & bộ lọc.",
       "reset": "Về giá trị đã lưu",
       "copyLink": "Sao chép liên kết",
       "copied": "Đã sao chép liên kết — nó mở đúng chế độ xem này.",
