@@ -14,7 +14,7 @@ range) and 4.3 (shared filters) of the release program.
 **Status**: Accepted — the owner accepted D1–D7 as drafted on 2026-10-18 (design gate of item
 2.7, `Round_190`), with the view-time range as two date parameters and `backend.time_zone`
 defaulting to `UTC`. Built by 3.7, 3.8 (rc.3) and 4.2, 4.3 (rc.4). 3.7 built (Round_194–195),
-3.8 (Round_197), 4.2 (Round_198) — see § As built.
+3.8 (Round_197), 4.2 (Round_198), 4.3 (Round_199) — see § As built.
 **Domain folder**: `dashboards/` — code will land in
 [`apps/builder/src/features/dashboard/`](../../../workspace/apps/builder/src/features/dashboard/)
 (controls), the query engine
@@ -198,7 +198,8 @@ use. A query without parameters reads exactly as in rc.2 (no `resolvedParams` ke
 - A `values` control is the drawer's filter made dashboard-wide: name-based one-of on a column,
   `(blank)` = NULL or empty, sent in the existing `filters` list. Its options come from the new
   `GET /queries/{id}/values?column=` over the first targeted widget's query (distinct, capped at
-  1 000, flagged partial when capped) — not from a capped row fetch.
+  1 000, flagged partial when capped) — not from a capped row fetch. _As built (4.3): the first
+  targeted widget **whose result has the column**; see § As built (4.3)._
 - The **view-time date range** (item 4.2) is a `date_range` control: two date parameters the
   targeted queries use, typically in `between` or `gte` / `lte`. Presets ("last 7 days", "last
   month") are saved as relative values and resolved by the server; the URL always holds absolute
@@ -249,6 +250,60 @@ use. A query without parameters reads exactly as in rc.2 (no `resolvedParams` ke
   than the dataset's coverage `max` (R178) on the column it filters, the widget shows "Data only
   through <max>". It is a note, not a block; the cohort-specific rule stays in 4.5.
 
+### As built (4.3 — Round_199)
+
+- **The `values` control** is the third `kind` of the R195 union:
+  `{id, kind: values, label, column, targets, saved?}` — `column` is a result column by effective
+  name; `saved` is 1–200 unique values, `null` = `(blank)`. One `values` control per column
+  (`duplicate_column`, like one control per parameter); the column is **not** checked against the
+  targeted queries at save (D5 skips a missing column at read). A column change in the editor
+  drops the saved selection and gives the control a **new id**, so an old link's key goes stale.
+- **One engine.** A selection travels in the existing runtime `filters` list as a
+  `RuntimeFilter` item with `control: <id>` (no second engine; the drawer's name-based one-of SQL
+  applies both). The **server applies the saved selection** (D3 level 2, as R195 does for
+  parameters) to every read that names the dashboard + widget and carries no item for that
+  control; a viewer item overrides it. `GET /rows` takes the viewer selection as
+  `f.<controlId>=v1,v2` (the dashboard URL spelling) and applies the shared filters **before**
+  paging and the cap. The widget's own drawer filters AND with them (on `/rows` they stay
+  client-side, R103).
+- **Reach (D5).** A targeted widget whose result has the column is reached; one that lacks it is
+  skipped and badged "no column <column>" — the server skips the filter there too; a note is
+  never reached. An `f.` key / `control` item naming **no** `values` control of the dashboard
+  (removed since the link was copied) is **ignored**, like an unused `p.<name>`, and the builder
+  drops it from the URL on load (never re-pinned). 422 only for a `control` without a dashboard
+  (`control_without_dashboard`) or on another column (`control_column`).
+- **The URL spelling.** Split on `,` **before** percent-decoding; each token percent-decoded only
+  (`+` is a literal plus; a malformed escape stays as typed — both sides); the raw token `~blank`
+  is `(blank)` while `%7Eblank` is the literal "~blank"; `,` in a value is `%2C`; an empty token
+  is ignored; a repeated key → the last wins; `f.<id>=` (empty) = cleared — no filter and the
+  saved selection **not** applied; an absent key = the saved selection applies. The page writes
+  every URL change (a `p.*` change, Reset, Copy link, an `f.*` change) through **one raw writer**
+  that keeps the `f.*` bytes (never re-serialised by `URLSearchParams`). Copy link pins every
+  values control (the viewer's selection as it is, else the saved one, else `f.<id>=`); Reset to
+  saved drops every `p.*` and `f.*`.
+- **Options.** `GET /queries/{id}/values?column=` reads `SELECT DISTINCT` over the **final**
+  (post-step) relation: blank first, then ascending in the column's own order (numbers
+  numerically, dates chronologically, text lexically), the first 1 000 with `partial` when more
+  exist ("First 1 000 values" under the select and in the open list's footer). Parameters resolve
+  as on `/rows`; no runtime filter applies (no cascading, not its own saved). The bar reads them
+  over the **first targeted widget whose result has the column**, with that widget's parameter
+  context; none → the select is disabled, "No targeted widget has column X".
+- **Export (D7).** The Filters sheet's filter rows are `column | values | scope | source`:
+  `widget filter` (source empty) for the drawer's, `dashboard filter <label>` with `viewer` or
+  `dashboard` for a shared one. A **cleared** shared filter and a **skipped** one (the result
+  lacks the column) are not listed — neither filtered anything (owner question: list the
+  skipped one?).
+- **Order.** A **filtered** single-source read pages `ORDER BY file_row_number` (and the
+  single-source export lists in that order): an `IN` list or an `OR … IS NULL` term made the scan
+  lose file order (R199 CR-1, which also covered the definition `in` atom). The unfiltered scan
+  keeps the R172 behaviour.
+- Not built (rolling log): the widget-builder preview does not carry a values control targeting
+  all (BA-F5); the reach badge reads `resolvedColumns`, so a widget whose join/steps no longer
+  resolve can be badged from its pre-step columns (BA-F6); `/aggregate` filters a stepped query
+  pre-step (API-only — the builder never server-aggregates one, R127); the MSW `/rows` ignores
+  `f.*`; VI "(blank)" on the chart axis / drawer / XLSX (only the bar's tag says "(trống)");
+  stepped and joined exports list without an `ORDER BY`.
+
 ### As built (4.2 — Round_198)
 
 - **The `date_range` control** is a `kind`-keyed sibling of the R195 `param` control:
@@ -271,7 +326,7 @@ use. A query without parameters reads exactly as in rc.2 (no `resolvedParams` ke
   carry no coverage, so no note there. A lower bound never notes.
 - **Metadata (3.8)** anchors a dashboard or widget note to the two resolved dates (not the preset).
 - Not built (rolling log): an endpoint for "today" (a viewer's preset is browser-side); coverage on
-  joined effective columns; the `values` control (4.3).
+  joined effective columns. (The `values` control was built by 4.3 — § As built (4.3).)
 
 ### As built (3.8 — Round_197)
 

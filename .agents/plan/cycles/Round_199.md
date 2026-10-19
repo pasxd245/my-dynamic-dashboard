@@ -7,7 +7,38 @@
 
 ## ⟢ At a glance
 
-_(authored at the Review → Complete flip)_
+**Shipped** — one filter for several widgets.
+
+- A `values` control binds one result column; the editor picks the widgets it reaches and may
+  save a selection, which the **server** applies to every read of a targeted widget. A viewer
+  picks values in the bar; every targeted widget whose result has the column re-reads, ANDed
+  with its own drawer; a widget without the column is badged "Team skipped" and renders (D5).
+- The selection lives in the URL (`?f.<id>=North,South`, `~blank` for `(blank)`, `f.<id>=` =
+  cleared) and travels in the existing `filters` list — one engine. Copy link pins it, Reset to
+  saved drops it, an old link to a removed control still opens and loses its key.
+- Options come from the new `GET /queries/{id}/values` (distinct over the whole result, blank
+  first, in the column's own order, "First 1 000 values" when capped). The export's Filters sheet
+  says which filter was the dashboard's (`dashboard filter Team · viewer | dashboard`) and which
+  the widget's.
+- Backend 705 · builder 581 · contracts 50; BA (both passes) PASS, QA PASS, code review CHANGES →
+  one P1 fixed; the owner's walk W1–W17 is open.
+
+**Studied** _(predicted → saw → now believe)_ — predicted the hard part was the URL: a comma
+list split before decoding, with a raw `~blank`, surviving every write on a page that wrote
+through `URLSearchParams`. BA pass 1 caught exactly that before code (BA-C2) and the one raw
+writer held through the reviews. Saw: the P1 was in the **SQL**, not the URL — a two-value or
+blank filter made DuckDB drop file order on the single-source scan, so pages overlapped past
+~130k rows. My own test sorted its rows to pass and I logged the symptom as an "order quirk";
+the code reviewer's 400k-row probe made it a defect. R171 had named this reliance as a risk. Now
+believe (high confidence — third incident on a third read path): an order the engine happens to
+keep is not an order; page and list with an explicit `ORDER BY`, and treat "the test needed
+`sorted()`" as a finding. Promoted this round.
+
+**Watch** — the two owner questions (two values controls on one column; list a skipped shared
+filter in the export); the stepped / joined exports list without an `ORDER BY`; `/aggregate`
+filters a stepped query pre-step (API-only); the widget-builder preview ignores an all-targeting
+values control; the reach badge on a widget whose join / steps no longer resolve; VI "(blank)"
+outside the bar; the MSW `/rows` ignores `f.*`.
 
 ## Goal
 
@@ -95,7 +126,8 @@ _Track: 1 (product). Pulled by: release program item 4.3
 - [x] **F** — types, bar control, URL state, per-widget routing, reach badge, editor, share link,
       MSW, EN/VI; tests
 - [x] **I** — visual gate (light EN + VI; dark N/A — no theme)
-- [ ] Reviews: code review + QA in parallel, then BA pass 2; every P0/P1 fixed
+- [x] Reviews: code review + QA in parallel, then BA pass 2; every P0/P1 fixed (CR re-check of
+      CR-1..CR-5 at `588104b` pending)
 
 ## Risks / unknowns
 
@@ -289,28 +321,119 @@ source` columns), visual gate light EN 6/6 · VI 6/6; 37 adversarial tests hande
   `ORDER BY` (the stepped `/rows` path orders by `_page_order_sql`, the joined by `_ORD`; the
   export of either does not) — outside this item's defect, a P2 candidate.
 
+- **BA pass 2 (`468befe..42abfd2`): PASS, conditional on CR-1** (fixed in `588104b`) — criteria 6
+  and 7 (filters), scope, URL round trip, `/values` cap, save checks, byte-identical old
+  dashboards and the falsifiers verified; BA-C1..C5 and the derived-column test closed in code.
+  P2 ×6: BA-F1 the design doc untrue (§ As built (4.2) still said "values control not built", D4
+  named the first targeted widget's query, no § As built (4.3)); BA-F2 VI "(blank)" on the chart
+  axis / drawer / XLSX while the bar says "(trống)"; BA-F3 the shared filter is edited under
+  "Parameters"; BA-F4 re-binding a control to another column kept its id, so an old link's
+  `f.<id>=North` filtered the new column to zero rows; BA-F5 the widget-builder preview ignores
+  an all-targeting values control; BA-F6 the reach badge reads `resolvedColumns`, so a widget whose
+  join / steps no longer resolve is badged from its pre-step columns. Walk script W1–W17 below.
+- **BA pass 2 folds (`f746168`)** — BA-F4: a column change in the editor drops the saved
+  selection and gives the control a **new id** (the old key goes stale → the BA-C1 path); tested
+  (re-bind → the PUT carries a new id, no `saved`, the old key is stale). BA-F3: the header
+  button, the editor title and the saved toast say "Parameters & filters" / "Tham số & bộ lọc".
+  BA-F1 in the close-out docs commit (design doc § As built (4.3), the stale lines fixed). BA-F2
+  (contained only if `BLANK_LABEL` stops being the drawer's filter sentinel — not cheap), BA-F5,
+  BA-F6 → rolling log. Builder touched files 56 green, `tsc` clean; full builder suite 581 green (detached).
+
 ## Check
 
-- [ ] backend · builder · contracts green; `tsc --noEmit`; `ruff check`; lints 0
-- [ ] Visual gate: light (EN + VI); dark N/A (no dark theme — owner)
-- [ ] BA (contract exit + after build) · code review · QA — no open P0/P1
-- [ ] ⟢ At a glance **Studied** line written
-- [ ] **Acceptance walk** (human reviewer) — ⬜ verdicts, `coverage: 0 of N`; script from the BA
-      (pass 2)
+- [x] backend 705 · builder 581 · contracts 50 green; `tsc --noEmit`; `ruff check`; md / plan /
+      design lints 0; M3 guard over `468befe..HEAD` empty
+- [x] Visual gate: light (EN + VI) — coder's run (`scratchpad/r199/shots/`, 10) and QA's (EN 6/6 ·
+      VI 6/6, `scratchpad/r199/qa-shots/`); dark N/A (no dark theme — owner)
+- [ ] BA (contract exit + after build) · code review · QA — no open P0/P1 — **CR re-check
+      pending** (CR-1..CR-5 at `588104b`); BA pass 1 CHANGES → folded (`e475f5d`), BA pass 2 PASS
+      (conditional on CR-1), QA PASS, code review CHANGES → CR-1 fixed (`588104b`)
+- [x] ⟢ At a glance **Studied** line written
+- [ ] **Acceptance walk** (human reviewer) — ⬜ verdicts, `coverage: 0 of 17`. Light theme, fake
+      data only. Walk script drafted by the BA (pass 2):
+  - ⬜ W1 Setup — new workspace; fake `calls_demo.csv` (~60 rows: id, team, agent, amount, day;
+    team = North, South, West, blank cells, one "Ops, East", one literal "~blank"); `codes.csv`
+    (id, code; 1 001 distinct codes). Queries: "Calls" (all columns; declares `as_of` date, default
+    today, used as day ≤ as_of); "Agents only" (select step dropping team); "Codes". Dashboard
+    "Weekly": bar "Calls by team" (Calls); table "Calls (table)" (Calls, amount total); stat "All
+    agents" (Agents only); stat "Untargeted total" (Calls); table "Codes". Add an "As of" parameter
+    control.
+  - ⬜ W2 Editor add — Parameters → Add → "Values (a shared filter)": label input, "filters
+    column", column picker defaulting to a text column. Column team, label "Team"; Targets "Chosen
+    widgets" pre-fills widgets whose result has team; add "All agents", remove "Untargeted total".
+    Saved value list: "(blank)" first, then values; pick North → Save.
+  - ⬜ W3 Saved state — bar "Team [North ▾]", no outline, no "Reset to saved", URL has no `f.`.
+    Bar + table show North only, table footer total = North rows; both carry a "Team" tag.
+    "Untargeted total" has no tag and counts every row.
+  - ⬜ W4 Skip badge — "All agents" shows "Team skipped"; tooltip "This widget's result has no
+    column team, so the filter does not change it."; renders normally.
+  - ⬜ W5 Viewer pick — select lists "(blank)" first then alphabetical; pick South + (blank),
+    deselect North → URL `?f.ctl_…=South,~blank`, control outlined, "Reset to saved" appears; table
+    rows keep id order (CR-1).
+  - ⬜ W6 URL round trip — F5: same tags, same numbers, still outlined.
+  - ⬜ W7 Clear — select ✕ → placeholder "All values", URL `f.ctl_…=` (empty); every targeted
+    widget unfiltered, North does NOT come back; reload keeps it.
+  - ⬜ W8 Reset — "Reset to saved": `f.` key leaves the URL, North back, outline gone.
+  - ⬜ W9 Special values — pick "Ops, East" → URL `Ops%2C%20East`, reload shows one tag "Ops,
+    East". Open `…?f.<id>=%7Eblank` → one tag "~blank", only the literal-~blank row. Open
+    `…?f.<id>=~blank` → one tag "(blank)", blank-team rows.
+  - ⬜ W10 `p.*` and `f.*` together — with Team = South,(blank), change As of → only `p.as_of`
+    changes; `f.` part byte-for-byte unchanged.
+  - ⬜ W11 Copy link — new tab: same selection and numbers; link has `f.<id>=…` and
+    `p.as_of=<absolute date>`.
+  - ⬜ W12 Stale link — copy a link with `f.<id>=South`; remove the Team control, Save; open the
+    old link → no error, widgets unfiltered, URL loses the `f.` key. Re-add Team (saved North).
+  - ⬜ W13 Drawer AND — Team = South; funnel drawer of "Calls (table)" offers only South-row
+    options; pick one agent → South AND that agent; drawer filter not in the URL.
+  - ⬜ W14 Partial list — values control on `code` targeting "Codes" → "First 1 000 values" in
+    the open list's footer and under the closed select.
+  - ⬜ W15 Export — "Calls (table)" ⤓ Excel → Filters sheet header `column | values | scope |
+source`: viewer South,(blank) → `team | South, (blank) | dashboard filter Team | viewer`;
+    after Reset → `team | North | dashboard filter Team | dashboard`; with a drawer filter → extra
+    `agent | … | widget filter |`; cleared (W7) → no team row, "— | no filter".
+  - ⬜ W16 Editor guards — second values control's column picker does not offer team; a values
+    control on a column no targeted widget has → select disabled "No targeted widget has column
+    X." and every target badged skipped.
+  - ⬜ W17 VI + old dashboards — VI: "(trống)", placeholder "Mọi giá trị", "Bỏ qua Team" +
+    tooltip "Kết quả của widget này không có cột team, nên bộ lọc không thay đổi nó.", editor
+    "Giá trị (bộ lọc dùng chung)" / "lọc cột", "1 000 giá trị đầu tiên". Then a dashboard saved
+    before R199 looks and reads as before.
+  - _Walk note (BA-F3 folded after the script was drafted): the header button now reads
+    "Parameters & filters" (VI "Tham số & bộ lọc") where W2 says "Parameters"._
 
 ## Act
 
-_(at close-out: rolling-log rows, promotion check, prune check)_
-
-- **Owner questions** (carried to the rolling log at close-out): (1) should two `values`
-  controls on one column with disjoint targets be allowed (built: refused, `duplicate_column`)?
-  (2) should the export's Filters sheet list a _skipped_ shared filter as "skipped: no column"
-  (built: unlisted — it filtered nothing; BA-C4)?
-- **Rolling-log rows (at close-out):** CR-3 (MSW `/rows` ignores `f.*`; no mock applies a
-  control's `saved`); QA-2 (`/aggregate` over the pre-step relation of a stepped query,
-  API-only); the stepped / joined export without an `ORDER BY` (P2 candidate); the R171
-  `preserve_insertion_order` reliance now holds only for the UNFILTERED single-source scan.
+- **Rolling log** ([release-rc2-rc5.plan.md § Rolling log](../programs/release-rc2-rc5/release-rc2-rc5.plan.md)):
+  CR-1 (fixed; the R171 reliance now holds only for the unfiltered single-source scan); the
+  stepped / joined exports without an `ORDER BY` (P2 candidate); CR-3 (MSW `/rows` ignores
+  `f.*`); QA-2 (`/aggregate` pre-step on a stepped query, API-only); BA-F5 (builder preview
+  ignores an all-targeting values control); BA-F6 (reach badge from `resolvedColumns` on a
+  widget whose join / steps no longer resolve); BA-F2 (VI "(blank)" outside the bar); the two
+  owner questions.
+- **Owner questions**: (1) should two `values` controls on one column with disjoint targets be
+  allowed (built: refused, `duplicate_column`)? (2) should the export's Filters sheet list a
+  _skipped_ shared filter as "skipped: no column" (built: unlisted — it filtered nothing; BA-C4)?
+- **Promotion: yes — "an order the engine happens to keep is not an order".** Third incident on
+  a third read path (R165 W-7 stepped, R172 joined, R199 CR-1 filtered single-source), and R171
+  had named this exact reliance as a risk. Per the in-round rule (rc3 § Execution): new memory
+  [`2026-10-19-explicit-order-not-engine-default`](../../memory/2026-10-19-explicit-order-not-engine-default.md)
+  and `review-cr` item 13 (an `ORDER BY` on a stable key for every paged read / listing, or a
+  written reason + guard; a test that `sorted()` its rows is a finding; probe at ≥ 130k rows);
+  logged in [`promotions.md`](../promotions.md). R198's candidate ("a two-binding control needs
+  its editor tested for the swap") did not recur: the values control binds one column; its
+  editor's rebind (BA-F4) is the nearest cousin — a binding change must not keep identifiers the
+  URL already holds — kept as a candidate, not promoted.
+- **Prune check:** every role found something only it found — BA pass 1 the URL-writer defect
+  before any code (BA-C2) and the stale-link rule (BA-C1); code review the P1 (CR-1) by probing
+  at scale; QA the same symptom in a browser (graded P2) and the closed-list note (QA-3); BA pass
+  2 the doc drift (BA-F1) and the rebind (BA-F4). Nothing to prune. The contract-exit pass ran
+  before code this round (the R198 harness gap closed by the orchestrator relay).
+- **agents.csv** row appended.
 
 ## Feeds into → Round_200
 
-Item 4.4 — definition history (migration, `GET /{kind}/{id}/history`), after 4.3 is in Review.
+Item 4.4 — definition history (migration, `GET /{kind}/{id}/history`; rc4.md § 4.4), after 4.3
+is in Review. Hand-over: a dashboard definition now holds three control kinds and a column change
+mints a new control id — 4.4's history rows store whole definitions, so a restored old definition
+brings its old control ids back (links made since then go stale and are dropped, BA-C1). The
+`review-cr` checklist has item 13 (explicit order).

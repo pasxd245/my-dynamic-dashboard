@@ -59,6 +59,13 @@ metadata:
     criterion.
 12. **Scope** — nothing in the diff belongs to the next rc's items or changes an accepted shape
     (D-points, decisions 1–14) — the latter is a P0 and a hard stop.
+13. **Explicit order** — every paged read (`LIMIT/OFFSET`) and every row listing (an export, an
+    unpaged widget read) the diff adds or changes has an `ORDER BY` on a stable key, or a comment
+    naming why it may omit one and the test that guards it. An engine default
+    (`preserve_insertion_order`) is not an order: an `IN` list, an `OR … IS NULL`, a join or an
+    aggregate can drop it once DuckDB parallelises (R165 W-7, R172, R199 CR-1). A test that
+    `sorted()` its rows to pass is a finding. Probe at ≥ 130k rows. Memory:
+    [explicit-order-not-engine-default](../../memory/2026-10-19-explicit-order-not-engine-default.md).
 
 ## Output
 

@@ -62,7 +62,8 @@ _Re-based on the accepted design 2026-10-18. Built `Round_198` (2026-10-19) — 
 | Depends on | 3.7b (controls bar)                                                                                        |
 | Design     | [`dashboards/dashboard-filters.md`](../../../design/dashboards/dashboard-filters.md) D4, D5, D7 (Accepted) |
 
-_Re-based on the accepted design 2026-10-18._
+_Re-based on the accepted design 2026-10-18. Built `Round_199` (2026-10-19) — see
+[`dashboard-filters.md` § As built (4.3)](../../../design/dashboards/dashboard-filters.md)._
 
 - **Contract:** a `values` control (`kind: values`, `column`, `targets: "all" | [widgetId]`,
   `saved?`) in `DashboardDefinition.controls`; options from the new `GET

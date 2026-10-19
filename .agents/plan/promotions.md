@@ -410,3 +410,21 @@ first (per `2026-08-15-walk-record-always-spec-on-ask`). Track 2
 **Promoted by**: Vien Pham Quang (2026-10-18, the M1.1–M1.2 brief: "the lessons
 of R191–R197 get promoted to memory"; files drafted by the coding agent, human
 review on merge to `main`).
+
+## 2026-10-19: Explicit order, not an engine default → `.agents/memory/` + `skills/review-cr` item 13
+
+**What**: (1) new
+[`2026-10-19-explicit-order-not-engine-default.md`](../memory/2026-10-19-explicit-order-not-engine-default.md)
+— a paged read or a row listing needs an explicit `ORDER BY`; three measured incidents on three
+read paths (R165 W-7 stepped, R172 joined, R199 CR-1 filtered single-source), the third named in
+advance by R171. (2) item 13 of [`review-cr`](../skills/review-cr/SKILL.md): every paged read /
+listing the diff touches has an `ORDER BY` on a stable key or a written reason + guard test; a
+test that `sorted()` its rows is a finding; probe at ≥ 130k rows.
+**Rationale**: the in-round rule of
+[rc3.md § Execution](programs/release-rc2-rc5/rc3.md#execution--the-four-role-loop-from-2026-10-18)
+— a lesson that recurs a second time is promoted in that round. R199's own coder logged the
+symptom as an order quirk and its first test sorted the rows; the code reviewer's large-scale
+probe found the P1. The checklist item is the smallest mechanism that makes the next reviewer ask
+before the probe. No lint. Track 2 (agent-method), artifact-only.
+**Promoted by**: drafted by the coding agent in Round_199 under the standing rc3 § Execution rule
+(human, 2026-10-18); human review on merge to `main`.
