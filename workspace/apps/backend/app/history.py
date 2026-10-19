@@ -128,12 +128,21 @@ def entries(con: sqlite3.Connection, kind: str, noun_id: str) -> list[dict]:
     return [_entry(r) for r in rows]
 
 
-def version_row(con: sqlite3.Connection, kind: str, noun_id: str, version: str) -> tuple[dict, dict] | None:
-    """The newest row with that version — `(entry, stored definition)` — or None."""
+def version_row(
+    con: sqlite3.Connection, kind: str, noun_id: str, version: str, seq: int | None = None
+) -> tuple[dict, dict] | None:
+    """The newest row with that version — or, with `seq`, that row when it carries
+    the version — as `(entry, stored definition)`, else None. A restored version
+    occurs more than once; `seq` names the row the reader clicked, so its own
+    `changedAt` is the one `source_changed_since` compares (R200 visual gate)."""
+    where = "WHERE kind = ? AND noun_id = ? AND version = ?"
+    args: tuple = (kind, noun_id, version)
+    if seq is not None:
+        where += " AND seq = ?"
+        args = (*args, seq)
     row = con.execute(
-        f"SELECT {_ENTRY_COLS}, definition_json FROM definition_history "  # noqa: S608 — constants only
-        "WHERE kind = ? AND noun_id = ? AND version = ? ORDER BY seq DESC LIMIT 1",
-        (kind, noun_id, version),
+        f"SELECT {_ENTRY_COLS}, definition_json FROM definition_history {where} ORDER BY seq DESC LIMIT 1",  # noqa: S608 — constants only
+        args,
     ).fetchone()
     if row is None:
         return None

@@ -32,6 +32,11 @@ put it back. The previous definition was gone the moment a PUT landed.
   is the hash, and a restored version appears twice. The version route takes
   the hash (the item spec's `{version}`) and answers the newest row with it —
   every row with one hash holds the same definition.
+- **`?seq=` on the version read** (added at the R200 visual gate). The hash
+  identifies a definition, but a restored version has several rows with
+  different times; the drawer asks for the row the user clicked, so the
+  answer's `seq`, `changedAt` and a query's `sourceChangedSince` are that
+  row's. Without `seq`, the newest row with the hash (the item spec's form).
 - **The list carries no definitions.** It stays light for a long history; the
   version route returns one definition when the reader asks for it.
 - **`current` beside `entries`.** The reader marks the current row by

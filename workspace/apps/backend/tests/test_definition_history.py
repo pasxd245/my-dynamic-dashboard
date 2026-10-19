@@ -334,6 +334,32 @@ def test_source_changed_since_flags_a_query_version_whose_dataset_was_refreshed_
 
 
 @pytest.mark.unit
+def test_seq_names_the_clicked_row_of_a_repeated_version() -> None:
+    """A version saved before a refresh and saved again after it: the flag is the
+    CLICKED row's (`?seq=`), not the newest row's; a seq without that version 404s."""
+    with TestClient(app) as client:
+        ws, ds, cols, qid, _dsh, _wf = _three(client)
+        v1 = _history(client, "queries", qid)["current"]
+        client.put(f"/queries/{qid}", json={"definition": _filter(cols, "South")})
+        _backdate("query", qid)  # #1 and #2 saved long ago …
+        _refresh(client, ws, ds)  # … the source refreshed now …
+        client.put(f"/queries/{qid}", json={"definition": _filter(cols, "North")})  # … #3 = #1's definition, now
+        newest = _version(client, "queries", qid, v1).json()
+        clicked = client.get(f"/queries/{qid}/history/{v1}?seq=1")
+        wrong = client.get(f"/queries/{qid}/history/{v1}?seq=2")
+        bad = client.get(f"/queries/{qid}/history/{v1}?seq=0")
+
+    assert newest["seq"] == 3 and newest["sourceChangedSince"] is False
+    assert clicked.status_code == 200
+    validate_response(
+        "queries/history-get.contract.yaml", 200, clicked.json(), route="/queries/{id}/history/{version}"
+    )
+    assert clicked.json()["seq"] == 1 and clicked.json()["sourceChangedSince"] is True
+    assert wrong.status_code == 404
+    assert bad.status_code == 422
+
+
+@pytest.mark.unit
 def test_a_baseline_row_counts_any_refresh_and_a_missing_source_counts() -> None:
     with TestClient(app) as client:
         ws, ds, _cols, qid, _dsh, _wf = _three(client)

@@ -95,6 +95,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Id'
         - $ref: '../_shared/history.yaml#/components/parameters/Version'
+        - $ref: '../_shared/history.yaml#/components/parameters/Seq'
       responses:
         '200':
           description: |

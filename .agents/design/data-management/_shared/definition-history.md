@@ -156,8 +156,10 @@ It opens a right-hand `<Drawer>` (width 520).
   nothing changes; the raw `detail[]` never reaches the toast (it goes to the console; BA-C9).
 
 - **Labels are the clicked row's.** The JSON panel title, the confirm and the toast name the
-  `#seq` of the row the user clicked, never the `seq` the version read answers (that is the
-  newest row with the hash, which can be another row).
+  `#seq` of the row the user clicked; the drawer reads the version **with that row's `seq`**
+  (`?seq=`), so the answer — and a query's `sourceChangedSince` — is that row's, not the
+  newest row with the same hash (found at the R200 visual gate: a version saved before a
+  refresh and again after it read "no change since" from the later row).
 
 **Delete confirms** (query, dashboard, workflow) say what goes with the noun: "… and its N
 saved versions" (BA-C8), N from the history list (the line is left out while it loads or when
@@ -211,11 +213,12 @@ system`, BA-C4), of the `backend.metadata_tokens` entry whose token the request 
   version now; `entries` newest first by `seq` (`ORDER BY seq DESC`), each
   `{seq, version, change, changedAt, changedBy, changedSource}` — both writer fields always
   present, `null` when not recorded. No definitions in the list (it stays light); no paging (named trigger below).
-- `GET /{kinds}/{id}/history/{version}` → the newest row with that version, plus its stored
-  `definition` (parsed JSON, as stored). Read-only: there is no write route.
+- `GET /{kinds}/{id}/history/{version}[?seq=]` → the newest row with that version — or, with
+  `seq`, that row (404 when it does not carry the version) — plus its stored `definition`
+  (parsed JSON, as stored). Read-only: there is no write route.
 - **`sourceChangedSince`** (queries only; absent for the other kinds) — `true` when a dataset
   the version reads changed after the row was saved: its `refreshedAt` is later than the row's
-  `changedAt`. The datasets are those of the **stored** definition — the query's `ds_` source
+  `changedAt` (the asked row's — `seq`). The datasets are those of the **stored** definition — the query's `ds_` source
   and the `ds_` ends of its joins; a `qr_` source or end counts through the leaf datasets of
   that query's current definition. For a `baseline` row the time the definition was written is
   unknown, so any source dataset ever refreshed (`dataVersion > 1`) counts. A source dataset

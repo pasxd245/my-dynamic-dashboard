@@ -63,6 +63,23 @@ components:
         restored:
           value: '3f1c9a0b7d2e'
 
+    Seq:
+      name: seq
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+      description: |
+        R200 (visual gate) — the row the reader clicked. A restored version
+        occurs more than once; with `seq` the read answers THAT row (404 when
+        it does not carry the version), so its `seq`, `changedAt` and — for a
+        query — `sourceChangedSince` are the clicked row's. Without it, the
+        newest row with the version.
+      examples:
+        first:
+          value: 1
+
   schemas:
     HistoryKind:
       type: string

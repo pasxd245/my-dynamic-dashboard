@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Query, status
 from fastapi import Path as FastApiPath
 from fastapi.responses import JSONResponse
 
@@ -28,6 +28,8 @@ QueryIdPath = Annotated[str, FastApiPath(pattern=ID_PATTERNS["query"])]
 DashboardIdPath = Annotated[str, FastApiPath(pattern=ID_PATTERNS["dashboard"])]
 WfIdPath = Annotated[str, FastApiPath(pattern=ID_PATTERNS["workflow"])]
 VersionPath = Annotated[str, FastApiPath(pattern=r"^[0-9a-f]{12}$")]
+# The clicked row (a version can occur more than once); absent → the newest row with it.
+SeqQuery = Annotated[int | None, Query(ge=1)]
 
 
 def _not_found() -> JSONResponse:
@@ -43,11 +45,11 @@ def _list(kind: str, noun_id: str) -> JSONResponse:
     return JSONResponse(status_code=status.HTTP_200_OK, content=body)
 
 
-def _version(kind: str, noun_id: str, version: str) -> JSONResponse:
+def _version(kind: str, noun_id: str, version: str, seq: int | None) -> JSONResponse:
     with get_conn() as con:
         if history.current_version(con, kind, noun_id) is None:
             return _not_found()
-        found = history.version_row(con, kind, noun_id, version)
+        found = history.version_row(con, kind, noun_id, version, seq)
         if found is None:
             return _not_found()
         entry, definition = found
@@ -64,9 +66,9 @@ def query_history(id: QueryIdPath) -> JSONResponse:  # noqa: A002
 
 
 @router.get("/queries/{id}/history/{version}")
-def query_history_version(id: QueryIdPath, version: VersionPath) -> JSONResponse:  # noqa: A002
+def query_history_version(id: QueryIdPath, version: VersionPath, seq: SeqQuery = None) -> JSONResponse:  # noqa: A002
     """One past definition of a query, read-only, with `sourceChangedSince`."""
-    return _version("query", id, version)
+    return _version("query", id, version, seq)
 
 
 @router.get("/dashboards/{id}/history")
@@ -76,9 +78,9 @@ def dashboard_history(id: DashboardIdPath) -> JSONResponse:  # noqa: A002
 
 
 @router.get("/dashboards/{id}/history/{version}")
-def dashboard_history_version(id: DashboardIdPath, version: VersionPath) -> JSONResponse:  # noqa: A002
+def dashboard_history_version(id: DashboardIdPath, version: VersionPath, seq: SeqQuery = None) -> JSONResponse:  # noqa: A002
     """One past definition of a dashboard, read-only."""
-    return _version("dashboard", id, version)
+    return _version("dashboard", id, version, seq)
 
 
 @router.get("/workflows/{id}/history")
@@ -88,6 +90,6 @@ def workflow_history(id: WfIdPath) -> JSONResponse:  # noqa: A002
 
 
 @router.get("/workflows/{id}/history/{version}")
-def workflow_history_version(id: WfIdPath, version: VersionPath) -> JSONResponse:  # noqa: A002
+def workflow_history_version(id: WfIdPath, version: VersionPath, seq: SeqQuery = None) -> JSONResponse:  # noqa: A002
     """One past definition of a workflow, read-only."""
-    return _version("workflow", id, version)
+    return _version("workflow", id, version, seq)
