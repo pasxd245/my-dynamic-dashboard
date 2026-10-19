@@ -1,6 +1,6 @@
 # Round 200: definition history (item 4.4)
 
-**Status**: In Progress
+**Status**: Review
 **Flow**: **DCFBI** — set at the Design gate via `flow-selector` (see Do).
 **Date started**: 2026-10-19
 **Date completed**: —
@@ -442,9 +442,9 @@ baseline`), `HistoryEntry` `{seq, version, change, changedAt, changedBy}` (`chan
 - [x] Visual gate: light (EN + VI) — coder `scratchpad/r200/shots/` (13), `scratchpad/r200/shots2/`
       (8: baseline row, source warning, refused restore, dashboard confirm, VI restored toast, the
       note back after restoring back) and QA's `qa2`; dark N/A (no theme — owner)
-- [ ] BA · code review · QA — no open P0/P1: code review PASS (`71c911c`), QA PASS; BA pass 1
-      CHANGES → folded (`d18e023`); BA pass 2 CHANGES (BA-F1 P1) → folded in the BA pass 2 fold
-      commit — **BA re-check of BA-F1 pending**
+- [x] BA · code review · QA — no open P0/P1: code review PASS (`71c911c`), QA PASS; BA pass 1
+      CHANGES → folded (`d18e023`); BA pass 2 CHANGES (BA-F1 P1) → folded (`399991e`); BA re-check
+      at `b495ee0` PASS (BA-F1..F6 closed; BA-F7 P2 walk wording, folded into W8)
 - [x] ⟢ At a glance **Studied** line written
 - [ ] **Acceptance walk** (human reviewer) — ⬜ verdicts, `coverage: 0 of 14`. Light theme, fake
       data only. Walk script drafted by the BA (pass 2), verbatim; W8's Metadata line is fixed
@@ -459,7 +459,7 @@ baseline`), `HistoryEntry` `{seq, version, change, changedAt, changedBy}` (`chan
   - ⬜ W5 Source warning: refresh calls_demo with a fake file dropping `agent`; Restore #2 → yellow "The data source changed after this version was saved; column positions may differ — check the filters after restoring."; Cancel. Edit once (#4), once more (#5); Restore #4 → no warning; Cancel.
   - ⬜ W6 "Technical definition (JSON)" on #2 → "#2 — technical definition (JSON), read-only", read-only JSON; second click closes. No row shows an AI label.
   - ⬜ W7 Dashboard "Weekly": add a "Read me" text widget in the app (#2); with the token, write a note on that widget via API, and add a filter control via API (#3) → History #3 "· report-agent", #2, #1 "History started".
-  - ⬜ W8 Select the new filter, copy the viewer link; Restore #1 → confirm has the links line and the widget-notes line → toast "Restored #1 as #4"; Read me gone; the Metadata panel no longer lists the note (no `wdg_…` id); the copied link opens without that selection.
+  - ⬜ W8 Select the new filter, copy the viewer link; Restore #1 → confirm reads "Viewer links that name filters this version lacks will open without those selections. Notes on widgets this version lacks are set aside and come back if you restore a version that has the widget." → toast "Restored #1 as #4"; Read me gone; the Metadata panel no longer lists the note (no `wdg_…` id); the copied link opens without that selection.
   - ⬜ W9 Restore #3 → Read me back, its ⓘ popover shows the same note, "AI", report-agent; History shows "Same as #3".
   - ⬜ W10 Refused restore: add a widget on a new query "Agent calls", remove the widget, delete the query; restore the version that had it → red toast "This version can no longer be saved: it does not fit the current data or queries."; no new row; page unchanged.
   - ⬜ W11 "Already current": dashboard History open in tab A; in tab B restore #1; within 60 s restore #1 in tab A → "#1 is already the current definition; nothing was saved."
