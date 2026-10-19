@@ -41,12 +41,15 @@ export function readPackText(text: string, sizeBytes: number = text.length): Pac
   };
 }
 
-/** `<workspace>-definitions-<YYYY-MM-DD>.json` — characters a file system
+/** `<workspace>-definitions-<YYYY-MM-DD>.json` (the local date) — characters a file system
  *  refuses (and control characters) become `_`; letters of any script stay. */
 export function packFileName(workspaceName: string, now: Date = new Date()): string {
   // eslint-disable-next-line no-control-regex
   const safe = workspaceName.replace(/[\u0000-\u001f\u007f/\\:*?"<>|]/g, '_').trim() || 'workspace';
-  const day = now.toISOString().slice(0, 10);
+  // CR-5 — the user's own calendar day, not UTC's (an evening export east of UTC
+  // would otherwise carry tomorrow's date).
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const day = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
   return `${safe}-definitions-${day}.json`;
 }
 

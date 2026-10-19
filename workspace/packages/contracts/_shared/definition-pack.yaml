@@ -222,7 +222,9 @@ components:
         `check_failed`) or `deferred` (`awaits_publish`, `needs`). `detail`
         carries the name it is about — the slug, the dataset, the noun needed —
         or, for `check_failed`, the save check's own message; `via` the
-        publishing workflow of `awaits_publish`.
+        publishing workflow of `awaits_publish`. On an `exists` conflict,
+        `detail` (when present) names a conflicting noun it also reads — its own
+        conflict is reported first (QA-1).
 
     PlanItem:
       type: object

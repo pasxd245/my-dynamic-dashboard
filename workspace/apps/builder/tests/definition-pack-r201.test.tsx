@@ -171,6 +171,18 @@ describe('R201 pack rules (pure)', () => {
     expect(packFileName('   ', day)).toBe('workspace-definitions-2026-10-19.json');
   });
 
+  it('names the file with the local date, not UTC (CR-5)', () => {
+    const tz = process.env.TZ;
+    process.env.TZ = 'Asia/Ho_Chi_Minh'; // UTC+7, no DST
+    try {
+      // 20:00 UTC on the 19th is 03:00 on the 20th here.
+      expect(packFileName('Acme', new Date('2026-10-19T20:00:00Z'))).toBe('Acme-definitions-2026-10-20.json');
+    } finally {
+      if (tz === undefined) delete process.env.TZ;
+      else process.env.TZ = tz;
+    }
+  });
+
   it('finds where two column lists first part', () => {
     const a = { name: 'id', dtype: 'integer' };
     const b = { name: 'team', dtype: 'string' };
@@ -559,6 +571,41 @@ describe('R201 the import modal', () => {
     await chooseFile(JSON.stringify(mockPackOf('Marketing')));
     const alert = await el('[data-component="PackInvalidAlert"]');
     expect(alert.textContent).toContain("The pack's shape is wrong at queries/0/dataset: Field required");
+  });
+
+  it('a reader that conflicts itself shows its own conflict, then what it also needs (QA-1)', async () => {
+    serveWorkspaces(MOCK_WORKSPACE);
+    server.use(
+      http.post('*/workspaces/:id/definitions/import', () =>
+        HttpResponse.json(
+          plan({
+            ok: false,
+            items: [
+              { kind: 'query', name: MOCK_QUERY.name, action: 'conflict', id: MOCK_QUERY.id, reason: 'exists' },
+              {
+                kind: 'dashboard',
+                name: 'Weekly report',
+                action: 'conflict',
+                id: 'dsh_71a4e2f0',
+                reason: 'exists',
+                detail: MOCK_QUERY.name,
+              },
+            ],
+            counts: { create: 0, replace: 0, unchanged: 0, skip: 0, deferred: 0, conflict: 2, invalid: 0 },
+          }),
+        ),
+      ),
+    );
+    renderPage();
+    await openImport(MOCK_WORKSPACE);
+    await chooseFile(JSON.stringify(changedPack()));
+    await waitFor(() => expect(planRow('dashboard', 'Weekly report')?.textContent).toContain('Conflict'));
+    expect(planRow('dashboard', 'Weekly report')?.querySelector('[data-component="PlanAlsoNeeds"]')?.textContent).toBe(
+      `also reads ${MOCK_QUERY.name}, which conflicts too`,
+    );
+    expect(document.querySelector('[data-component="PackNextStep"][data-cause="conflicts"]')?.textContent).toContain(
+      `${MOCK_QUERY.name}, Weekly report`,
+    );
   });
 
   it('a pack from a newer version is named, with no plan', async () => {

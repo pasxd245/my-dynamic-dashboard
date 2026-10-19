@@ -407,7 +407,8 @@
         "source_differs": "{{names}}: hãy đổi tên hoặc xoá truy vấn đó ở đây, hoặc đổi tên nó ở không gian làm việc của gói rồi xuất lại",
         "check_failed": "{{names}}: hãy sửa nó ở không gian làm việc mà gói được xuất ra rồi xuất lại"
       },
-      "nothingToImportKept": "Không có gì để nhập — phần còn lại đã khớp với gói; các dòng Giữ bản ở đây được giữ nguyên."
+      "nothingToImportKept": "Không có gì để nhập — phần còn lại đã khớp với gói; các dòng Giữ bản ở đây được giữ nguyên.",
+      "alsoNeeds": "cũng đọc {{detail}}, mục này cũng xung đột"
     }
   },
   "datasets": {

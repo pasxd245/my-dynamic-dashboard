@@ -59,7 +59,7 @@ from app.metadata import definition_version
 from app.metadata import sweep as metadata_sweep
 from app.workflow_runs import new_run_id, stale_sources, stamp_sources
 from app.params import ParamError, check_workflow_steps, one_today
-from app.query_engine import _step_plan, build_consolidated_relation
+from app.query_engine import _source_name, _step_plan, build_consolidated_relation
 from app.saved_copies import read_only_refusal
 from app.routers._shared import (
     NounGone,
@@ -152,6 +152,24 @@ def _validate_sources(con: sqlite3.Connection, sources: list[str], workspace_id:
             )
 
 
+def _consolidation_problem(problem: dict | None, index_of: list[int] | None = None) -> None:
+    """Raise a consolidation problem as the route's 422 (the code leads `msg`);
+    `index_of` maps the checked list's index back to the definition's."""
+    if problem is None:
+        return
+    index = problem["index"] if index_of is None else index_of[problem["index"]]
+    raise HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail=[
+            {
+                "loc": ["body", "definition", "sources", index],
+                "msg": f"{problem['reason']}: {problem['msg']}",
+                "type": "value_error",
+            }
+        ],
+    )
+
+
 def _validate_consolidation(con: sqlite3.Connection, sources: list[str], workspace_id: str) -> None:
     """R186 (W-2 / W-3 / W-5) — validate on SAVE what the run would otherwise find
     out later: every source resolves NOW (a workflow source has been run), no source
@@ -159,17 +177,7 @@ def _validate_consolidation(con: sqlite3.Connection, sources: list[str], workspa
     offending source's index; the codes lead the `msg` (`unresolved_source`,
     `duplicate_source`, `sources_diverge`)."""
     _consolidated, problem = build_consolidated_relation(con, sources, workspace_id)
-    if problem is not None:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=[
-                {
-                    "loc": ["body", "definition", "sources", problem["index"]],
-                    "msg": f"{problem['reason']}: {problem['msg']}",
-                    "type": "value_error",
-                }
-            ],
-        )
+    _consolidation_problem(problem)
 
 
 def _check_sources(
@@ -178,16 +186,39 @@ def _check_sources(
     """The save checks on a workflow's sources: each exists in the workspace, then
     (R186) they consolidate now. R201 (4.8, BA C8) — with ``defer_unrun`` (the
     definition-pack import only) a ``wf_`` source WITHOUT an output (new,
-    replaced, never run) leaves the consolidation check to the run, which refuses
-    as it always has (``409 query_stale``); the routes keep R186's save check."""
+    replaced, never run) cannot be compared yet, so ONLY its comparison waits for
+    the run (which refuses as it always has, ``409 query_stale``). Everything
+    else still runs at save (CR-1): a source listed twice anywhere in the list
+    (``duplicate_source``), and the full R186 check — resolution, parameters with
+    no default, ``sources_diverge`` — over every source that can be checked now
+    (the queries and the workflows that have an output). The routes keep R186's
+    save check whole."""
     _validate_sources(con, sources, workspace_id)
+    unrun: set[str] = set()
     if defer_unrun:
         for src in sources:
             if src.startswith("wf_"):
                 row = con.execute("SELECT output_columns_json FROM workflows WHERE id = ?", (src,)).fetchone()
                 if row is not None and row["output_columns_json"] is None:
-                    return
-    _validate_consolidation(con, sources, workspace_id)
+                    unrun.add(src)
+    if not unrun:
+        _validate_consolidation(con, sources, workspace_id)
+        return
+    seen: dict[str, int] = {}
+    for i, src in enumerate(sources):
+        if src in seen:
+            _consolidation_problem(
+                {
+                    "reason": "duplicate_source",
+                    "index": i,
+                    "msg": f"'{_source_name(con, src)}' is already source {seen[src] + 1}; listing it twice doubles every row",
+                }
+            )
+        seen[src] = i
+    ready = [i for i, src in enumerate(sources) if src not in unrun]
+    if ready:
+        _consolidated, problem = build_consolidated_relation(con, [sources[i] for i in ready], workspace_id)
+        _consolidation_problem(problem, ready)
 
 
 def write_workflow_create(

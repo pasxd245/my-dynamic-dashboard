@@ -414,21 +414,83 @@ F2 against the contract-derived MSW after it.
   shared truth: the builder's MSW answers validate against the two contracts (builder tests) and
   every backend answer does too (`tests/test_definition_pack.py`); committed as `feat(R201): I — …`.
 
+### Reviews after F
+
+- **Code review (`2f8b34c..78e0474`): CHANGES** — 1 P1, 4 P2.
+  - **CR-1 (P1)** — `_check_sources` with `defer_unrun` returned at the first source without an
+    output and so skipped ALL of R186's save check: a workflow listing the same source twice
+    ("Dup") or two diverging queries beside an unrun workflow ("Mixed") imported where the route
+    refuses (`scratchpad/r201/cr/probe2.py`, `probe2b.py`). **Fixed:** the duplicate check runs over
+    the whole list; resolution, parameters without a default and `sources_diverge` run over every
+    source checkable now (the queries and the workflows with an output); only the comparison with a
+    source that has no output waits for the run. Tests: Dup → `invalid` `check_failed`
+    `duplicate_source…`, Mixed → `sources_diverge…`; the parity fixture still passes.
+  - **CR-2 (P2)** — deeply nested JSON raised `RecursionError` → 500. **Fixed:** `pack_invalid`
+    `shape` ("nested too deeply"); test with 100 000 levels.
+  - **CR-3 (P2)** — the body was buffered whole when it carried no `Content-Length`. **Fixed:** read
+    in chunks from `request.stream()`, refused as soon as it passes the cap; QA's chunked over-cap
+    test adopted; the docstring now says so.
+  - **CR-4 (P2)** — the export's reads ran in autocommit (several snapshots). **Fixed:** one `BEGIN`
+    … `ROLLBACK` around `export_pack`.
+  - **CR-5 (P2)** — the file name took the UTC date. **Fixed:** the local date; test at a fixed
+    zone (UTC+7, 20:00 UTC → the next day's date).
+- **QA: PASS** — 3 P2; clean gates matched; a two-install parity probe (78 checks) passed every
+  acceptance item on both installs.
+  - **QA-1 (P2)** — under `refuse`, a noun that differs itself but reads a conflicting noun was
+    reported `invalid · needs X`, so the plan under-counted conflicts. **Fixed:** its own conflict
+    takes precedence (`conflict` `exists`, `detail` = the conflicting noun it also reads, shown as
+    a second line "also reads X, which conflicts too"); the rule is in the design's rule table;
+    QA's strict-xfail `test_qa_refuse_names_every_conflicting_noun` now passes (xfail removed).
+  - **QA-2 (P2)** — the visual-gate evidence: 24 shots on disk, `03b` a duplicate, 10 / 14 / 20 /
+    23 with pre-fix copy. **Re-shot at the fix head** on a fresh isolated root
+    (`scratchpad/r201/vis2/data`, asserted; default `app.sqlite` mtime 11:51 unchanged):
+    `scratchpad/r201/vis2/shots/` (22) — export toast; the first plan top and its lower rows with
+    the workflow rows and the deferred dashboard (the table body scrolled); the imported toast; the
+    after-state lists (queries, workflows, dashboards before and after the publish); the second plan
+    and toast; the copy's dashboard; conflict / Keep mine (the corrected copy) / Replace; **refused
+    on import** (a query the plan replaced was deleted between the check and the click →
+    `plan_changed`, the new plan and the alert); a Replace import into the copy and the replaced
+    query's **History** (#2 Current over #1); blocked with the next steps; the **pack-version
+    error**; the **unresolved export**; VI Keep mine and blocked. QA's own HEAD shots
+    (`scratchpad/r201/qa/shots/`, EN + VI lists, history, toasts, refused, v2, unresolved) stand as
+    independent evidence. The earlier `scratchpad/r201/vis/shots/` set is superseded.
+  - **QA-3 = CR-3.**
+  - **Adopted:** QA's `test_definition_pack_r201_qa.py` → `tests/test_definition_pack_adversarial.py`
+    (+ the CR-1 / CR-2 tests).
+- **Gates after the fold:** backend **792** (775 + 17: QA's 15 + CR-1 + CR-2), `ruff check` clean;
+  builder **628** (626 + 2: CR-5, QA-1's second line; one detached full run with the backend idle),
+  `tsc` clean; contracts 55; md / plan / design lints 0; M3 guard empty.
+- **Rolling log:** QA found `/queries/{id}/aggregate` groups without an `ORDER BY` — a widget's
+  aggregate rows came back in two orders over 40 reads of one workspace (pre-existing path, not
+  R201's); logged as a P2 candidate, the 4th occurrence of the explicit-order class.
+
 ## Check
 
-_Open._ Carried to the owner's walk (BA pass 1, F1 feel-check): checks **a–f** — their text is in
-the BA pass 1 report held by the orchestrator and is copied here verbatim at close-out.
+_Open._ Carried to the owner's walk — the F1 feel-check items the owner must still check by hand
+(no human at F1; BA pass 1, verbatim):
+
+- ⬜ (a) whether Stop / Replace it / Keep mine (now "Don't import if anything conflicts" / "Replace
+  it" / "Keep mine") and the help line make clear what Keep mine does to the pack's dashboards;
+- ⬜ (b) whether the column-difference line is enough to know what to fix in the export;
+- ⬜ (c) whether "Import into <workspace>" plus the title is enough confirmation before writing many
+  definitions into the right workspace;
+- ⬜ (d) whether the raw dtype words (integer, string) are acceptable in VI;
+- ⬜ (e) whether Export should appear on saved workspaces;
+- ⬜ (f) the modal's height with a long plan — the blocked alert fell below the fold in
+  `06_blocked_*`.
 
 ## Act
 
-_Open._ Owner questions (BA pass 1):
+_Open._ Owner questions (BA pass 1, verbatim):
 
-1. A dataset that a workflow of the same pack publishes — built answer: its readers are
-   `deferred` until the workflow is run and published in the target, and a second import of the
-   same pack completes them. Confirm, or should the import itself run and publish (OUT today)?
-2. _(Text in the BA pass 1 report held by the orchestrator — copied verbatim at close-out.)_
-3. Under **Keep mine**, a reader of a kept query whose definition differs from the pack's binds to
-   the kept query (with the "numbers may differ" warning). Should the import refuse instead?
+1. For a dataset that a workflow in the pack publishes (BA-C2): should the import create the
+   workflow and leave its readers for a second import (breaks "whole pack or nothing"), or must the
+   user upload that dataset first? — built: readers deferred, second import adds them.
+2. Should a target dataset whose columns *extend* the pack's columns at the end (a newer export
+   with one more column) be accepted? Index-addressed filters stay correct, but query outputs gain
+   a column.
+3. Under Keep mine, should the pack's readers bind to the user's own different definition at all,
+   or be refused? — built: they bind, with a "numbers may differ" warning.
 
 ## Feeds into → Round_202
 

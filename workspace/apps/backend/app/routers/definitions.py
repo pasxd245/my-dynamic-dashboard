@@ -4,7 +4,7 @@
 - ``POST /workspaces/{id}/definitions/import`` — import a pack (dry run first).
 
 Contracts: workspaces/definitions-get + definitions-import. The import reads the
-raw body itself (size before parsing → JSON → version → the total cap → the
+raw body itself, in bounded chunks (size before parsing → JSON → version → the total cap → the
 closed shape …, BA-C3), then plans and writes the whole pack in ONE
 ``BEGIN IMMEDIATE`` transaction through the routes' own create / update bodies
 (``app.definition_pack``). An unexpected error — a bug, or a writer holding the
@@ -49,10 +49,14 @@ def export_definitions(id: WsIdPath) -> JSONResponse:  # noqa: A002
     with get_conn() as con:
         if con.execute("SELECT 1 FROM workspaces WHERE id = ?", (id,)).fetchone() is None:
             return _not_found()
+        # CR-4 — one read transaction: every listing sees the same snapshot.
+        con.execute("BEGIN")
         try:
             pack = export_pack(con, id)
         except PackUnresolved as exc:
             return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=exc.body)
+        finally:
+            con.rollback()
     return JSONResponse(status_code=status.HTTP_200_OK, content=pack)
 
 
@@ -120,14 +124,25 @@ async def import_definitions(
         return _not_found()
     if (ro := await run_in_threadpool(lambda: read_only_refusal(workspaces=[id]))) is not None:
         return ro
-    # BA-C3 — the size first, before reading or parsing a byte more than the cap.
+    # BA-C3 — the size first, before parsing; a declared size over the cap is
+    # refused before a byte of the body is read.
+    too_large = JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={"code": "pack_invalid", "reason": "too_large", "problems": []},
+    )
     declared = request.headers.get("content-length")
     if declared is not None and declared.isdigit() and int(declared) > PACK_MAX_BYTES:
-        return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            content={"code": "pack_invalid", "reason": "too_large", "problems": []},
-        )
-    raw = await request.body()
+        return too_large
+    # CR-3 — a body without (or under-declaring) Content-Length is read in chunks
+    # and refused as soon as it passes the cap: never buffered past cap + 1 chunk.
+    chunks: list[bytes] = []
+    size = 0
+    async for chunk in request.stream():
+        size += len(chunk)
+        if size > PACK_MAX_BYTES:
+            return too_large
+        chunks.append(chunk)
+    raw = b"".join(chunks)
     return await run_in_threadpool(
         _run_import, id, raw, dryRun, onConflict, expectedPlan, history.writer_of(authorization)
     )

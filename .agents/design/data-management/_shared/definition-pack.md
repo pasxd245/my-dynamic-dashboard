@@ -95,7 +95,8 @@ The workspace card's overflow menu (⋯) gains two items: **Export definitions**
 workspaces — a read) and **Import definitions…** (main workspaces only — a saved workspace is
 read-only, R193).
 
-**Export** downloads `<workspace name>-definitions-<YYYY-MM-DD>.json` and toasts what it holds,
+**Export** downloads `<workspace name>-definitions-<YYYY-MM-DD>.json` (the user's local date,
+CR-5) and toasts what it holds,
 leaving out a kind with none ("Exported 4 queries and 2 workflows."). A workspace with nothing to
 export downloads an empty pack and says "This workspace has no queries, dashboards or workflows to
 export." A refusal opens a modal listing what to fix (see § Export).
@@ -275,7 +276,8 @@ with the error text; the choice and file stay).
   of the workspace **publishes** (R192 — `published_workflow_id`) carries `publishedBy: <that
   workflow's name>` (BA-C2).
 - **Order** — each list by `name` (an explicit `ORDER BY name, id` on every read the export
-  makes); two exports of an unchanged workspace differ only in `exportedAt`.
+  makes, all in one read transaction — one snapshot, CR-4); two exports of an unchanged workspace
+  differ only in `exportedAt`.
 - **Envelope** — `packVersion` (integer), `exportedAt` (UTC), `exportedBy` (the exporting app's
   version, informational), `workspace` (the exporting workspace's name, informational). The
   envelope is closed: an unknown field is a shape error (`pack_invalid`, `shape`) — read after the
@@ -302,8 +304,11 @@ import writes; it authorizes nothing (definition writes stay open, as the PUTs).
 **1. Read the pack — in this order** (BA-C3), each refusal `422 pack_invalid {reason, problems}`
 and nothing checked against the workspace:
 
-1. **size** — the raw body over 10 MiB (`too_large`), before it is parsed;
-2. **parse** — leniently, as JSON: not JSON or not an object → `shape`;
+1. **size** — the raw body over 10 MiB (`too_large`), before it is parsed: a declared
+   `Content-Length` over the cap is refused before a byte is read, and a body without one is read
+   in chunks and refused as soon as it passes the cap (CR-3);
+2. **parse** — leniently, as JSON: not JSON, nested deeper than the parser follows (CR-2), or not
+   an object → `shape`;
 3. **version** — `packVersion` missing or not an integer → `shape` (path `packVersion`); any value
    but `1` → `version` (`packVersion`, `supported: [1]`), whatever the rest looks like;
 4. **count** — more than 1 000 queries + workflows + dashboards together → `too_large` (one total
@@ -339,6 +344,12 @@ reads; otherwise by name); dashboards. Against the same-named noun of the same k
 | a query of that name reading another dataset | `conflict` (`source_differs`) | `conflict` (`source_differs`) | `conflict` (`source_differs`) |
 | another dashboard holding the pack's slug    | `conflict` (`slug_taken`)     | `conflict` (`slug_taken`)     | `skip`                        |
 
+**Precedence (QA-1):** a noun whose own pack form differs from its same-named noun here is a
+`conflict` under `refuse` even when it also reads a conflicting noun — its own conflict is
+reported first (`reason: exists`, `detail` the conflicting noun it also reads, shown as a second
+line), so the plan counts every conflict and the next-step alert names them all. A noun that does
+not differ itself and reads a conflicting or refused noun is `invalid` (`needs`).
+
 - **Pack form** = the noun as an export of the target would write it. Equal pack forms mean the
   target already holds exactly this definition: nothing is written and no history row appears —
   so **re-importing the same pack changes nothing**.
@@ -365,10 +376,12 @@ reads; otherwise by name); dashboards. Against the same-named noun of the same k
   refusal there makes the noun `invalid` with the check's message (`check_failed`), and the nouns
   that read it `invalid` (`needs: <name>`). A query whose dataset is `missing` / `columns_differ`
   is `invalid` (`dataset_missing` / `columns_differ`).
-- **Workflow on workflow** (BA C8): when a workflow source is a workflow **without an output** —
-  created or replaced by this import, or simply never run in the target — the save's shape check
-  between sources (R186 "has the first source's shape") is deferred to the run; every other check
-  runs. The run then refuses as it does today when the shapes diverge (`409 query_stale`, R186's
+- **Workflow on workflow** (BA C8, CR-1): when a workflow source is a workflow **without an
+  output** — created or replaced by this import, or simply never run in the target — only the
+  comparison **with that source** waits for the run. The rest of R186's save check still runs: a
+  source listed twice anywhere (`duplicate_source`), and resolution, parameters without a default
+  and `sources_diverge` among every source that can be checked now (the queries and the workflows
+  with an output). The run then refuses as it does today when the shapes diverge (`409 query_stale`, R186's
   answer for a source that drifted or diverged). Imported workflows read "Not run yet" until run.
 
 **4. One transaction** — the whole plan runs inside one `BEGIN IMMEDIATE` transaction on one

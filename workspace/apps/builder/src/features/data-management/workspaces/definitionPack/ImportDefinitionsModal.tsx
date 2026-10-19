@@ -201,6 +201,14 @@ function PlanView({ plan }: Readonly<{ plan: ImportPlan }>) {
               {t(`workspaces.pack.reason.${item.reason}`, { detail: item.detail ?? '', via: item.via ?? '' })}
             </Typography.Text>
           ) : null}
+          {item.action === 'conflict' && item.reason === 'exists' && item.detail ? (
+            // QA-1 — its own conflict comes first; the noun it also needs is a second line.
+            <div data-component="PlanAlsoNeeds">
+              <Typography.Text type="secondary">
+                {t('workspaces.pack.alsoNeeds', { detail: item.detail })}
+              </Typography.Text>
+            </div>
+          ) : null}
           {(item.binds ?? []).map((b) => (
             <div key={`${b.kind}:${b.name}`} data-component="PlanBindsWarning">
               <Typography.Text type="warning">

@@ -407,7 +407,8 @@
         "source_differs": "{{names}}: rename or delete that query here, or rename it in the pack's workspace and export again",
         "check_failed": "{{names}}: fix it in the workspace the pack came from and export again"
       },
-      "nothingToImportKept": "Nothing to import — the rest already matches the pack; the rows marked Keep mine stay as they are here."
+      "nothingToImportKept": "Nothing to import — the rest already matches the pack; the rows marked Keep mine stay as they are here.",
+      "alsoNeeds": "also reads {{detail}}, which conflicts too"
     }
   },
   "datasets": {

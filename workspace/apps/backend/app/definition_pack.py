@@ -129,6 +129,8 @@ def read_pack(raw: bytes) -> dict:
         obj = json.loads(raw)
     except (ValueError, UnicodeDecodeError):
         raise PackInvalid("shape", [{"path": "", "detail": "the body is not JSON"}]) from None
+    except RecursionError:  # CR-2 — nesting deeper than the parser can follow
+        raise PackInvalid("shape", [{"path": "", "detail": "the body is nested too deeply"}]) from None
     if not isinstance(obj, dict):
         raise PackInvalid("shape", [{"path": "", "detail": "the body is not a JSON object"}])
     version = obj.get("packVersion")
@@ -141,6 +143,8 @@ def read_pack(raw: bytes) -> dict:
         raise PackInvalid("too_large", [])
     try:
         pack = _Pack.model_validate(obj).model_dump(exclude_none=True)
+    except RecursionError:  # CR-2
+        raise PackInvalid("shape", [{"path": "", "detail": "the body is nested too deeply"}]) from None
     except ValidationError as exc:
         problems = [{"path": _loc(e["loc"]), "detail": e["msg"]} for e in exc.errors()[:_SHAPE_PROBLEMS_MAX]]
         raise PackInvalid("shape", problems) from None
@@ -497,6 +501,30 @@ def _savepoint(con: sqlite3.Connection, write) -> tuple[str | None, str | None]:
     return noun_id, None
 
 
+def _own_conflict(
+    t: _Target,
+    blocked: dict,
+    existing: sqlite3.Row | None,
+    on_conflict: str,
+    refs: list[tuple[str, str]],
+    differs,  # type: ignore[no-untyped-def]
+) -> dict:
+    """QA-1 — under `refuse`, a noun that reads a conflicting noun but ALSO differs
+    from its own same-named noun here is a `conflict` itself (its own conflict
+    takes precedence over `needs`; `detail` keeps the noun it also needs), so the
+    plan counts every conflict. Otherwise the blocked state stands."""
+    if blocked["action"] != "invalid" or on_conflict != "refuse" or existing is None:
+        return blocked
+    if not all(ref[1] in t.ids[ref[0]] for ref in refs):
+        return blocked  # a needed noun has no id here (it could not be written): nothing to compare
+    try:
+        if not differs():
+            return blocked
+    except (ValidationError, ValueError, TypeError, KeyError):
+        return blocked
+    return {"action": "conflict", "id": existing["id"], "reason": "exists", "detail": blocked["detail"]}
+
+
 def _readers_state(t: _Target, refs: list[tuple[str, str]]) -> tuple[dict | None, list[dict]]:
     """For a noun reading `refs`: the item fields when it cannot be written now
     (`invalid` / `deferred`, reason `needs`), and its `binds` (kept nouns that
@@ -621,8 +649,21 @@ def plan_import(
         blocked, binds = _readers_state(t, refs)
         existing = _existing(con, "workflow", workspace_id, w["name"])
         if blocked is not None:
+            blocked = _own_conflict(
+                t,
+                blocked,
+                existing,
+                on_conflict,
+                refs,
+                lambda: (
+                    not _same(
+                        _install_workflow(w, t.ids),
+                        WorkflowDefinition(**json.loads(existing["definition_json"])).model_dump(),
+                    )
+                ),
+            )
             item.update(blocked)
-            (t.broken if blocked["action"] == "invalid" else t.later).add(("workflow", w["name"]))
+            (t.later if blocked["action"] == "deferred" else t.broken).add(("workflow", w["name"]))
         else:
             try:
                 candidate = _install_workflow(w, t.ids)
@@ -664,8 +705,22 @@ def plan_import(
             (workspace_id, d["slug"], d["name"]),
         ).fetchone()
         if blocked is not None:
+            blocked = _own_conflict(
+                t,
+                blocked,
+                existing,
+                on_conflict,
+                refs,
+                lambda: (
+                    existing["slug"] != d["slug"]
+                    or not _same(
+                        _install_dashboard(d, t.ids),
+                        DashboardDefinition(**json.loads(existing["definition_json"])).model_dump(),
+                    )
+                ),
+            )
             item.update(blocked)
-            (t.broken if blocked["action"] == "invalid" else t.later).add(("dashboard", d["name"]))
+            (t.later if blocked["action"] == "deferred" else t.broken).add(("dashboard", d["name"]))
         elif holder is not None:
             if on_conflict == "skip":
                 item.update(action="skip", reason="slug_taken", detail=d["slug"])
