@@ -118,12 +118,14 @@ components:
         `control_without_dashboard` otherwise). It overrides that control's
         `saved` selection; a targeted `values` control with no item in the
         list reads its `saved` (the SERVER applies D3 level 2). `column` must
-        equal the control's column (422 `control_column`); an id that is not
-        a `values` control of that dashboard → 422 `unknown_control`; a
-        control that does not target the widget is ignored (D5 — a viewer
-        value reaches only the widgets its control targets). Without
-        `control` the item is the widget's OWN drawer filter. The export's
-        Filters sheet tells the two apart (D7).
+        equal the control's column (422 `control_column`). An id that names
+        NO `values` control of that dashboard (a control removed since the
+        link was copied) is IGNORED — exactly as an unused `p.<name>` is —
+        so a stale link keeps opening (BA-C1); a control that does not
+        target the widget is ignored too (D5 — a viewer value reaches only
+        the widgets its control targets). Without `control` the item is the
+        widget's OWN drawer filter. The export's Filters sheet tells the two
+        apart (D7).
       properties:
         column:
           type: string

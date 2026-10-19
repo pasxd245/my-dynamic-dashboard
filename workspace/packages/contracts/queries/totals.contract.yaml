@@ -107,10 +107,10 @@ paths:
             A column is not in the result, or is not numeric (FastAPI validation
             envelope); R194 — or a parameter has no value (`param_unbound`) or a
             wrong-typed one (`param_invalid`); R199 — or a `filters[].control`
-            without `dashboard` (`control_without_dashboard`), not a `values`
-            control of that dashboard (`unknown_control`), or on another
+            without `dashboard` (`control_without_dashboard`) or on another
             column than the control's (`control_column`) — envelope, the `loc`
-            naming the item.
+            naming the item. (A `control` naming no `values` control of the
+            dashboard is IGNORED, like an unused `p.<name>` — BA-C1.)
           content:
             application/json:
               schema:

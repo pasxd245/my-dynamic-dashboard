@@ -23,18 +23,24 @@ info:
     R199 (item 4.3, dashboard-filters.md D4) — plus one
     `f.<controlId>=<v1>,<v2>` query parameter per dashboard `values` control
     (the viewer's shared-filter selection; the same spelling as the dashboard
-    URL): values comma-separated and percent-encoded (a `,` inside a value is
-    `%2C`, a `~` is `%7E` — the server splits BEFORE decoding), the `(blank)`
-    option as the raw token `~blank`, an empty value (`f.<id>=`) = the viewer
-    cleared the control (no filter from it, its saved selection NOT applied).
-    With `dashboard` + `widget` the server also applies the `saved` selection
-    of every targeted `values` control the request does not override (D3 level
-    2), as a runtime filter (`RuntimeFilter` semantics: one-of by column name;
-    a column the result lacks is skipped, D5) applied BEFORE paging and the
-    `unpaged` cap, so `total` and the rows are the filtered ones. An `f.` key
-    naming a control that is not a `values` control of the named dashboard →
-    422 (`unknown_control`); one that does not target the widget is ignored;
-    `f.` keys without `dashboard` + `widget` → 422
+    URL). **Parsing** (the server reads the RAW query string): the value is
+    split on `,` BEFORE percent-decoding; each token is percent-decoded only
+    (`+` is a literal plus, never a space); the raw token `~blank` is the
+    `(blank)` option, while `%7Eblank` decodes to the literal string
+    "~blank"; a `,` inside a value travels as `%2C`, a `~` as `%7E`; an empty
+    token between commas is ignored; a repeated `f.<id>` key → the LAST wins;
+    an EMPTY value (`f.<id>=`) = the viewer cleared the control (no filter
+    from it, its saved selection NOT applied); an absent key = the saved
+    selection applies (BA-C2 / BA-C5). With `dashboard` + `widget` the server
+    also applies the `saved` selection of every targeted `values` control the
+    request does not override (D3 level 2), as a runtime filter
+    (`RuntimeFilter` semantics: one-of by column name; a column the result
+    lacks is skipped, D5) applied BEFORE paging and the `unpaged` cap, so
+    `total` and the rows are the filtered ones. An `f.` key naming NO
+    `values` control of the named dashboard (removed since the link was
+    copied) is IGNORED, exactly as an unused `p.<name>` is, so a stale link
+    keeps opening (BA-C1); one whose control does not target the widget is
+    ignored too; `f.` keys without `dashboard` + `widget` → 422
     (`control_without_dashboard`). The widget's OWN drawer filters stay
     client-side on this path (R103); they never travel here.
 
@@ -213,9 +219,9 @@ paths:
             FastAPI validation-error envelope. R194 — or a parameter the
             definition uses has no value (`param_unbound`) or a `p.` value of
             the wrong type (`param_invalid`). R199 — or an `f.` key without
-            `dashboard` + `widget` (`control_without_dashboard`) or naming no
-            `values` control of that dashboard (`unknown_control`) — envelope,
-            the `loc` naming the key.
+            `dashboard` + `widget` (`control_without_dashboard`) — envelope,
+            the `loc` naming the key. (An `f.` key naming no `values` control
+            of the dashboard is ignored, not refused — BA-C1.)
           content:
             application/json:
               schema:

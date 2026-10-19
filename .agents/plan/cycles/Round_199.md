@@ -151,17 +151,45 @@ targeted widget, the export says which filter was a dashboard one; Desirability:
 
 ### C
 
-- **C** — `_shared/dashboard.yaml`: `DashboardControl` = `ParamControl | DateRangeControl |
-ValuesControl` (discriminator `kind`), `FilterValues`; `_shared/query.yaml`: `RuntimeFilter`
-  (`control?`), `AggregateRequest.filters` and the totals / export bodies `$ref` it,
-  `DashboardRef` names the third control kind; `queries/rows-get`: `f.<controlId>` keys and the
-  server-applied saved selections; `queries/values-get.contract.{yaml,md}` (new);
-  `queries/export`: the Filters sheet's `scope` / `source` columns (D7); `queries/aggregate`:
-  the 422 text also stops claiming an unknown `filters[].column` is refused (it is skipped —
-  R103, D5); `dashboards/post|put`: `duplicate_column`; `api-error.yaml`:
-  `ApiErrorUnknownColumn` reused by `/values`. Contracts 50 green.
-  **BA pass 1 (contract exit): run by the orchestrator** (no sub-agent spawning in the coder
-  session, as in R198); its findings fold before any code.
+- **C (`899a93c`)** — `_shared/dashboard.yaml`: `DashboardControl` = `ParamControl |
+DateRangeControl | ValuesControl` (discriminator `kind`), `FilterValues`;
+  `_shared/query.yaml`: `RuntimeFilter` (`control?`), `AggregateRequest.filters` and the totals
+  / export bodies `$ref` it, `DashboardRef` names the third control kind; `queries/rows-get`:
+  `f.<controlId>` keys and the server-applied saved selections;
+  `queries/values-get.contract.{yaml,md}` (new); `queries/export`: the Filters sheet's `scope`
+  / `source` columns (D7); `queries/aggregate`: the 422 text also stops claiming an unknown
+  `filters[].column` is refused (it is skipped — R103, D5); `dashboards/post|put`:
+  `duplicate_column`; `api-error.yaml`: `ApiErrorUnknownColumn` reused by `/values`. Contracts
+  50 green.
+- **BA pass 1 (contract exit, `468befe..899a93c`, run by the orchestrator — no sub-agent
+  spawning in the coder session, as in R198): CHANGES** — 0 P0, 2 P1, 3 P2; the four design
+  calls in § Risks accepted (call 3 conditional on BA-C2; call 2 with an owner question).
+  - **BA-C1 (P1)** — a stale `f.<id>` / `control` item (its control removed, or dropped with its
+    last target) was a 422 `unknown_control` while an unused `p.<name>` is ignored. Folded:
+    the server **ignores** an `f.` key / `control` item naming no `values` control of the named
+    dashboard (a stale link keeps opening — D5 spirit); the builder drops such keys from the
+    URL on load and never re-pins them. 422 stays only for `control_without_dashboard` and
+    `control_column` (real caller errors). Test: deleted control + old link → 200, filter not
+    applied, key gone after load.
+  - **BA-C2 (P1)** — split-before-decode with a raw `~blank` breaks the moment R195's
+    `withParams` re-serialises the URL through `URLSearchParams` (`,` → `%2C`, `~` → `%7E`):
+    `f.ctl=North,South,~blank` becomes ONE literal value → zero rows, no error. Folded: **one
+    raw URL writer** for the page — every write (a `p.*` change, Reset, Copy link, an `f.*`
+    change) preserves the `f.*` bytes; the contract says "percent-decoding only, `+` is a
+    literal plus" and fixes the parsing edges (BA-C5): repeated `f.<id>` → last wins; an empty
+    token between commas → ignored; `f.<id>=` → cleared; the raw `~blank` token is blank,
+    `%7Eblank` is the literal string "~blank". Tests: change `p.` while `f.` is set → `f.`
+    byte-identical; `%7Eblank` ≠ `~blank`.
+  - **BA-C3 (P2, folded)** — `/values` orders in the column's own type (numeric, chronological,
+    text), not text order; the cap takes the first 1 000 in that order.
+  - **BA-C4 (P2, logged)** — export: a cleared shared item writes no row (folded into the
+    contract text); whether a _skipped_ shared filter should be listed as "skipped: no column"
+    is an **owner question** (§ Act).
+  - **BA-C5 (P2)** — folded via BA-C2.
+  - One more test asked for design call 4: a post-step (derived) column lists values and filters
+    identically on `/rows` and `/export`.
+- **Contract fold commit** — see the next sha in `git log`; contracts 50 green, md / plan /
+  design lints 0.
 
 ## Check
 
@@ -175,6 +203,11 @@ ValuesControl` (discriminator `kind`), `FilterValues`; `_shared/query.yaml`: `Ru
 ## Act
 
 _(at close-out: rolling-log rows, promotion check, prune check)_
+
+- **Owner questions** (carried to the rolling log at close-out): (1) should two `values`
+  controls on one column with disjoint targets be allowed (built: refused, `duplicate_column`)?
+  (2) should the export's Filters sheet list a _skipped_ shared filter as "skipped: no column"
+  (built: unlisted — it filtered nothing; BA-C4)?
 
 ## Feeds into → Round_200
 

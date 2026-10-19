@@ -98,8 +98,9 @@ paths:
             (the request carried the selection) or `dashboard` (the control's
             `saved` selection, applied by the server) for a shared filter and
             empty for a widget filter. A shared filter the server skipped
-            (the result lacks its column) is not listed — it filtered
-            nothing. Without any filter the row stays `— | no filter`.
+            (the result lacks its column) and a CLEARED one (an empty `values`
+            list — it restricts nothing) are not listed — neither filtered
+            anything (BA-C4). Without any filter the row stays `— | no filter`.
           headers:
             X-MDD-Data-Versions:
               description: R196 — `DataVersions` as compact JSON.
@@ -137,9 +138,10 @@ paths:
             totals column (FastAPI envelope); R194 — or a parameter has no value
             (`param_unbound`) or a wrong-typed one (`param_invalid`); R199 — or
             a `filters[].control` without `dashboard`
-            (`control_without_dashboard`), not a `values` control of that
-            dashboard (`unknown_control`), or on another column than the
-            control's (`control_column`) — envelope, the `loc` naming the item.
+            (`control_without_dashboard`) or on another column than the
+            control's (`control_column`) — envelope, the `loc` naming the
+            item. (A `control` naming no `values` control of the dashboard is
+            IGNORED, like an unused `p.<name>` — BA-C1.)
           content:
             application/json:
               schema:

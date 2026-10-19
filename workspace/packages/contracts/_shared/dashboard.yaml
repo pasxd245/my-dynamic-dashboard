@@ -373,12 +373,20 @@ components:
         SERVER to every read that names this dashboard + widget and carries no
         viewer value for this control — a client never asserts a "dashboard"
         value (R195). A viewer's selection lives in the URL only, as
-        `?f.<controlId>=North,South` — values percent-encoded (a `,` inside a
-        value is `%2C`, a `~` is `%7E`), the blank option as the raw token
-        `~blank`; an EMPTY value (`?f.<controlId>=`) means the viewer cleared
-        the control (no filter from it, the saved selection NOT applied); an
-        absent key means the saved selection applies. Reset to saved drops the
-        key. Saving a selection is an edit (a dashboard PUT).
+        `?f.<controlId>=North,South` — split on `,` BEFORE percent-decoding,
+        each token percent-decoded only (`+` is a literal plus; a `,` inside a
+        value is `%2C`, a `~` is `%7E`), the blank option as the RAW token
+        `~blank` (`%7Eblank` is the literal string "~blank"); an empty token
+        between commas is ignored; a repeated key → the last wins; an EMPTY
+        value (`?f.<controlId>=`) means the viewer cleared the control (no
+        filter from it, the saved selection NOT applied); an absent key means
+        the saved selection applies. The page writes the URL with ONE raw
+        writer — every write (a `p.*` change, Reset, Copy link, an `f.*`
+        change) preserves the `f.*` bytes as they are (never re-serialised by
+        `URLSearchParams`, BA-C2) — and, on load, drops an `f.` key naming no
+        `values` control of the dashboard (a stale link; never re-pinned,
+        BA-C1). Reset to saved drops the keys. Saving a selection is an edit
+        (a dashboard PUT).
 
         Options come from `GET /queries/{id}/values?column=` over the first
         targeted widget's query (distinct, capped at 1 000, `partial` when

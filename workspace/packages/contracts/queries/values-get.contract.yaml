@@ -13,7 +13,10 @@ info:
 
     Values are the cells' TEXT (stringified like every read); a NULL or empty
     cell is ONE `null` entry — the `(blank)` option — listed first; the rest
-    ascending. Capped at 1 000 non-blank values: `partial: true` says more
+    ascending in the COLUMN'S OWN ORDER — numeric for an `integer` / `float`
+    column (2 before 10), chronological for `date` / `datetime`, text order
+    otherwise (BA-C3) — stringified after sorting. Capped at 1 000 non-blank
+    values (the first 1 000 in that order): `partial: true` says more
     distinct values exist than listed (the bar shows "first 1 000 values").
 
     The read resolves parameters like `GET /queries/{id}/rows` — `p.<name>=`
@@ -67,7 +70,8 @@ paths:
       responses:
         '200':
           description: |
-            The distinct values, blank first then ascending, at most 1 000
+            The distinct values, blank first then ascending in the column's
+            own order (numeric / chronological / text), at most 1 000
             non-blank; `partial` when capped. `dataVersions` (R196) and
             `resolvedParams` (R194) as on every read.
           content:
@@ -86,7 +90,8 @@ paths:
                     maxItems: 1001
                     description: |
                       The distinct cell texts; `null` (at most once, first) is
-                      the `(blank)` option. Ascending text order after it.
+                      the `(blank)` option. Ascending in the column's own
+                      order after it (numeric, chronological or text).
                     items:
                       type: [string, 'null']
                   partial:

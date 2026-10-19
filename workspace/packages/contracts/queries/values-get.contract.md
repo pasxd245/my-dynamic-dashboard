@@ -35,6 +35,10 @@ values" rather than pretending the list is complete.
 - **Blank as `null`, once, first.** A NULL and an empty string are one option,
   `(blank)`, mirroring `RuntimeFilter` (`null` matches a NULL/empty cell) and
   the client `labelOf`.
+- **Sorted in the column's own order** (BA-C3). A numeric column lists 2
+  before 10, a date column lists chronologically, text lists lexically; the
+  cap takes the first 1 000 in that order, so a capped numeric list is "the
+  1 000 smallest", not a lexical accident.
 - **Cap in the contract, not a tunable.** 1 000 is the design's number; a
   column past it needs a cascading or typed-search control (OUT, named
   trigger), not a bigger list.
