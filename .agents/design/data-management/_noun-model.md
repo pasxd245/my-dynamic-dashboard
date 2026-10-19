@@ -213,6 +213,12 @@ and is a flag, never a block**.
   and for each source query — so the two can be compared directly. Its subject per noun: a
   query's, workflow's or dashboard's stored definition; a widget's own config; a dataset's
   schema (`[{name, dtype}]`); a column's `{name, dtype}`; a relationship's ends and cardinality.
+- **Every definition kept (4.4, R200).** A query's, dashboard's or workflow's definition
+  history records one row per definition change — its own `seq`, this same hash as `version`,
+  the definition, when and (with a writer token) who — in the same transaction as the change;
+  restore is a normal save of an old definition, so a version can appear twice. The definition
+  version is still a hash, not the `seq`. See
+  [\_shared/definition-history.md](_shared/definition-history.md).
 - **Stale sources.** On every workflow read, `stale_sources` (`app/workflow_runs.py`) compares
   the stamp with the database **now** — metadata lookups only, no data scanned — and lists
   each source that moved with one reason, the first that applies: `source_missing` (the source,
