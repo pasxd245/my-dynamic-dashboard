@@ -28,7 +28,7 @@ import {
 import type { DefinitionPack, ImportPlan } from '@/features/data-management/workspaces/definitionPack/types';
 import { i18n } from '@/i18n';
 import { validateResponse } from '@/mocks/contract-validator';
-import { mockPackOf } from '@/mocks/definitionPack';
+import { mockPackOf, mockPlan } from '@/mocks/definitionPack';
 import { MOCK_QUERY, MOCK_SAVED_WORKSPACE, MOCK_WORKSPACE } from '@/mocks/fixtures';
 import { server } from '@/mocks/server';
 
@@ -132,7 +132,9 @@ const plan = (over: Partial<ImportPlan>): ImportPlan => ({
   ok: true,
   datasets: [],
   items: [],
-  counts: { create: 0, replace: 0, unchanged: 0, skip: 0, conflict: 0, invalid: 0 },
+  planHash: 'aaaaaaaaaaaa',
+  warnings: 0,
+  counts: { create: 0, replace: 0, unchanged: 0, skip: 0, deferred: 0, conflict: 0, invalid: 0 },
   ...over,
 });
 
@@ -180,13 +182,15 @@ describe('R201 pack rules (pure)', () => {
   });
 
   it('offers Import only for an ok plan that writes something', () => {
-    const counts = { create: 2, replace: 1, unchanged: 3, skip: 0, conflict: 0, invalid: 0 };
+    const counts = { create: 2, replace: 1, unchanged: 3, skip: 0, deferred: 0, conflict: 0, invalid: 0 };
     expect(writeCount(plan({ counts }))).toBe(3);
     expect(canImport(plan({ counts }))).toBe(true);
     expect(canImport(plan({ counts, ok: false }))).toBe(false);
     const none = { ...counts, create: 0, replace: 0 };
     expect(canImport(plan({ counts: none }))).toBe(false);
-    expect(nothingToImport(plan({ counts: none }))).toBe(true);
+    const one = [{ kind: 'query' as const, name: 'q', action: 'unchanged' as const }];
+    expect(nothingToImport(plan({ counts: none, items: one }))).toBe(true);
+    expect(nothingToImport(plan({ counts: none }))).toBe(false); // an empty pack says so instead
     expect(nothingToImport(plan({ counts: none, ok: false }))).toBe(false);
   });
 });
@@ -384,10 +388,15 @@ describe('R201 the import modal', () => {
       "Replacing saves the pack's definition as a new version",
     );
     expect(importButton()).toBeEnabled();
-    expect(importButton()?.textContent).toBe('Import 1');
+    expect(importButton()?.textContent).toBe('Import 1 into Marketing');
 
     fireEvent.click(importButton() as HTMLButtonElement);
-    await screen.findByText('Imported into Marketing: 0 new, 1 replaced, 2 unchanged.');
+    // BA C7 — zero counts are left out.
+    await screen.findByText('Imported into Marketing: 1 replaced, 2 unchanged.');
+    // BA C10 — the apply named the dry run it follows.
+    expect(imports.at(-1)?.searchParams.get('expectedPlan')).toBe(
+      mockPlan(MOCK_WORKSPACE.id, changedPack(), 'replace', true).planHash,
+    );
     expect(imports.at(-1)?.searchParams.get('dryRun')).toBe('false');
     // The cached list (fresh for 60 s under the app's defaults) read again.
     await waitFor(() => expect(document.querySelector('[data-component="QueriesCount"]')?.textContent).toBe('2'));
@@ -401,7 +410,7 @@ describe('R201 the import modal', () => {
     await chooseFile(JSON.stringify(changedPack()));
     await waitFor(() => expect(planRow('query', MOCK_QUERY.name)?.textContent).toContain('Conflict'));
     fireEvent.click(screen.getByText('Keep mine'));
-    await waitFor(() => expect(planRow('query', MOCK_QUERY.name)?.textContent).toContain('Skip'));
+    await waitFor(() => expect(planRow('query', MOCK_QUERY.name)?.textContent).toContain('Keep mine'));
     await el('[data-component="PackNothingToImport"]');
   });
 
@@ -420,7 +429,7 @@ describe('R201 the import modal', () => {
           detail: 'unknown_column: col 9',
         },
       ],
-      counts: { create: 0, replace: 0, unchanged: 0, skip: 0, conflict: 0, invalid: 1 },
+      counts: { create: 0, replace: 0, unchanged: 0, skip: 0, deferred: 0, conflict: 0, invalid: 1 },
     });
     server.use(
       http.post('*/workspaces/:id/definitions/import', ({ request }) =>
@@ -429,10 +438,10 @@ describe('R201 the import modal', () => {
               plan({
                 onConflict: 'replace',
                 items: [{ kind: 'query', name: MOCK_QUERY.name, action: 'replace', id: MOCK_QUERY.id }],
-                counts: { create: 0, replace: 1, unchanged: 0, skip: 0, conflict: 0, invalid: 0 },
+                counts: { create: 0, replace: 1, unchanged: 0, skip: 0, deferred: 0, conflict: 0, invalid: 0 },
               }),
             )
-          : HttpResponse.json({ code: 'pack_refused', plan: refused }, { status: 409 }),
+          : HttpResponse.json({ code: 'pack_refused', reason: 'plan_changed', plan: refused }, { status: 409 }),
       ),
     );
     renderPage();
@@ -445,6 +454,110 @@ describe('R201 the import modal', () => {
     expect(planRow('query', MOCK_QUERY.name)?.textContent).toContain('would not save: unknown_column: col 9');
     expect(importButton()).toBeDisabled();
     expect(document.querySelector('[data-component="ImportDefinitionsModal"]')).not.toBeNull();
+  });
+
+  it('Keep mine: a reader of a kept, differing query carries the warning and the count (BA-C1)', async () => {
+    serveWorkspaces(MOCK_WORKSPACE);
+    renderPage();
+    await openImport(MOCK_WORKSPACE);
+    const pack = changedPack();
+    pack.dashboards[0] = { ...pack.dashboards[0], name: 'Weekly copy', slug: 'weekly-copy' };
+    await chooseFile(JSON.stringify(pack));
+    await waitFor(() => expect(planRow('query', MOCK_QUERY.name)?.textContent).toContain('Conflict'));
+    fireEvent.click(screen.getByText('Keep mine'));
+    await waitFor(() => expect(planRow('query', MOCK_QUERY.name)?.textContent).toContain('Keep mine'));
+    const row = planRow('dashboard', 'Weekly copy') as HTMLElement;
+    expect(row.textContent).toContain('New');
+    expect(row.querySelector('[data-component="PlanBindsWarning"]')?.textContent).toBe(
+      `uses the query ${MOCK_QUERY.name} here, which differs from the pack — numbers may differ`,
+    );
+    expect(screen.getByText(/2 with a warning/)).toBeInTheDocument();
+    expect(importButton()?.textContent).toBe('Import 1 into Marketing');
+  });
+
+  it('a dataset a workflow of the pack publishes defers its readers; the rest imports (BA-C2)', async () => {
+    serveWorkspaces(MOCK_WORKSPACE, CLEAN);
+    renderPage();
+    await openImport(MOCK_WORKSPACE);
+    const pack = mockPackOf(MOCK_WORKSPACE.name);
+    const wf = pack.workflows[0].name;
+    pack.datasets.push(
+      { name: 'rollup_out', columns: [{ name: 'stage', dtype: 'string' }], publishedBy: wf },
+      { name: 'zz_spare', columns: [{ name: 'x', dtype: 'string' }] },
+    );
+    pack.queries.push(
+      { name: 'Lost deals', dataset: pack.queries[0].dataset, definition: { filters: [], advanced: [] } },
+      { name: 'Rollup view', dataset: 'rollup_out', definition: { filters: [], advanced: [] } },
+    );
+    pack.dashboards.push({
+      name: 'Rollup board',
+      slug: 'rollup-board',
+      definition: {
+        widgets: [{ id: 'wdg_0000000c', query: 'Rollup view', title: 'R', chartType: 'stat', agg: 'count', span: 1 }],
+      },
+    });
+    await chooseFile(JSON.stringify(pack));
+    const ds = await el('[data-component="PackDatasetLine"][data-status="awaits_publish"]');
+    expect(ds.textContent).toContain(`published by workflow ${wf}: run and publish it, then import this pack again`);
+    expect(document.querySelector('[data-component="PackDatasetLine"][data-status="unused"]')?.textContent).toContain(
+      'zz_spare not used by the pack',
+    );
+    expect(planRow('query', 'Rollup view')?.textContent).toContain('Deferred');
+    expect(planRow('query', 'Rollup view')?.textContent).toContain(
+      `needs rollup_out, which workflow ${wf} publishes — run and publish it, then import this pack again`,
+    );
+    expect(planRow('dashboard', 'Rollup board')?.textContent).toContain('needs Rollup view, which is not imported now');
+    expect(importButton()?.textContent).toBe('Import 1 into Marketing');
+    fireEvent.click(importButton() as HTMLButtonElement);
+    await screen.findByText('Imported into Marketing: 1 new, 3 unchanged, 2 deferred.');
+  });
+
+  it('a blocked plan keeps a disabled "Import into …" and names the next step per cause (BA C5)', async () => {
+    serveWorkspaces(MOCK_WORKSPACE, CLEAN);
+    renderPage();
+    await openImport(CLEAN);
+    await chooseFile(JSON.stringify(mockPackOf(MOCK_WORKSPACE.name)));
+    await waitFor(() => expect(importButton()).not.toBeNull());
+    expect(importButton()?.textContent).toBe('Import into Acme copy');
+    expect(importButton()).toBeDisabled();
+    expect(document.querySelector('[data-component="PackNextStep"][data-cause="datasets"]')?.textContent).toBe(
+      "load q1_pipeline_Deals into Acme copy first (with the pack's columns);",
+    );
+  });
+
+  it('an empty pack says so once — no counts, no table, no button (BA C7)', async () => {
+    serveWorkspaces(MOCK_WORKSPACE);
+    renderPage();
+    await openImport(MOCK_WORKSPACE);
+    await chooseFile(
+      JSON.stringify({ ...mockPackOf('Marketing'), datasets: [], queries: [], workflows: [], dashboards: [] }),
+    );
+    await el('[data-component="PackEmpty"]');
+    expect(screen.getAllByText('This pack holds no definitions.')).toHaveLength(1);
+    expect(document.querySelector('[data-component="PackPlanSummary"]')).toBeNull();
+    expect(document.querySelector('[data-component="PackNothingToImport"]')).toBeNull();
+    expect(importButton()).toBeNull();
+  });
+
+  it('a shape error names its path (BA-C3)', async () => {
+    serveWorkspaces(MOCK_WORKSPACE);
+    server.use(
+      http.post('*/workspaces/:id/definitions/import', () =>
+        HttpResponse.json(
+          {
+            code: 'pack_invalid',
+            reason: 'shape',
+            problems: [{ path: 'queries/0/dataset', detail: 'Field required' }],
+          },
+          { status: 422 },
+        ),
+      ),
+    );
+    renderPage();
+    await openImport(MOCK_WORKSPACE);
+    await chooseFile(JSON.stringify(mockPackOf('Marketing')));
+    const alert = await el('[data-component="PackInvalidAlert"]');
+    expect(alert.textContent).toContain("The pack's shape is wrong at queries/0/dataset: Field required");
   });
 
   it('a pack from a newer version is named, with no plan', async () => {
@@ -467,7 +580,10 @@ describe('R201 the import modal', () => {
           {
             code: 'pack_invalid',
             reason: 'reference',
-            problems: [{ kind: 'dashboard', name: 'Weekly', ref: 'North calls', refKind: 'query' }],
+            problems: [
+              { kind: 'dashboard', name: 'Weekly', ref: 'North calls', refKind: 'query' },
+              { kind: 'query', name: 'Team list', ref: 'teams_demo', refKind: 'dataset' },
+            ],
           },
           { status: 422 },
         ),
@@ -478,6 +594,9 @@ describe('R201 the import modal', () => {
     await chooseFile(JSON.stringify(mockPackOf('Marketing')));
     const alert = await el('[data-component="PackInvalidAlert"]');
     expect(alert.textContent).toContain('Dashboard Weekly names query North calls, which is not in the pack.');
+    expect(alert.textContent).toContain(
+      "Query Team list names dataset teams_demo, which is not in the pack's datasets.",
+    );
   });
 
   it('VI copy', async () => {
@@ -492,7 +611,8 @@ describe('R201 the import modal', () => {
     const ds = await el('[data-component="PackDatasetLine"][data-status="missing"]');
     expect(ds.textContent).toContain('không có trong không gian làm việc này');
     expect(planRow('query', MOCK_QUERY.name)?.textContent).toContain('Không nhập được');
-    expect(screen.getByText('Dừng')).toBeInTheDocument();
+    expect(screen.getByText('Không nhập nếu có xung đột')).toBeInTheDocument();
     expect(screen.getByText('Thay thế')).toBeInTheDocument();
+    expect(screen.getByText('Nhập vào Acme copy')).toBeInTheDocument();
   });
 });

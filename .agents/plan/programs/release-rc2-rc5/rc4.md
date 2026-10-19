@@ -115,11 +115,12 @@ changed_by)`; written in the same transaction as the definition update.
 | Depends on | 4.4 (an import writes history rows through the normal write path; a replaced definition stays restorable); 3.7 / 4.2 / 4.3 (controls travel as-is) |
 | Design     | [`_shared/definition-pack.md`](../../../design/data-management/_shared/definition-pack.md) (Draft, R201)                                            |
 
-_Added to rc.4 by the owner, 2026-10-19 (specified and built in rc.4). Track: 1. Pulled by: a named
-product gap — a second install, or a clean re-install, that should carry the same analysis as an
-existing one re-creates its queries, dashboards and workflows by hand or by scripting the create /
-update routes one by one, with ids that differ per install; an earlier round's parity check needed
-a probe built by hand for the same reason (`Round_200` § Feeds into)._
+_Added to rc.4 by the owner, 2026-10-19 (specified and built in rc.4) — an addition to the rc.4
+scope of settled decision 3, recorded there. Track: 1. Pulled by: a named product gap — a second
+install, or a clean re-install, that should carry the same analysis as an existing one re-creates
+its queries, dashboards and workflows by hand or by scripting the create / update routes one by
+one, with ids that differ per install; the G-rc2 dogfood parity check needed an in-process probe
+built by hand for the same reason (`Round_183` § Do), and `Round_200` § Feeds into named the item._
 
 - **Export** `GET /workspaces/{id}/definitions` → a pack (`packVersion: 1`): every query, workflow
   and dashboard of the workspace, each list by name, with every reference to a dataset, query or
@@ -129,29 +130,38 @@ a probe built by hand for the same reason (`Round_200` § Feeds into)._
   definition (`wdg_`, `ctl_`, `qrel_`) travel verbatim; no install id appears. A reference to a
   deleted noun refuses the export (`409 pack_unresolved`, listed). Data never travels.
 - **Import** `POST /workspaces/{id}/definitions/import?dryRun=&onConflict=` with the pack as body:
-  the datasets are found **by name** in the target and must have the pack's columns (a missing or
-  differing one is listed with both column lists); each noun is planned against its same-named
-  noun — `create`, `unchanged` (the target already holds exactly this, so a re-import writes
-  nothing), or by `onConflict`: `refuse` (default, `conflict`), `replace` (the noun's own update:
-  the id kept, one history row), `skip`. Every noun runs every check its own create / update runs
-  (the route bodies are extracted into functions that take a connection — no parallel writer).
+  the pack is read in order (size before parsing → version → one 1 000-noun cap → closed shape →
+  duplicates → references, datasets included → cycles); the datasets are found **by name** in the
+  target and must have the pack's columns (a missing or differing one is listed with both column
+  lists; one a workflow of the pack publishes waits — `awaits_publish` — and its readers are
+  `deferred` until it is published and the pack imported again); each noun is planned against its
+  same-named noun — `create`, `unchanged` (the target already holds exactly this, so a re-import
+  writes nothing), or by `onConflict`: `refuse` (default, `conflict`), `replace` (the noun's own
+  update: the id kept, one history row), `skip` (Keep mine — its readers carry a "numbers may
+  differ" warning); a same-named query reading another dataset blocks under all three. Every noun
+  runs every check its own create / update runs (the route bodies are extracted into functions that
+  take a connection — no parallel writer).
 - **One transaction:** the whole plan runs in one `BEGIN IMMEDIATE`; a dry run rolls back and
-  returns the plan (200); an apply commits only when the plan is ok, else `409 pack_refused`
-  with the plan — whole pack or nothing. A pack this install cannot read (another
+  returns the plan and its `planHash` (200); an apply commits only when the plan is ok and equals
+  the dry run the client showed (`expectedPlan`), else `409 pack_refused` (`not_ok` /
+  `plan_changed`) with the plan — whole pack or nothing for failures; `deferred` rows are a planned
+  state the next import completes. A pack this install cannot read (another
   `packVersion`, a name not in the pack, a duplicate name, a workflow loop, over 10 MiB or
   1 000 nouns) → `422 pack_invalid`. A saved workspace → `409 read_only_workspace`. An optional
   writer token labels the history rows; import is as open as the PUTs.
 - **Out:** metadata notes (server-stamped by their writers; anchors do not cross installs),
   governed relationships, runs / outputs / the publish link, history, partial export, a per-noun
-  conflict choice, remapping columns by name — each with a trigger in the design doc.
+  conflict choice, remapping columns by name, mapping a dataset to a differently named one — each
+  with a trigger in the design doc.
 - **Builder:** **Export definitions** (main and saved workspaces) and **Import definitions…**
   (main only) in the workspace card menu; the import modal reads the file, checks it at once
   (the dry run), shows the datasets and the plan, and imports on one click; EN / VI.
 - **Tests:** export A → import into a clean workspace B with same-named fake datasets → every
   query's rows, every widget's aggregate and every workflow's output (after running) equal A's
-  (a parity test over fake data, also across two data roots); re-import is idempotent (no row
-  written); a missing dataset refuses with the list; a dry run writes nothing; the conflict
-  rules; whole pack or nothing; design criteria 1–15.
+  (a parity test over fake data, a published dataset included — import, run and publish,
+  re-import — also across two data roots); re-import is idempotent (no row written); a missing
+  dataset refuses with the list; a dry run writes nothing; the conflict rules; whole pack or
+  nothing; design criteria 1–16.
 
 ## Conditional items (open only with logged evidence)
 

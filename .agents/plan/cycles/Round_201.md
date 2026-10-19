@@ -58,8 +58,9 @@ rc.4 by the owner's call of 2026-10-19._
 
 **Falsified if** any of these happens:
 
-- an imported query, widget or workflow reads a different row or cell than its original over the
-  same data;
+- with no conflicts, or with Replace it, an imported query, widget or workflow reads a different
+  row or cell than its original over the same data (BA-C1: Keep mine binds to the target's own
+  noun by design, with a warning);
 - a pack holds an install id, or importing it twice writes anything the second time;
 - a dry run or a refused apply leaves any row changed, or an apply writes part of a pack;
 - an imported or replaced noun skips a check its own route runs, or lands without its history row;
@@ -83,6 +84,11 @@ rc.4 by the owner's call of 2026-10-19._
 
 The design calls the BA judges at Contract exit (each in
 [definition-pack.md](../../design/data-management/_shared/definition-pack.md)):
+
+_BA pass 1 (Contract exit): calls 2–6 and 8–11 accepted; call 1 disputed in part (BA-C1) and call 7
+in full (BA-C3) — both folded as the orchestrator decided (§ Do › Contract exit). The text below is
+the call as made; the folds amend 1, 7 and 11 and add the deferral (BA-C2) and dataset closedness
+(BA-C4)._
 
 1. **Conflict policy — one choice per import: `refuse` (default) / `replace` / `skip`.** A
    same-named noun whose pack form equals the pack's is `unchanged` under every choice (that is
@@ -270,13 +276,82 @@ F2 against the contract-derived MSW after it.
   `docs(R201): C — …`. **Halt for BA pass 1 (Contract exit)** — handed to the orchestrator (the
   coder session cannot spawn reviewers, as in R198–R200); F2 / B wait for its findings.
 
+### Contract exit — BA pass 1 and the folds
+
+- **BA pass 1 (Contract exit, `2f8b34c..0b65575`, run by the orchestrator): CHANGES** — 0 P0,
+  4 P1, 8 P2. Nine of the eleven design calls accepted; call 1 disputed in part, call 7 in full.
+  Firewall, neutral wording, the Evolution-Rule line and the 4.1 deferral clean. F1 feel-check:
+  the modal reads as understandable for a non-technical owner apart from the copy points below;
+  six checks (a–f) go to the owner's walk. Decisions on the P1s by the orchestrator; folded here
+  before any backend code:
+  - **BA-C1 (P1)** — `source_differs` now blocks under **all three** choices. Under Keep mine a
+    kept noun whose definition differs still binds the pack's readers, but each such reader row
+    carries `binds` and the visible reason "uses the query X here, which differs from the pack —
+    numbers may differ", and the plan counts them (`warnings`). Falsification line 1 scoped to "no
+    conflicts, or Replace it". Owner question 3.
+  - **BA-C2 (P1)** — a dataset published by a workflow in the same pack: the pack marks it
+    `publishedBy: <workflow>`; missing in the target it is `awaits_publish`, the workflow is
+    created as usual, its readers (queries, and the nouns that need them) are `deferred` with
+    "needs <dataset>, which workflow <W> publishes — run and publish it, then import this pack
+    again" (the orchestrator's wording said "run"; a run does not create the dataset — publishing
+    does, R192 — so the copy says "run and publish"); the rest applies in the one transaction;
+    re-import is idempotent, so the second import adds what was deferred. "Whole pack or nothing"
+    stays true for failures; `deferred` is a planned, named state, counted in the plan and the
+    toast. The parity fixture gains a published dataset (import → run + publish → re-import →
+    parity). Owner question 1, with this as the built answer.
+  - **BA-C3 (P1)** — the read order is size (10 MiB, before parsing) → JSON → `packVersion` →
+    the one total cap (1 000) → the closed shape, validated by the route itself; a shape error is
+    `pack_invalid` `reason: shape` with the field `path`; a newer version answers `version` even
+    when its shape differs; the per-list `maxItems` are gone. The design's contradiction (its
+    "unknown envelope fields are refused (`pack_invalid`)" vs criterion 9's "an unknown envelope
+    field is `422`") resolved: both now say `pack_invalid` `shape`.
+  - **BA-C4 (P1)** — closedness covers datasets: a query's `dataset` or a join end naming a dataset
+    absent from `datasets[]` → `pack_invalid` `reference` (`refKind: dataset`); a `datasets[]`
+    entry nothing reads → `unused`, ignored; two datasets with one name → `duplicate`.
+  - **P2 folded:** C5 a blocked plan keeps a disabled "Import into <workspace>" without a count and
+    the alert names the next step per cause; the enabled button reads "Import N into <workspace>".
+    C6 "Keep mine" the one word for `skip` (radio, tag, counts, toast); "Stop" → "Don't import if
+    anything conflicts"; the replace warning adds the slug (old links break) and the readers outside
+    the pack. C7 an empty pack says so once; zero counts left out of both toasts. C8 the
+    workflow-on-workflow shape check is deferred for any source without an output (not only those
+    this import writes) + criterion 14 (the deferred check failing at run: the existing `409
+    query_stale`). C9 errors and concurrency stated (an exception → the app's `500
+    internal_error`, nothing written; a writer holding the lock past the 5 s busy timeout → the
+    same 500 — today's behaviour of every write route — tested in criterion 8; a typed 409 is OUT
+    with a trigger). C10 `planHash` on every plan, `expectedPlan` on apply, `pack_refused`
+    `reason: plan_changed` | `not_ok`. C11 the owner's addition recorded against decision 3, the
+    program row's status a listed word (`queued`), the parity pull named (`Round_183`, the G-rc2
+    dogfood probe). C12 mapping a pack dataset to a differently named target dataset → OUT, trigger
+    "a second user whose dataset names differ per install".
+- **Fold** — design (§ Layout, interaction decisions amended, § The pack `publishedBy`, § Import
+  read order + dataset statuses + the rule table + deferred + binds, § Errors and concurrency,
+  § The plan, criteria 1–16, OUT), `rc4.md` § 4.8, the program plan (decision 3 note, the row's
+  status); contract (`PackDataset.publishedBy`; `PlanAction` + `deferred`; `PlanReason` +
+  `awaits_publish`; `PlanItem` `via` / `binds`; `PlanDataset` `awaits_publish` / `unused`;
+  `ImportPlan` `planHash` / `warnings` / `counts.deferred`; `PackProblem` `path` / `detail` /
+  `refKind: dataset`; one total cap; `ApiErrorPackInvalid` `shape`; `ApiErrorPackRefused`
+  `reason`; the route's `expectedPlan`; examples re-validated against their schemas); F1 (types,
+  `blockCauses` / `emptyPack` / `nonZero`, the modal's dataset lines, deferred tag, binds warning,
+  next steps, button labels, toasts, `expectedPlan` on apply; the MSW mock's rules, hash and 409
+  reasons; EN / VI). Builder **626** green (621 + 5 in the pack file, now 25; detached full run),
+  `tsc` clean; contracts 55; every route example re-validated against its schema. `exportedAt`
+  lost its `format: date-time` (the repo's timestamps are plain strings; Ajv logged it as unknown).
+
 ## Check
 
-_Open._
+_Open._ Carried to the owner's walk (BA pass 1, F1 feel-check): checks **a–f** — their text is in
+the BA pass 1 report held by the orchestrator and is copied here verbatim at close-out.
 
 ## Act
 
-_Open._
+_Open._ Owner questions (BA pass 1):
+
+1. A dataset that a workflow of the same pack publishes — built answer: its readers are
+   `deferred` until the workflow is run and published in the target, and a second import of the
+   same pack completes them. Confirm, or should the import itself run and publish (OUT today)?
+2. _(Text in the BA pass 1 report held by the orchestrator — copied verbatim at close-out.)_
+3. Under **Keep mine**, a reader of a kept query whose definition differs from the pack's binds to
+   the kept query (with the "numbers may differ" warning). Should the import refuse instead?
 
 ## Feeds into → Round_202
 

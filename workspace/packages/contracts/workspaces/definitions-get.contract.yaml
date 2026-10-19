@@ -43,6 +43,11 @@ paths:
                           - { name: team, dtype: string }
                           - { name: agent, dtype: string }
                           - { name: amount, dtype: float }
+                      - name: calls_rollup
+                        publishedBy: Calls rollup
+                        columns:
+                          - { name: team, dtype: string }
+                          - { name: amount, dtype: float }
                     queries:
                       - name: North calls
                         dataset: calls_demo
@@ -52,6 +57,9 @@ paths:
                           relationships: []
                           joins: []
                           steps: []
+                      - name: Rollup by team
+                        dataset: calls_rollup
+                        definition: { filters: [], advanced: [] }
                     workflows:
                       - name: Calls rollup
                         definition:

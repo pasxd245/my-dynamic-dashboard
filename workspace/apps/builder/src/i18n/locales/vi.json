@@ -275,7 +275,7 @@
     "pack": {
       "exportAction": "Xuất định nghĩa",
       "importAction": "Nhập định nghĩa…",
-      "exported": "Đã xuất {{queries}}, {{dashboards}} và {{workflows}}.",
+      "exported": "Đã xuất {{list}}.",
       "nQueries_one": "{{count}} truy vấn",
       "nQueries_other": "{{count}} truy vấn",
       "nDashboards_one": "{{count}} bảng điều khiển",
@@ -300,16 +300,16 @@
       "fileTooLarge": "Tệp này lớn hơn {{mb}} MB.",
       "conflictLabel": "Nếu một tên đã có ở đây:",
       "conflict": {
-        "refuse": "Dừng",
+        "refuse": "Không nhập nếu có xung đột",
         "replace": "Thay thế",
         "skip": "Giữ bản ở đây"
       },
-      "conflictHelp": "Dừng: không nhập gì khi một tên ở đây có định nghĩa khác. Thay thế: định nghĩa trong gói được lưu đè lên. Giữ bản ở đây: tên đó được giữ nguyên như ở đây.",
+      "conflictHelp": "Không nhập nếu có xung đột: không nhập gì khi một tên ở đây có định nghĩa khác. Thay thế: định nghĩa trong gói được lưu đè lên. Giữ bản ở đây: tên đó được giữ nguyên như ở đây.",
       "checking": "Đang đối chiếu gói với không gian làm việc này…",
       "datasetsNeeded": "Tập dữ liệu cần có",
       "datasetFound": "có",
       "datasetMissing": "không có trong không gian làm việc này",
-      "emptyPack": "Gói không có định nghĩa nào.",
+      "emptyPack": "Gói này không có định nghĩa nào.",
       "count": {
         "create_one": "{{count}} mới",
         "create_other": "{{count}} mới",
@@ -317,12 +317,16 @@
         "replace_other": "{{count}} thay thế",
         "unchanged_one": "{{count}} không đổi",
         "unchanged_other": "{{count}} không đổi",
-        "skip_one": "{{count}} bỏ qua",
-        "skip_other": "{{count}} bỏ qua",
+        "skip_one": "{{count}} giữ bản ở đây",
+        "skip_other": "{{count}} giữ bản ở đây",
         "conflict_one": "{{count}} xung đột",
         "conflict_other": "{{count}} xung đột",
         "invalid_one": "{{count}} không nhập được",
-        "invalid_other": "{{count}} không nhập được"
+        "invalid_other": "{{count}} không nhập được",
+        "deferred_one": "{{count}} hoãn lại",
+        "deferred_other": "{{count}} hoãn lại",
+        "warnings_one": "{{count}} có cảnh báo",
+        "warnings_other": "{{count}} có cảnh báo"
       },
       "col": {
         "kind": "Loại",
@@ -340,9 +344,10 @@
         "create": "Mới",
         "replace": "Thay thế",
         "unchanged": "Không đổi",
-        "skip": "Bỏ qua",
+        "skip": "Giữ bản ở đây",
         "conflict": "Xung đột",
-        "invalid": "Không nhập được"
+        "invalid": "Không nhập được",
+        "deferred": "Hoãn lại"
       },
       "reason": {
         "exists": "đã có ở đây với định nghĩa khác",
@@ -350,17 +355,16 @@
         "slug_taken": "một bảng điều khiển khác ở đây đang dùng địa chỉ “{{detail}}”",
         "dataset_missing": "cần tập dữ liệu {{detail}}, không có trong không gian làm việc này",
         "columns_differ": "tập dữ liệu {{detail}} ở đây có các cột khác",
-        "needs": "cần {{detail}}, mục này không nhập được",
-        "check_failed": "không lưu được: {{detail}}"
+        "needs": "cần {{detail}}, mục này chưa được nhập lúc này",
+        "check_failed": "không lưu được: {{detail}}",
+        "awaits_publish": "cần {{detail}}, do quy trình {{via}} xuất bản — hãy chạy và xuất bản nó, rồi nhập lại gói này"
       },
-      "importN_one": "Nhập {{count}}",
-      "importN_other": "Nhập {{count}}",
       "nothingToImport": "Không có gì để nhập — mọi thứ ở đây đã khớp với gói.",
-      "replaceWarning": "Thay thế sẽ lưu định nghĩa trong gói thành một phiên bản mới; bản hiện tại vẫn nằm trong Lịch sử của nó và có thể khôi phục.",
-      "blocked": "Chưa nhập được gì cho tới khi các dòng Xung đột hoặc Không nhập được ở trên, và các tập dữ liệu đánh dấu ✗, được giải quyết.",
+      "replaceWarning": "Thay thế sẽ lưu định nghĩa trong gói thành một phiên bản mới; bản hiện tại vẫn nằm trong Lịch sử của nó và có thể khôi phục. Bảng điều khiển bị thay thế sẽ lấy địa chỉ (slug) trong gói — liên kết tới địa chỉ cũ sẽ không còn dùng được. Các bảng điều khiển và quy trình ngoài gói đọc một truy vấn bị thay thế cũng thay đổi theo.",
+      "blocked": "Chưa nhập được gì:",
       "changedSinceCheck": "Không gian làm việc này đã thay đổi kể từ lần đối chiếu. Hãy xem lại kế hoạch mới.",
       "requestFailed": "Không đối chiếu hoặc nhập được gói",
-      "imported": "Đã nhập vào {{name}}: {{created}} mới, {{replaced}} thay thế, {{unchanged}} không đổi.",
+      "imported": "Đã nhập vào {{name}}: {{parts}}.",
       "invalid": {
         "title": "Không đọc được gói này",
         "version": "Gói này được tạo bởi phiên bản mới hơn (phiên bản gói {{found}}); bản này đọc phiên bản {{supported}}.",
@@ -368,12 +372,40 @@
         "duplicate": "Hai mục {{kind}} trong gói cùng tên {{name}}.",
         "duplicateSlug": "Hai bảng điều khiển trong gói dùng cùng địa chỉ “{{slug}}”.",
         "reference": "{{kind}} {{name}} nhắc tới {{refKind}} {{ref}}, mục này không có trong gói.",
-        "cycle": "Các quy trình {{names}} đọc lẫn nhau."
+        "cycle": "Các quy trình {{names}} đọc lẫn nhau.",
+        "shape": "Cấu trúc gói sai ở {{path}}: {{detail}}",
+        "referenceDataset": "{{kind}} {{name}} nhắc tới tập dữ liệu {{ref}}, mục này không có trong danh sách tập dữ liệu của gói."
       },
       "columnsDiffer": {
         "changed": "các cột khác nhau — cột {{n}} trong gói là {{expected}}, ở đây là {{found}}",
         "missing": "các cột khác nhau — cột {{n}}, {{expected}}, không có ở đây",
         "extra": "các cột khác nhau — cột {{n}} ở đây, {{found}}, không có trong gói"
+      },
+      "listAnd": "{{head}} và {{last}}",
+      "datasetAwaitsPublish": "được quy trình {{workflow}} xuất bản: hãy chạy và xuất bản nó, rồi nhập lại gói này",
+      "datasetUnused": "gói không dùng tới",
+      "done": {
+        "create_one": "{{count}} mới",
+        "create_other": "{{count}} mới",
+        "replace_one": "{{count}} đã thay thế",
+        "replace_other": "{{count}} đã thay thế",
+        "unchanged_one": "{{count}} không đổi",
+        "unchanged_other": "{{count}} không đổi",
+        "skip_one": "{{count}} giữ bản ở đây",
+        "skip_other": "{{count}} giữ bản ở đây",
+        "deferred_one": "{{count}} hoãn lại",
+        "deferred_other": "{{count}} hoãn lại"
+      },
+      "binds": "dùng {{kind}} {{name}} ở đây, khác với trong gói — số liệu có thể khác",
+      "importNInto_one": "Nhập {{count}} vào {{name}}",
+      "importNInto_other": "Nhập {{count}} vào {{name}}",
+      "importInto": "Nhập vào {{name}}",
+      "nothingToImportYet": "Chưa có gì để nhập — các dòng hoãn lại đang chờ tập dữ liệu của chúng.",
+      "next": {
+        "datasets": "hãy nạp {{names}} vào {{name}} trước (với các cột như trong gói);",
+        "conflicts": "{{names}}: hãy chọn Thay thế hoặc Giữ bản ở đây ở trên;",
+        "source_differs": "{{names}}: hãy đổi tên hoặc xoá truy vấn đó ở đây, hoặc đổi tên nó ở không gian làm việc của gói rồi xuất lại;",
+        "check_failed": "{{names}}: hãy sửa nó ở không gian làm việc mà gói được xuất ra rồi xuất lại."
       }
     }
   },

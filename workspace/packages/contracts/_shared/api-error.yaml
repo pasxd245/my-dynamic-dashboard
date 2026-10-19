@@ -589,18 +589,22 @@ components:
       additionalProperties: false
       description: |
         R201 (4.8) — `POST /workspaces/{id}/definitions/import` cannot read the
-        pack; nothing was checked against the workspace, nothing written.
-        `version` — another `packVersion` (`packVersion`, `supported`);
-        `too_large` — over 10 MiB or 1 000 nouns; `duplicate` — a name twice in
-        one kind, or a slug twice; `reference` — a name not in the pack (a pack
-        is closed); `cycle` — workflows that read each other.
+        pack; nothing was checked against the workspace, nothing written. Read
+        in order: `too_large` — over 10 MiB (before parsing); `shape` — not
+        JSON, no integer `packVersion`, or (after the version) a field the pack
+        schema does not hold, with `path` + `detail`; `version` — another
+        `packVersion` (`packVersion`, `supported`), whatever the rest looks
+        like; `too_large` — more than 1 000 queries + workflows + dashboards;
+        `duplicate` — a name twice in one kind (datasets too), or a slug twice;
+        `reference` — a name not in the pack, a dataset not in `datasets[]` (a
+        pack is closed); `cycle` — workflows that read each other.
       properties:
         code:
           type: string
           enum: [pack_invalid]
         reason:
           type: string
-          enum: [version, too_large, duplicate, reference, cycle]
+          enum: [too_large, shape, version, duplicate, reference, cycle]
         problems:
           type: array
           items:
@@ -614,16 +618,21 @@ components:
 
     ApiErrorPackRefused:
       type: object
-      required: [code, plan]
+      required: [code, reason, plan]
       additionalProperties: false
       description: |
-        R201 (4.8) — an import (not a dry run) whose plan is not `ok`: a dataset
-        missing or with other columns, a `conflict`, or an `invalid` noun. The
-        whole transaction was rolled back — nothing written. `plan` says why,
-        per dataset and per noun (`dryRun: false`, `applied: false`).
+        R201 (4.8) — an import (not a dry run) that cannot be applied: its plan
+        is not `ok` (`not_ok` — a dataset missing or with other columns, a
+        `conflict`, an `invalid` noun), or it differs from the dry run the
+        client showed (`plan_changed` — `expectedPlan` ≠ `planHash`). The whole
+        transaction was rolled back — nothing written. `plan` is the plan as it
+        stands now (`dryRun: false`, `applied: false`).
       properties:
         code:
           type: string
           enum: [pack_refused]
+        reason:
+          type: string
+          enum: [not_ok, plan_changed]
         plan:
           $ref: '../_shared/definition-pack.yaml#/components/schemas/ImportPlan'

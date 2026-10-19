@@ -4,7 +4,7 @@ import { definitionsApi } from '@/api/definitionsApi';
 import { HISTORY_QUERY_KEY } from '@/features/history/hooks';
 import type { DefinitionPack, ImportPlan, OnConflict } from './types';
 
-type ImportVars = { workspaceId: string; pack: unknown; onConflict: OnConflict };
+type ImportVars = { workspaceId: string; pack: unknown; onConflict: OnConflict; expectedPlan?: string };
 
 /** R201 — the dry run: the plan an apply would carry out. Writes nothing, so
  *  it invalidates nothing. */
@@ -43,8 +43,8 @@ export const IMPORT_INVALIDATES: readonly (readonly string[])[] = [
 export function useApplyPackMutation() {
   const queryClient = useQueryClient();
   return useMutation<ImportPlan, Error, ImportVars>({
-    mutationFn: ({ workspaceId, pack, onConflict }) =>
-      definitionsApi.importPack(workspaceId, pack, { dryRun: false, onConflict }),
+    mutationFn: ({ workspaceId, pack, onConflict, expectedPlan }) =>
+      definitionsApi.importPack(workspaceId, pack, { dryRun: false, onConflict, expectedPlan }),
     onSuccess: () => {
       for (const queryKey of IMPORT_INVALIDATES) queryClient.invalidateQueries({ queryKey });
     },

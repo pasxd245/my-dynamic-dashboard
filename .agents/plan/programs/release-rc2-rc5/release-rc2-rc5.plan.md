@@ -75,7 +75,8 @@ contract delta, backend/builder files, migration, tests, acceptance walk — liv
    refresh, workflow repairs + stamping, publish + saved copies, typed parameters, the metadata
    triple anchor, the date-range / shared-filter design); rc.4 = viewing by period (scheduled
    refresh, view-time date range, shared filters, definition history; conditional items); rc.5 =
-   tags, conditional.
+   tags, conditional. _2026-10-19 (owner): rc.4 also takes **4.8 definition pack** (specified and
+   built in rc.4) and defers 4.1 scheduled refresh (`Round_201`)._
 4. **Refresh (multi-file, `replace_period`) sits in rc.3, before publish** (2026-10-17), keeping
    R175's order. Scheduled refresh is a different item (4.1, rc.4).
 5. **Branches:** `release/v0.0.1-rc.2` is cut from `release/v0.0.1-rc.1` (`5334c81`);
@@ -180,7 +181,7 @@ copy of the real database (logged in `Round_187`).
 | 4.5 | _Conditional:_ cohort ratios flag cohorts not yet observable for the full window                                                   | conditional | —     |
 | 4.6 | _Conditional:_ previous/next row per entity step — opens only if a measured rebuild with existing steps succeeds on < 70% of cases | conditional | —     |
 | 4.7 | _Conditional:_ default filters inherited from an official measure's definition                                                     | conditional | —     |
-| 4.8 | Definition pack: export a workspace's queries, dashboards and workflows by name; import into another workspace (same or another install), dry run first, whole pack or nothing — added by the owner 2026-10-19 | in progress | R201  |
+| 4.8 | Definition pack: export a workspace's queries, dashboards and workflows by name; import into another workspace (same or another install), dry run first, whole pack or nothing — added by the owner 2026-10-19 | queued      | R201  |
 
 ### rc.5 — tags (conditional)
 

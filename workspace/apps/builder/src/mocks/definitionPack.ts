@@ -114,10 +114,38 @@ export function mockPackOf(workspaceName: string): DefinitionPack {
   };
 }
 
-const ZERO: Record<PlanAction, number> = { create: 0, replace: 0, unchanged: 0, skip: 0, conflict: 0, invalid: 0 };
+const ZERO: Record<PlanAction, number> = {
+  create: 0,
+  replace: 0,
+  unchanged: 0,
+  skip: 0,
+  deferred: 0,
+  conflict: 0,
+  invalid: 0,
+};
+
+/** A mock stand-in for the server's `planHash` (FNV-1a over the decisions); the
+ *  mock serves the rule (same decisions → same hash), not the server's value. */
+function mockPlanHash(onConflict: OnConflict, datasets: PlanDataset[], items: PlanItem[]): string {
+  const text = JSON.stringify(
+    canonical({
+      onConflict,
+      datasets: datasets.map((d) => [d.name, d.status]),
+      items: items.map((i) => [i.kind, i.name, i.action, i.reason, i.detail, i.via, i.binds]),
+    }),
+  );
+  let h1 = 0x811c9dc5;
+  let h2 = 0x01000193;
+  for (let i = 0; i < text.length; i += 1) {
+    h1 = Math.imul(h1 ^ text.charCodeAt(i), 0x01000193) >>> 0;
+    h2 = Math.imul(h2 ^ text.charCodeAt(i), 0x01000193) >>> 0;
+  }
+  return (h1.toString(16).padStart(8, '0') + h2.toString(16).padStart(8, '0')).slice(0, 12);
+}
 
 /** Plan a pack against the fixture workspace (any other main workspace is
- *  empty). Same rules as the server's step 2–3; no save check. */
+ *  empty). Same rules as the server's step 2–3 (design § Import); no save
+ *  check, and no `source_differs` (the fixture has one dataset per query). */
 export function mockPlan(
   workspaceId: string,
   pack: DefinitionPack,
@@ -127,41 +155,94 @@ export function mockPlan(
   const inFixture = workspaceId === MOCK_WORKSPACE.id;
   const here = inFixture ? mockPackOf(MOCK_WORKSPACE.name) : null;
   const targetDatasets = inFixture ? DATASETS : [];
+  const read = new Set(
+    pack.queries.flatMap((q) => [
+      q.dataset,
+      ...((q.definition.relationships ?? []) as { leftDataset: string; rightDataset: string }[]).flatMap((r) => [
+        r.leftDataset,
+        r.rightDataset,
+      ]),
+    ]),
+  );
+  const packWorkflows = new Set(pack.workflows.map((w) => w.name));
 
   const datasets: PlanDataset[] = pack.datasets.map((ds) => {
+    const pub = ds.publishedBy ? { publishedBy: ds.publishedBy } : {};
+    if (!read.has(ds.name)) return { name: ds.name, status: 'unused', ...pub };
     const t = targetDatasets.find((d) => d.name === ds.name);
-    if (!t) return { name: ds.name, status: 'missing' };
+    if (!t) {
+      return ds.publishedBy && packWorkflows.has(ds.publishedBy)
+        ? { name: ds.name, status: 'awaits_publish', ...pub }
+        : { name: ds.name, status: 'missing', ...pub };
+    }
     const found = t.columns.map(({ name, dtype }) => ({ name, dtype }));
     return same(found, ds.columns)
-      ? { name: ds.name, status: 'found' }
-      : { name: ds.name, status: 'columns_differ', columns: { expected: ds.columns, found } };
+      ? { name: ds.name, status: 'found', ...pub }
+      : { name: ds.name, status: 'columns_differ', ...pub, columns: { expected: ds.columns, found } };
   });
-  const dsStatus = new Map(datasets.map((d) => [d.name, d.status]));
+  const dsOf = new Map(datasets.map((d) => [d.name, d]));
   const broken = new Set<string>(); // `${kind}:${name}` that cannot be imported
+  const later = new Set<string>(); // deferred
+  const kept = new Set<string>(); // skipped (Keep mine) with a differing definition
 
   const idHere = (kind: PlanKind, name: string): string | undefined => {
     const pool: readonly { id: string; name: string }[] =
       kind === 'query' ? MOCK_QUERIES : kind === 'workflow' ? MOCK_WORKFLOWS : MOCK_DASHBOARDS;
     return pool.find((n) => n.name === name)?.id;
   };
-  const decide = (kind: PlanKind, name: string, existing: unknown, mine: unknown): PlanItem => {
-    if (existing === undefined) return { kind, name, action: 'create' };
+  const decide = (kind: PlanKind, name: string, existing: unknown, mine: unknown, reads: string[]): PlanItem => {
+    const bound = reads
+      .filter((k) => kept.has(k))
+      .map((k) => ({ kind: k.split(':')[0] as PlanKind, name: k.slice(k.indexOf(':') + 1) }));
+    const binds = bound.length ? { binds: bound } : {};
+    if (existing === undefined) return { kind, name, action: 'create', ...binds };
     const id = idHere(kind, name);
-    if (same(existing, mine)) return { kind, name, action: 'unchanged', id };
-    if (onConflict === 'replace') return { kind, name, action: 'replace', id };
-    if (onConflict === 'skip') return { kind, name, action: 'skip', id };
+    if (same(existing, mine)) return { kind, name, action: 'unchanged', id, ...binds };
+    if (onConflict === 'replace') return { kind, name, action: 'replace', id, ...binds };
+    if (onConflict === 'skip') {
+      kept.add(`${kind}:${name}`);
+      return { kind, name, action: 'skip', id, ...binds };
+    }
     return { kind, name, action: 'conflict', id, reason: 'exists' };
   };
-  const invalid = (kind: PlanKind, name: string, reason: PlanItem['reason'], detail: string): PlanItem => {
-    broken.add(`${kind}:${name}`);
-    return { kind, name, action: 'invalid', reason, detail };
+  const blocked = (kind: PlanKind, name: string, reads: string[]): PlanItem | null => {
+    const bad = reads.find((k) => broken.has(k));
+    if (bad) {
+      broken.add(`${kind}:${name}`);
+      return { kind, name, action: 'invalid', reason: 'needs', detail: bad.slice(bad.indexOf(':') + 1) };
+    }
+    const wait = reads.find((k) => later.has(k));
+    if (wait) {
+      later.add(`${kind}:${name}`);
+      return { kind, name, action: 'deferred', reason: 'needs', detail: wait.slice(wait.indexOf(':') + 1) };
+    }
+    return null;
   };
 
   const items: PlanItem[] = [];
   for (const q of pack.queries) {
-    const st = dsStatus.get(q.dataset);
-    if (st !== 'found') {
-      items.push(invalid('query', q.name, st === 'columns_differ' ? 'columns_differ' : 'dataset_missing', q.dataset));
+    const ds = dsOf.get(q.dataset);
+    if (ds?.status === 'awaits_publish') {
+      later.add(`query:${q.name}`);
+      items.push({
+        kind: 'query',
+        name: q.name,
+        action: 'deferred',
+        reason: 'awaits_publish',
+        detail: q.dataset,
+        via: ds.publishedBy,
+      });
+      continue;
+    }
+    if (ds?.status !== 'found') {
+      broken.add(`query:${q.name}`);
+      items.push({
+        kind: 'query',
+        name: q.name,
+        action: 'invalid',
+        reason: ds?.status === 'columns_differ' ? 'columns_differ' : 'dataset_missing',
+        detail: q.dataset,
+      });
       continue;
     }
     items.push(
@@ -170,52 +251,53 @@ export function mockPlan(
         q.name,
         here?.queries.find((x) => x.name === q.name),
         q,
+        [],
       ),
     );
   }
   for (const w of pack.workflows) {
-    const need = w.definition.sources
-      .map((s) => ('query' in s ? `query:${s.query}` : `workflow:${s.workflow}`))
-      .find((k) => broken.has(k));
-    if (need) {
-      items.push(invalid('workflow', w.name, 'needs', need.slice(need.indexOf(':') + 1)));
-      continue;
-    }
+    const reads = w.definition.sources.map((s) => ('query' in s ? `query:${s.query}` : `workflow:${s.workflow}`));
     items.push(
-      decide(
-        'workflow',
-        w.name,
-        here?.workflows.find((x) => x.name === w.name),
-        w,
-      ),
+      blocked('workflow', w.name, reads) ??
+        decide(
+          'workflow',
+          w.name,
+          here?.workflows.find((x) => x.name === w.name),
+          w,
+          reads,
+        ),
     );
   }
   for (const d of pack.dashboards) {
-    const widgets = (d.definition.widgets ?? []) as { query?: string }[];
-    const need = widgets.map((x) => x.query).find((n) => n !== undefined && broken.has(`query:${n}`));
-    if (need) {
-      items.push(invalid('dashboard', d.name, 'needs', need));
-      continue;
-    }
+    const reads = ((d.definition.widgets ?? []) as { query?: string }[]).flatMap((x) =>
+      x.query === undefined ? [] : [`query:${x.query}`],
+    );
     items.push(
-      decide(
-        'dashboard',
-        d.name,
-        here?.dashboards.find((x) => x.name === d.name),
-        d,
-      ),
+      blocked('dashboard', d.name, reads) ??
+        decide(
+          'dashboard',
+          d.name,
+          here?.dashboards.find((x) => x.name === d.name),
+          d,
+          reads,
+        ),
     );
   }
 
   const counts = { ...ZERO };
   for (const it of items) counts[it.action] += 1;
-  const ok = datasets.every((d) => d.status === 'found') && counts.conflict === 0 && counts.invalid === 0;
+  const ok =
+    datasets.every((d) => d.status !== 'missing' && d.status !== 'columns_differ') &&
+    counts.conflict === 0 &&
+    counts.invalid === 0;
   const applied = !dryRun && ok;
   return {
     dryRun,
     applied,
     onConflict,
     ok,
+    planHash: mockPlanHash(onConflict, datasets, items),
+    warnings: items.filter((i) => i.binds).length,
     datasets,
     items: applied
       ? items.map((it, i) =>
@@ -257,7 +339,14 @@ export function importDefinitionsResolver(workspaceId: string, url: URL, body: u
   }
   const dryRun = url.searchParams.get('dryRun') === 'true';
   const onConflict = (url.searchParams.get('onConflict') ?? 'refuse') as OnConflict;
+  const expected = url.searchParams.get('expectedPlan');
   const plan = mockPlan(workspaceId, pack, onConflict, dryRun);
-  if (!dryRun && !plan.ok) return HttpResponse.json({ code: 'pack_refused', plan }, { status: 409 });
+  if (!dryRun && expected && expected !== plan.planHash) {
+    return HttpResponse.json(
+      { code: 'pack_refused', reason: 'plan_changed', plan: { ...plan, applied: false } },
+      { status: 409 },
+    );
+  }
+  if (!dryRun && !plan.ok) return HttpResponse.json({ code: 'pack_refused', reason: 'not_ok', plan }, { status: 409 });
   return HttpResponse.json(plan);
 }

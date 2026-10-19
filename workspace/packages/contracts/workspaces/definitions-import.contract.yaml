@@ -4,14 +4,19 @@ info:
   version: 0.1.0
   description: |
     R201 (item 4.8) — IMPORT a definition pack into a main workspace, by name.
-    The pack is read first (`422 pack_invalid`); its datasets are found by name
-    and columns in this workspace; each query, workflow and dashboard is planned
-    against its same-named noun (`create`, `unchanged`, or by `onConflict`
-    `replace` / `skip` / `conflict`; `invalid` when it cannot be imported) and
-    written through the noun's own create / update — every check those routes
-    run — inside ONE transaction. A dry run rolls it back and returns the plan;
-    an apply commits only a plan that is `ok`, else nothing is written
-    (`409 pack_refused` with the plan). Whole pack or nothing. Rationale:
+    The pack is read first, by the route itself (size → JSON → version → count
+    → shape → duplicates → references → cycles; `422 pack_invalid`); its
+    datasets are found by name and columns in this workspace; each query,
+    workflow and dashboard is planned against its same-named noun (`create`,
+    `unchanged`, or by `onConflict` `replace` / `skip` / `conflict`;
+    `deferred` when it waits for a dataset a workflow of the pack publishes;
+    `invalid` when it cannot be imported) and written through the noun's own
+    create / update — every check those routes run — inside ONE transaction. A
+    dry run rolls it back and returns the plan with its `planHash`; an apply
+    commits only a plan that is `ok` and equals the dry run the client showed
+    (`expectedPlan`), else nothing is written (`409 pack_refused` with the
+    reason and the plan). Whole pack or nothing; `deferred` rows are a planned
+    state, written by a later import of the same pack. Rationale:
     definitions-import.contract.md. Shapes: _shared/definition-pack.yaml.
 paths:
   /workspaces/{id}/definitions/import:
@@ -36,14 +41,28 @@ paths:
           required: false
           schema: { $ref: '../_shared/definition-pack.yaml#/components/schemas/OnConflict' }
           description: Default `refuse`.
+        - name: expectedPlan
+          in: query
+          required: false
+          schema: { type: string, pattern: '^[0-9a-f]{12}$' }
+          description: |
+            On an apply: the `planHash` of the dry run the client showed. When
+            the plan computed now differs, nothing is written —
+            `409 pack_refused`, `reason: plan_changed`, with the new plan.
+            Ignored on a dry run; without it the apply is not compared.
         - $ref: '../_shared/history.yaml#/components/parameters/WriterToken'
       requestBody:
         required: true
         description: |
-          The pack, as exported. Read before anything else: another
-          `packVersion`, more than 10 MiB or 1 000 nouns, a name twice in one
-          kind (or a slug twice), a name the pack references but does not hold,
-          or workflows reading each other → `422 pack_invalid`.
+          The pack, as exported. The route reads the raw body itself, in
+          order: over 10 MiB → `too_large` (before parsing); not JSON / no
+          integer `packVersion` → `shape`; another `packVersion` → `version`
+          (whatever the rest looks like); more than 1 000 queries + workflows
+          + dashboards → `too_large`; a field this schema does not hold →
+          `shape` (with its path); a name twice in one kind or a slug twice →
+          `duplicate`; a name or dataset the pack does not hold →
+          `reference`; workflows reading each other → `cycle`. The schema
+          below documents the shape the route checks.
         content:
           application/json:
             schema: { $ref: '../_shared/definition-pack.yaml#/components/schemas/DefinitionPack' }
@@ -51,10 +70,12 @@ paths:
         '200':
           description: |
             The plan. On a dry run: what an apply would do (`dryRun: true`,
-            `applied: false`; `ok` false lists every reason). On an apply:
-            everything was written (`applied: true`; each `create` carries its
-            new `id`). An `unchanged` noun is not written — re-importing the
-            same pack writes nothing.
+            `applied: false`; `ok` false lists every reason; `planHash` to send
+            back as `expectedPlan`). On an apply: every item but the `deferred`
+            ones was written (`applied: true`; each `create` carries its new
+            `id`). An `unchanged` noun is not written — re-importing the same
+            pack writes nothing new, and writes what an earlier import
+            deferred once its dataset exists.
           content:
             application/json:
               schema: { $ref: '../_shared/definition-pack.yaml#/components/schemas/ImportPlan' }
@@ -65,8 +86,11 @@ paths:
                     applied: false
                     onConflict: refuse
                     ok: false
+                    planHash: 3f1c9a0b7d2e
+                    warnings: 0
                     datasets:
                       - { name: calls_demo, status: found }
+                      - { name: calls_rollup, status: awaits_publish, publishedBy: Calls rollup }
                       - name: teams_demo
                         status: columns_differ
                         columns:
@@ -74,22 +98,29 @@ paths:
                           found: [{ name: team, dtype: string }, { name: id, dtype: integer }]
                     items:
                       - { kind: query, name: North calls, action: create }
+                      - { kind: query, name: Rollup by team, action: deferred, reason: awaits_publish, detail: calls_rollup, via: Calls rollup }
                       - { kind: query, name: Team list, action: invalid, reason: columns_differ, detail: teams_demo }
                       - { kind: workflow, name: Calls rollup, action: unchanged, id: wf_0a1b2c3d }
                       - { kind: dashboard, name: Weekly, action: conflict, id: dsh_0a1b2c3d, reason: exists }
-                    counts: { create: 1, replace: 0, unchanged: 1, skip: 0, conflict: 1, invalid: 1 }
+                    counts: { create: 1, replace: 0, unchanged: 1, skip: 0, deferred: 1, conflict: 1, invalid: 1 }
                 applied:
                   value:
                     dryRun: false
                     applied: true
-                    onConflict: replace
+                    onConflict: skip
                     ok: true
+                    planHash: 9a0b7d2e3f1c
+                    warnings: 1
                     datasets: [{ name: calls_demo, status: found }]
                     items:
-                      - { kind: query, name: North calls, action: create, id: qr_1a2b3c4d }
+                      - { kind: query, name: North calls, action: skip, id: qr_1a2b3c4d }
                       - { kind: workflow, name: Calls rollup, action: unchanged, id: wf_0a1b2c3d }
-                      - { kind: dashboard, name: Weekly, action: replace, id: dsh_0a1b2c3d }
-                    counts: { create: 1, replace: 1, unchanged: 1, skip: 0, conflict: 0, invalid: 0 }
+                      - kind: dashboard
+                        name: Weekly
+                        action: create
+                        id: dsh_0a1b2c3d
+                        binds: [{ kind: query, name: North calls }]
+                    counts: { create: 1, replace: 0, unchanged: 1, skip: 1, deferred: 0, conflict: 0, invalid: 0 }
         '404':
           description: No workspace with this id.
           content:
@@ -98,9 +129,10 @@ paths:
               examples: { not_found: { value: { code: 'not_found' } } }
         '409':
           description: |
-            `pack_refused` — an apply whose plan is not `ok`; the transaction was
-            rolled back, nothing written; `plan` says why. `read_only_workspace`
-            — the target is a saved workspace (R193).
+            `pack_refused` — an apply whose plan is not `ok` (`not_ok`) or
+            differs from `expectedPlan` (`plan_changed`); the transaction was
+            rolled back, nothing written; `plan` is the plan now.
+            `read_only_workspace` — the target is a saved workspace (R193).
           content:
             application/json:
               schema:
@@ -111,22 +143,25 @@ paths:
                 refused:
                   value:
                     code: pack_refused
+                    reason: not_ok
                     plan:
                       dryRun: false
                       applied: false
                       onConflict: refuse
                       ok: false
+                      planHash: 7d2e3f1c9a0b
+                      warnings: 0
                       datasets: [{ name: calls_demo, status: missing }]
                       items:
                         - { kind: query, name: North calls, action: invalid, reason: dataset_missing, detail: calls_demo }
                         - { kind: dashboard, name: Weekly, action: invalid, reason: needs, detail: North calls }
-                      counts: { create: 0, replace: 0, unchanged: 0, skip: 0, conflict: 0, invalid: 2 }
+                      counts: { create: 0, replace: 0, unchanged: 0, skip: 0, deferred: 0, conflict: 0, invalid: 2 }
                 read_only: { value: { code: 'read_only_workspace' } }
         '422':
           description: |
-            `pack_invalid` — the pack cannot be read (`reason`, `problems`); or
-            FastAPI's validation envelope for a body that is not a pack, a
-            malformed id or query parameter.
+            `pack_invalid` — the pack cannot be read (`reason`, `problems`),
+            including a body that is not JSON or not a pack (`shape`); or
+            FastAPI's validation envelope for a malformed id or query parameter.
           content:
             application/json:
               schema:
@@ -143,4 +178,11 @@ paths:
                   value:
                     code: pack_invalid
                     reason: reference
-                    problems: [{ kind: dashboard, name: Weekly, ref: North calls, refKind: query }]
+                    problems:
+                      - { kind: dashboard, name: Weekly, ref: North calls, refKind: query }
+                      - { kind: query, name: Team list, ref: teams_demo, refKind: dataset }
+                wrong_shape:
+                  value:
+                    code: pack_invalid
+                    reason: shape
+                    problems: [{ path: queries/0/dataset, detail: 'Field required' }]

@@ -70,9 +70,11 @@ export const definitionsApi = {
   async importPack(
     workspaceId: string,
     pack: unknown,
-    opts: { dryRun: boolean; onConflict: OnConflict },
+    opts: { dryRun: boolean; onConflict: OnConflict; expectedPlan?: string },
   ): Promise<ImportPlan> {
     const qs = new URLSearchParams({ dryRun: String(opts.dryRun), onConflict: opts.onConflict });
+    // BA C10 — an apply names the dry run it follows; a plan that moved is refused.
+    if (!opts.dryRun && opts.expectedPlan) qs.set('expectedPlan', opts.expectedPlan);
     const resp = await fetch(`${API_BASE_URL}/workspaces/${workspaceId}/definitions/import?${qs.toString()}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

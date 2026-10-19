@@ -275,7 +275,7 @@
     "pack": {
       "exportAction": "Export definitions",
       "importAction": "Import definitions…",
-      "exported": "Exported {{queries}}, {{dashboards}} and {{workflows}}.",
+      "exported": "Exported {{list}}.",
       "nQueries_one": "{{count}} query",
       "nQueries_other": "{{count}} queries",
       "nDashboards_one": "{{count}} dashboard",
@@ -300,16 +300,16 @@
       "fileTooLarge": "This file is larger than {{mb}} MB.",
       "conflictLabel": "If a name already exists here:",
       "conflict": {
-        "refuse": "Stop",
+        "refuse": "Don't import if anything conflicts",
         "replace": "Replace it",
         "skip": "Keep mine"
       },
-      "conflictHelp": "Stop: nothing is imported while a name here holds a different definition. Replace: the pack's definition is saved over it. Keep mine: that name is left as it is here.",
+      "conflictHelp": "Don't import if anything conflicts: nothing is imported while a name here holds a different definition. Replace it: the pack's definition is saved over it. Keep mine: that name is left as it is here.",
       "checking": "Checking the pack against this workspace…",
       "datasetsNeeded": "Datasets needed",
       "datasetFound": "found",
       "datasetMissing": "not in this workspace",
-      "emptyPack": "The pack holds no definitions.",
+      "emptyPack": "This pack holds no definitions.",
       "count": {
         "create_one": "{{count}} new",
         "create_other": "{{count}} new",
@@ -317,12 +317,16 @@
         "replace_other": "{{count}} replace",
         "unchanged_one": "{{count}} unchanged",
         "unchanged_other": "{{count}} unchanged",
-        "skip_one": "{{count}} skip",
-        "skip_other": "{{count}} skip",
+        "skip_one": "{{count}} keep mine",
+        "skip_other": "{{count}} keep mine",
         "conflict_one": "{{count}} conflict",
         "conflict_other": "{{count}} conflicts",
         "invalid_one": "{{count}} can't import",
-        "invalid_other": "{{count}} can't import"
+        "invalid_other": "{{count}} can't import",
+        "deferred_one": "{{count}} deferred",
+        "deferred_other": "{{count}} deferred",
+        "warnings_one": "{{count}} with a warning",
+        "warnings_other": "{{count}} with a warning"
       },
       "col": {
         "kind": "Kind",
@@ -340,9 +344,10 @@
         "create": "New",
         "replace": "Replace",
         "unchanged": "Unchanged",
-        "skip": "Skip",
+        "skip": "Keep mine",
         "conflict": "Conflict",
-        "invalid": "Can't import"
+        "invalid": "Can't import",
+        "deferred": "Deferred"
       },
       "reason": {
         "exists": "already here with a different definition",
@@ -350,17 +355,16 @@
         "slug_taken": "another dashboard here uses the address “{{detail}}”",
         "dataset_missing": "needs dataset {{detail}}, which is not in this workspace",
         "columns_differ": "dataset {{detail}} has different columns here",
-        "needs": "needs {{detail}}, which cannot be imported",
-        "check_failed": "would not save: {{detail}}"
+        "needs": "needs {{detail}}, which is not imported now",
+        "check_failed": "would not save: {{detail}}",
+        "awaits_publish": "needs {{detail}}, which workflow {{via}} publishes — run and publish it, then import this pack again"
       },
-      "importN_one": "Import {{count}}",
-      "importN_other": "Import {{count}}",
       "nothingToImport": "Nothing to import — everything here already matches the pack.",
-      "replaceWarning": "Replacing saves the pack's definition as a new version; the current one stays in its History, so it can be restored.",
-      "blocked": "Nothing can be imported until the rows above marked Conflict or Can't import, and the datasets marked ✗, are resolved.",
+      "replaceWarning": "Replacing saves the pack's definition as a new version; the current one stays in its History, so it can be restored. A replaced dashboard takes the pack's address (slug) — links to its old address stop working. Dashboards and workflows outside the pack that read a replaced query change too.",
+      "blocked": "Nothing is imported yet:",
       "changedSinceCheck": "This workspace changed since the check. Review the new plan.",
       "requestFailed": "Couldn't check or import the pack",
-      "imported": "Imported into {{name}}: {{created}} new, {{replaced}} replaced, {{unchanged}} unchanged.",
+      "imported": "Imported into {{name}}: {{parts}}.",
       "invalid": {
         "title": "This pack can't be read",
         "version": "This pack was made by a newer version (pack version {{found}}); this one reads version {{supported}}.",
@@ -368,12 +372,40 @@
         "duplicate": "Two of the pack's {{kind}} entries are named {{name}}.",
         "duplicateSlug": "Two dashboards in the pack use the address “{{slug}}”.",
         "reference": "{{kind}} {{name}} names {{refKind}} {{ref}}, which is not in the pack.",
-        "cycle": "Workflows {{names}} read each other."
+        "cycle": "Workflows {{names}} read each other.",
+        "shape": "The pack's shape is wrong at {{path}}: {{detail}}",
+        "referenceDataset": "{{kind}} {{name}} names dataset {{ref}}, which is not in the pack's datasets."
       },
       "columnsDiffer": {
         "changed": "columns differ — column {{n}} is {{expected}} in the pack, {{found}} here",
         "missing": "columns differ — column {{n}}, {{expected}}, is not here",
         "extra": "columns differ — column {{n}} here, {{found}}, is not in the pack"
+      },
+      "listAnd": "{{head}} and {{last}}",
+      "datasetAwaitsPublish": "published by workflow {{workflow}}: run and publish it, then import this pack again",
+      "datasetUnused": "not used by the pack",
+      "done": {
+        "create_one": "{{count}} new",
+        "create_other": "{{count}} new",
+        "replace_one": "{{count}} replaced",
+        "replace_other": "{{count}} replaced",
+        "unchanged_one": "{{count}} unchanged",
+        "unchanged_other": "{{count}} unchanged",
+        "skip_one": "{{count}} kept as yours",
+        "skip_other": "{{count}} kept as yours",
+        "deferred_one": "{{count}} deferred",
+        "deferred_other": "{{count}} deferred"
+      },
+      "binds": "uses the {{kind}} {{name}} here, which differs from the pack — numbers may differ",
+      "importNInto_one": "Import {{count}} into {{name}}",
+      "importNInto_other": "Import {{count}} into {{name}}",
+      "importInto": "Import into {{name}}",
+      "nothingToImportYet": "Nothing to import yet — the deferred rows wait for their datasets.",
+      "next": {
+        "datasets": "load {{names}} into {{name}} first (with the pack's columns);",
+        "conflicts": "{{names}}: choose Replace it or Keep mine above;",
+        "source_differs": "{{names}}: rename or delete that query here, or rename it in the pack's workspace and export again;",
+        "check_failed": "{{names}}: fix it in the workspace the pack came from and export again."
       }
     }
   },

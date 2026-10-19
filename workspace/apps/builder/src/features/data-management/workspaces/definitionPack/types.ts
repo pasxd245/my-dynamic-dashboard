@@ -8,7 +8,8 @@
 
 export type PackColumn = { name: string; dtype: string };
 
-export type PackDataset = { name: string; columns: PackColumn[] };
+/** `publishedBy` — the pack's workflow that publishes this dataset (BA-C2). */
+export type PackDataset = { name: string; columns: PackColumn[]; publishedBy?: string };
 
 export type PackQuery = { name: string; dataset: string; definition: Record<string, unknown> };
 
@@ -39,7 +40,7 @@ export type OnConflict = 'refuse' | 'replace' | 'skip';
 
 export type PlanKind = 'query' | 'workflow' | 'dashboard';
 
-export type PlanAction = 'create' | 'replace' | 'unchanged' | 'skip' | 'conflict' | 'invalid';
+export type PlanAction = 'create' | 'replace' | 'unchanged' | 'skip' | 'deferred' | 'conflict' | 'invalid';
 
 /** Why a row is a conflict or cannot be imported; `detail` carries the name
  *  (a dataset, the noun it needs) or the save check's own message. */
@@ -50,7 +51,8 @@ export type PlanReason =
   | 'dataset_missing'
   | 'columns_differ'
   | 'needs'
-  | 'check_failed';
+  | 'check_failed'
+  | 'awaits_publish';
 
 export type PlanItem = {
   kind: PlanKind;
@@ -60,11 +62,17 @@ export type PlanItem = {
   id?: string;
   reason?: PlanReason;
   detail?: string;
+  /** On `awaits_publish` — the pack's workflow that publishes the dataset. */
+  via?: string;
+  /** BA-C1 — kept (Keep mine) nouns this item reads whose definition differs
+   *  from the pack's: its numbers may differ. */
+  binds?: { kind: PlanKind; name: string }[];
 };
 
 export type PlanDataset = {
   name: string;
-  status: 'found' | 'missing' | 'columns_differ';
+  status: 'found' | 'missing' | 'columns_differ' | 'awaits_publish' | 'unused';
+  publishedBy?: string;
   /** Both column lists, only when they differ. */
   columns?: { expected: PackColumn[]; found: PackColumn[] };
 };
@@ -75,6 +83,10 @@ export type ImportPlan = {
   onConflict: OnConflict;
   /** No dataset missing or differing, no `conflict`, no `invalid`. */
   ok: boolean;
+  /** Sent back as `expectedPlan` on apply (BA C10). */
+  planHash: string;
+  /** Items carrying `binds`. */
+  warnings: number;
   datasets: PlanDataset[];
   /** In write order: queries, workflows, dashboards. */
   items: PlanItem[];
@@ -88,10 +100,13 @@ export type PackProblem = {
   name?: string;
   /** What the noun references (a name), or a widget's title. */
   ref?: string;
-  refKind?: PlanKind;
+  refKind?: PlanKind | 'dataset';
+  /** On `shape`: where (`queries/0/dataset`) and what. */
+  path?: string;
+  detail?: string;
 };
 
-export type PackInvalidReason = 'version' | 'too_large' | 'duplicate' | 'reference' | 'cycle';
+export type PackInvalidReason = 'too_large' | 'shape' | 'version' | 'duplicate' | 'reference' | 'cycle';
 
 export type PackUnresolvedReason = 'query_missing' | 'source_missing' | 'dataset_missing';
 
@@ -103,5 +118,5 @@ export type PackError =
       packVersion?: number;
       supported?: number[];
     }
-  | { code: 'pack_refused'; plan: ImportPlan }
+  | { code: 'pack_refused'; reason: 'not_ok' | 'plan_changed'; plan: ImportPlan }
   | { code: 'pack_unresolved'; problems: (PackProblem & { reason: PackUnresolvedReason })[] };

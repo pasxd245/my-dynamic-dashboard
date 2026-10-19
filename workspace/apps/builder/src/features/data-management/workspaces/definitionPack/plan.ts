@@ -81,9 +81,37 @@ export function canImport(plan: ImportPlan): boolean {
   return plan.ok && writeCount(plan) > 0;
 }
 
-/** Every noun already matches the pack (or is kept by `skip`). */
+/** Every noun already matches the pack (or is kept, or waits for a dataset). */
 export function nothingToImport(plan: ImportPlan): boolean {
-  return plan.ok && writeCount(plan) === 0;
+  return plan.ok && writeCount(plan) === 0 && plan.items.length > 0;
+}
+
+/** The pack holds no definitions at all (BA C7 — one message, nothing else). */
+export function emptyPack(plan: ImportPlan): boolean {
+  return plan.items.length === 0;
+}
+
+/** The next step a blocked plan needs, one per cause (BA C5), in this order. */
+export type BlockCause = 'datasets' | 'conflicts' | 'source_differs' | 'check_failed';
+
+export function blockCauses(plan: ImportPlan): { cause: BlockCause; names: string[] }[] {
+  const out: { cause: BlockCause; names: string[] }[] = [];
+  const bad = plan.datasets.filter((d) => d.status === 'missing' || d.status === 'columns_differ').map((d) => d.name);
+  if (bad.length) out.push({ cause: 'datasets', names: bad });
+  const conflicts = plan.items
+    .filter((i) => i.action === 'conflict' && i.reason !== 'source_differs')
+    .map((i) => i.name);
+  if (conflicts.length) out.push({ cause: 'conflicts', names: conflicts });
+  const sources = plan.items.filter((i) => i.reason === 'source_differs').map((i) => i.name);
+  if (sources.length) out.push({ cause: 'source_differs', names: sources });
+  const failed = plan.items.filter((i) => i.reason === 'check_failed').map((i) => i.name);
+  if (failed.length) out.push({ cause: 'check_failed', names: failed });
+  return out;
+}
+
+/** The non-zero counts, in a fixed order (toasts and the summary line — BA C7). */
+export function nonZero<K extends string>(counts: Record<K, number>, order: readonly K[]): [K, number][] {
+  return order.filter((k) => counts[k] > 0).map((k) => [k, counts[k]]);
 }
 
 /** Download a pack as a file (the export action). */

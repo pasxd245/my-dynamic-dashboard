@@ -1,4 +1,10 @@
-import { CheckCircleOutlined, CloseCircleOutlined, InboxOutlined } from '@ant-design/icons';
+import {
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  CloseCircleOutlined,
+  InboxOutlined,
+  MinusCircleOutlined,
+} from '@ant-design/icons';
 import { Alert, App, Button, Modal, Radio, Space, Spin, Table, Tag, Typography, Upload, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useState } from 'react';
@@ -9,8 +15,11 @@ import type { Workspace } from '../types';
 import { useApplyPackMutation, useImportPlanMutation } from './hooks';
 import {
   PACK_MAX_BYTES,
+  blockCauses,
   canImport,
   columnDifference,
+  emptyPack,
+  nonZero,
   nothingToImport,
   readPackText,
   writeCount,
@@ -27,6 +36,7 @@ const ACTION_COLOR: Record<PlanAction, string | undefined> = {
   replace: 'warning',
   unchanged: undefined,
   skip: undefined,
+  deferred: 'processing',
   conflict: 'error',
   invalid: 'error',
 };
@@ -63,6 +73,24 @@ function DatasetLine({ ds }: Readonly<{ ds: PlanDataset }>) {
       </li>
     );
   }
+  if (ds.status === 'awaits_publish') {
+    return (
+      <li data-component="PackDatasetLine" data-status="awaits_publish">
+        <ClockCircleOutlined style={{ color: token.colorWarning }} aria-hidden="true" /> {ds.name} —{' '}
+        <Typography.Text type="warning">
+          {t('workspaces.pack.datasetAwaitsPublish', { workflow: ds.publishedBy ?? '' })}
+        </Typography.Text>
+      </li>
+    );
+  }
+  if (ds.status === 'unused') {
+    return (
+      <li data-component="PackDatasetLine" data-status="unused">
+        <MinusCircleOutlined style={{ color: token.colorTextTertiary }} aria-hidden="true" /> {ds.name}{' '}
+        <Typography.Text type="secondary">{t('workspaces.pack.datasetUnused')}</Typography.Text>
+      </li>
+    );
+  }
   return (
     <li data-component="PackDatasetLine" data-status={ds.status}>
       <CloseCircleOutlined style={{ color: token.colorError }} aria-hidden="true" /> {ds.name} —{' '}
@@ -86,6 +114,10 @@ function PackInvalidAlert({ err }: Readonly<{ err: PackInvalid }>) {
         supported: (err.supported ?? [1]).join(', '),
       }),
     ];
+  } else if (err.reason === 'shape') {
+    lines = err.problems.map((p) =>
+      t('workspaces.pack.invalid.shape', { path: p.path || '—', detail: p.detail ?? '' }),
+    );
   } else if (err.reason === 'too_large') {
     lines = [t('workspaces.pack.invalid.tooLarge', { mb: PACK_MAX_BYTES / (1024 * 1024) })];
   } else if (err.reason === 'cycle') {
@@ -98,7 +130,7 @@ function PackInvalidAlert({ err }: Readonly<{ err: PackInvalid }>) {
     );
   } else {
     lines = err.problems.map((p) =>
-      t('workspaces.pack.invalid.reference', {
+      t(p.refKind === 'dataset' ? 'workspaces.pack.invalid.referenceDataset' : 'workspaces.pack.invalid.reference', {
         kind: kindName(p.kind),
         name: p.name ?? '',
         refKind: kindName(p.refKind).toLowerCase(),
@@ -126,10 +158,21 @@ function PackInvalidAlert({ err }: Readonly<{ err: PackInvalid }>) {
 
 function PlanView({ plan }: Readonly<{ plan: ImportPlan }>) {
   const { t } = useTranslation();
-  const summary = (['create', 'replace', 'unchanged', 'skip', 'conflict', 'invalid'] as const)
-    .filter((a) => plan.counts[a] > 0)
-    .map((a) => t(`workspaces.pack.count.${a}`, { count: plan.counts[a] }))
-    .join(' · ');
+  if (emptyPack(plan)) {
+    // BA C7 — an empty pack says so once; no datasets, no table, no counts.
+    return <Alert type="info" showIcon title={t('workspaces.pack.emptyPack')} data-component="PackEmpty" />;
+  }
+  const parts = nonZero(plan.counts, [
+    'create',
+    'replace',
+    'unchanged',
+    'skip',
+    'deferred',
+    'conflict',
+    'invalid',
+  ] as const).map(([a, n]) => t(`workspaces.pack.count.${a}`, { count: n }));
+  if (plan.warnings > 0) parts.push(t('workspaces.pack.count.warnings', { count: plan.warnings }));
+  const summary = parts.join(' · ');
   const columns: ColumnsType<PlanItem> = [
     {
       title: t('workspaces.pack.col.kind'),
@@ -151,12 +194,22 @@ function PlanView({ plan }: Readonly<{ plan: ImportPlan }>) {
     {
       title: t('workspaces.pack.col.why'),
       key: 'why',
-      render: (_: unknown, item: PlanItem) =>
-        item.reason ? (
-          <Typography.Text type="secondary">
-            {t(`workspaces.pack.reason.${item.reason}`, { detail: item.detail ?? '' })}
-          </Typography.Text>
-        ) : null,
+      render: (_: unknown, item: PlanItem) => (
+        <>
+          {item.reason ? (
+            <Typography.Text type="secondary">
+              {t(`workspaces.pack.reason.${item.reason}`, { detail: item.detail ?? '', via: item.via ?? '' })}
+            </Typography.Text>
+          ) : null}
+          {(item.binds ?? []).map((b) => (
+            <div key={`${b.kind}:${b.name}`} data-component="PlanBindsWarning">
+              <Typography.Text type="warning">
+                {t('workspaces.pack.binds', { kind: t(`workspaces.pack.kind.${b.kind}`).toLowerCase(), name: b.name })}
+              </Typography.Text>
+            </div>
+          ))}
+        </>
+      ),
     },
   ];
   return (
@@ -172,7 +225,7 @@ function PlanView({ plan }: Readonly<{ plan: ImportPlan }>) {
         </>
       ) : null}
       <Typography.Paragraph type="secondary" style={{ marginBottom: 8 }} data-component="PackPlanSummary">
-        {summary || t('workspaces.pack.emptyPack')}
+        {summary}
       </Typography.Paragraph>
       {plan.items.length > 0 ? (
         <Table<PlanItem>
@@ -278,18 +331,15 @@ export function ImportDefinitionsModal({ workspace, onClose }: ImportDefinitions
     setRefusedOnApply(false);
     setRequestError(null);
     applyMutation.mutate(
-      { workspaceId: workspace.id, pack: file.read.pack, onConflict },
+      { workspaceId: workspace.id, pack: file.read.pack, onConflict, expectedPlan: plan.planHash },
       {
         onSuccess: (applied) => {
-          message.success(
-            t('workspaces.pack.imported', {
-              name: workspace.name,
-              // Not `replace` — an i18next option name, which would swallow the values.
-              created: applied.counts.create,
-              replaced: applied.counts.replace,
-              unchanged: applied.counts.unchanged,
-            }),
+          // BA C7 — the non-zero counts only. (Never an interpolation value named
+          // `replace` — an i18next option that swallows every value.)
+          const parts = nonZero(applied.counts, ['create', 'replace', 'unchanged', 'skip', 'deferred'] as const).map(
+            ([a, n]) => t(`workspaces.pack.done.${a}`, { count: n }),
           );
+          message.success(t('workspaces.pack.imported', { name: workspace.name, parts: parts.join(', ') }));
           reset();
           onClose();
         },
@@ -306,17 +356,22 @@ export function ImportDefinitionsModal({ workspace, onClose }: ImportDefinitions
       {t('common.cancel')}
     </Button>,
   ];
-  if (plan && !nothingToImport(plan)) {
+  // BA C5 — the button names the target; a blocked plan keeps it, disabled and
+  // without a count; nothing to write (or an empty pack) shows none.
+  if (plan && !nothingToImport(plan) && !emptyPack(plan)) {
+    const ready = canImport(plan);
     footer.push(
       <Button
         key="import"
         type="primary"
         onClick={apply}
         loading={applyMutation.isPending}
-        disabled={!canImport(plan) || planMutation.isPending}
+        disabled={!ready || planMutation.isPending}
         data-component="PackImportButton"
       >
-        {t('workspaces.pack.importN', { count: writes })}
+        {ready
+          ? t('workspaces.pack.importNInto', { count: writes, name: workspace?.name ?? '' })
+          : t('workspaces.pack.importInto', { name: workspace?.name ?? '' })}
       </Button>,
     );
   }
@@ -423,7 +478,7 @@ export function ImportDefinitionsModal({ workspace, onClose }: ImportDefinitions
         <Alert
           type="info"
           showIcon
-          title={t('workspaces.pack.nothingToImport')}
+          title={t(plan.counts.deferred > 0 ? 'workspaces.pack.nothingToImportYet' : 'workspaces.pack.nothingToImport')}
           data-component="PackNothingToImport"
           style={{ marginTop: 12 }}
         />
@@ -442,6 +497,15 @@ export function ImportDefinitionsModal({ workspace, onClose }: ImportDefinitions
           type="error"
           showIcon
           title={t('workspaces.pack.blocked')}
+          description={
+            <ul style={{ paddingInlineStart: 20, marginBottom: 0 }}>
+              {blockCauses(plan).map((c) => (
+                <li key={c.cause} data-component="PackNextStep" data-cause={c.cause}>
+                  {t(`workspaces.pack.next.${c.cause}`, { names: c.names.join(', '), name: workspace?.name ?? '' })}
+                </li>
+              ))}
+            </ul>
+          }
           data-component="PackBlocked"
           style={{ marginTop: 12 }}
         />

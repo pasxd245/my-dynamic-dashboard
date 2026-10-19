@@ -29,13 +29,21 @@ export function useExportDefinitions(): { exportDefinitions: (ws: Workspace) => 
             message.info(t('workspaces.pack.exportEmpty'));
             return;
           }
-          message.success(
-            t('workspaces.pack.exported', {
-              queries: t('workspaces.pack.nQueries', { count: c.queries }),
-              dashboards: t('workspaces.pack.nDashboards', { count: c.dashboards }),
-              workflows: t('workspaces.pack.nWorkflows', { count: c.workflows }),
-            }),
-          );
+          // BA C7 — a kind with none is left out of the toast.
+          const parts = (
+            [
+              ['queries', 'nQueries'],
+              ['dashboards', 'nDashboards'],
+              ['workflows', 'nWorkflows'],
+            ] as const
+          )
+            .filter(([k]) => c[k] > 0)
+            .map(([k, key]) => t(`workspaces.pack.${key}`, { count: c[k] }));
+          const list =
+            parts.length === 1
+              ? parts[0]
+              : t('workspaces.pack.listAnd', { head: parts.slice(0, -1).join(', '), last: parts[parts.length - 1] });
+          message.success(t('workspaces.pack.exported', { list }));
         },
         onError: (err) => {
           if (err instanceof PackErrorThrown && err.body.code === 'pack_unresolved') {

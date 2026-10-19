@@ -53,13 +53,23 @@ components:
         `leftDataset` / `rightDataset`), with its columns in stored order —
         name and dtype only (no hidden flag, coverage or counts). Data never
         travels: the import finds a same-named dataset in the target workspace
-        and requires exactly these columns.
+        and requires exactly these columns. Every dataset a query names must be
+        here (a pack is closed); one nothing reads is `unused` on import.
       properties:
         name: { type: string, minLength: 1, maxLength: 120 }
         columns:
           type: array
           minItems: 1
           items: { $ref: '#/components/schemas/PackColumn' }
+        publishedBy:
+          type: string
+          minLength: 1
+          maxLength: 120
+          description: |
+            R201 BA-C2 — the name of the pack's workflow that publishes this
+            dataset (R192). Missing in the target, such a dataset is
+            `awaits_publish`: its readers are `deferred` until the workflow is
+            run and published and the pack imported again.
 
     PackQuery:
       type: object
@@ -139,9 +149,12 @@ components:
       additionalProperties: false
       description: |
         Every list is ordered by `name`. Two exports of an unchanged
-        workspace differ only in `exportedAt`. A body over 10 MiB, or with more
-        than 1 000 queries + workflows + dashboards, is refused on import
-        (`pack_invalid`, `too_large`).
+        workspace differ only in `exportedAt`. On import the route reads the
+        body itself, in this order: size (over 10 MiB → `too_large`, before
+        parsing) → JSON (`shape`) → `packVersion` (`version`, whatever the rest
+        looks like) → the total of queries + workflows + dashboards (over
+        1 000 → `too_large`) → this closed shape (`shape`, with the path) →
+        duplicates → references (a closed pack) → workflow cycles.
       properties:
         packVersion:
           type: integer
@@ -149,8 +162,7 @@ components:
           description: The pack format's version. This install writes and reads `1`.
         exportedAt:
           type: string
-          format: date-time
-          description: When the pack was exported (UTC). Informational.
+          description: When the pack was exported — ISO-8601 UTC, second-precision, `Z`-suffixed. Informational.
         exportedBy:
           type: string
           description: The exporting app's version. Informational.
@@ -162,15 +174,12 @@ components:
           items: { $ref: '#/components/schemas/PackDataset' }
         queries:
           type: array
-          maxItems: 1000
           items: { $ref: '#/components/schemas/PackQuery' }
         workflows:
           type: array
-          maxItems: 1000
           items: { $ref: '#/components/schemas/PackWorkflow' }
         dashboards:
           type: array
-          maxItems: 1000
           items: { $ref: '#/components/schemas/PackDashboard' }
 
     OnConflict:
@@ -180,8 +189,10 @@ components:
         What to do with a noun whose name exists in the target with a
         different definition: `refuse` (default) — a `conflict`, the apply is
         refused; `replace` — the noun's own update writes the pack's
-        definition (its id kept, one history row); `skip` — the target's noun
-        is kept and the pack's nouns that name it bind to it.
+        definition (its id kept, one history row); `skip` (Keep mine) — the
+        target's noun is kept and the pack's nouns that name it bind to it,
+        each carrying `binds` (a warning: numbers may differ). A query of that
+        name reading another dataset (`source_differs`) blocks under all three.
 
     PlanKind:
       type: string
@@ -189,25 +200,29 @@ components:
 
     PlanAction:
       type: string
-      enum: [create, replace, unchanged, skip, conflict, invalid]
+      enum: [create, replace, unchanged, skip, deferred, conflict, invalid]
       description: |
         `create` — no noun of that name in the target. `unchanged` — the
         target's noun, exported, equals the pack's (nothing is written; under
         every `onConflict`). `replace` / `skip` / `conflict` — by `onConflict`
-        (two conflicts no choice resolves block under `refuse` and `replace`:
-        `source_differs`, `slug_taken`). `invalid` — the noun cannot be
-        imported: a dataset it reads is missing or differs, a noun it reads
-        cannot be imported, or its own save check refused it.
+        (`source_differs` blocks under all three; `slug_taken` under `refuse`
+        and `replace`). `deferred` — not written by this import: it reads a
+        dataset that a workflow of the pack publishes and the target does not
+        hold yet (`awaits_publish`), or a deferred noun (`needs`); a planned
+        state, not a failure. `invalid` — the noun cannot be imported: a
+        dataset it reads is missing or differs, a noun it reads cannot be
+        imported, or its own save check refused it.
 
     PlanReason:
       type: string
-      enum: [exists, source_differs, slug_taken, dataset_missing, columns_differ, needs, check_failed]
+      enum: [exists, source_differs, slug_taken, dataset_missing, columns_differ, needs, check_failed, awaits_publish]
       description: |
-        Why an item is a `conflict` (`exists`, `source_differs`, `slug_taken`)
-        or `invalid` (`dataset_missing`, `columns_differ`, `needs`,
-        `check_failed`). `detail` carries the name it is about — the slug, the
-        dataset, the noun needed — or, for `check_failed`, the save check's
-        own message.
+        Why an item is a `conflict` (`exists`, `source_differs`, `slug_taken`),
+        `invalid` (`dataset_missing`, `columns_differ`, `needs`,
+        `check_failed`) or `deferred` (`awaits_publish`, `needs`). `detail`
+        carries the name it is about — the slug, the dataset, the noun needed —
+        or, for `check_failed`, the save check's own message; `via` the
+        publishing workflow of `awaits_publish`.
 
     PlanItem:
       type: object
@@ -224,9 +239,26 @@ components:
             The target noun's id — the existing one (`replace`, `unchanged`,
             `skip`, `conflict` on `exists` / `source_differs`), or the new one
             after an apply (`create`). Absent on a dry run's `create`, on
-            `invalid`, and on a `slug_taken` conflict.
+            `deferred`, on `invalid`, and on a `slug_taken` conflict.
         reason: { $ref: '#/components/schemas/PlanReason' }
         detail: { type: string }
+        via:
+          type: string
+          description: On `awaits_publish` — the pack's workflow that publishes the dataset.
+        binds:
+          type: array
+          minItems: 1
+          description: |
+            BA-C1 — the nouns kept by `skip` (Keep mine) that this item reads
+            and whose definition differs from the pack's: it binds to them by
+            name, so its numbers may differ from the exporting workspace's.
+          items:
+            type: object
+            required: [kind, name]
+            additionalProperties: false
+            properties:
+              kind: { $ref: '#/components/schemas/PlanKind' }
+              name: { type: string, minLength: 1 }
 
     PlanDataset:
       type: object
@@ -236,11 +268,16 @@ components:
         name: { type: string, minLength: 1 }
         status:
           type: string
-          enum: [found, missing, columns_differ]
+          enum: [found, missing, columns_differ, awaits_publish, unused]
           description: |
             `found` — a dataset of that name in the target workspace with the
             pack's columns (name and dtype, in order). `missing` — none of that
-            name. `columns_differ` — one of that name with other columns.
+            name (blocks). `columns_differ` — one of that name with other
+            columns (blocks). `awaits_publish` — none of that name, and a
+            workflow of the pack publishes it (`publishedBy`): its readers are
+            `deferred`, nothing blocks. `unused` — nothing in the pack reads it;
+            ignored.
+        publishedBy: { type: string, minLength: 1 }
         columns:
           type: object
           required: [expected, found]
@@ -256,7 +293,7 @@ components:
 
     ImportPlan:
       type: object
-      required: [dryRun, applied, onConflict, ok, datasets, items, counts]
+      required: [dryRun, applied, onConflict, ok, planHash, warnings, datasets, items, counts]
       additionalProperties: false
       description: |
         What an import does (a dry run) or did (an apply), per noun, in write
@@ -273,7 +310,21 @@ components:
           type: boolean
           description: |
             No dataset `missing` or `columns_differ`, no item `conflict` or
-            `invalid` — an apply of this plan writes the whole pack.
+            `invalid` — an apply of this plan writes every item but the
+            `deferred` ones.
+        planHash:
+          type: string
+          pattern: '^[0-9a-f]{12}$'
+          description: |
+            BA C10 — the hash of the plan's decisions (`onConflict`, each
+            dataset's name and status, each item's kind, name, action, reason,
+            detail, `via`, `binds`; not ids, `dryRun`, `applied`). The client
+            sends the dry run's as `expectedPlan` on apply; a different plan at
+            apply time is refused (`pack_refused`, `plan_changed`).
+        warnings:
+          type: integer
+          minimum: 0
+          description: How many items carry `binds` (read a kept noun that differs from the pack).
         datasets:
           type: array
           items: { $ref: '#/components/schemas/PlanDataset' }
@@ -282,13 +333,14 @@ components:
           items: { $ref: '#/components/schemas/PlanItem' }
         counts:
           type: object
-          required: [create, replace, unchanged, skip, conflict, invalid]
+          required: [create, replace, unchanged, skip, deferred, conflict, invalid]
           additionalProperties: false
           properties:
             create: { type: integer, minimum: 0 }
             replace: { type: integer, minimum: 0 }
             unchanged: { type: integer, minimum: 0 }
             skip: { type: integer, minimum: 0 }
+            deferred: { type: integer, minimum: 0 }
             conflict: { type: integer, minimum: 0 }
             invalid: { type: integer, minimum: 0 }
 
@@ -298,15 +350,21 @@ components:
       description: |
         One problem in a pack (`pack_invalid`): `kind` + `name` name the noun
         (for a `cycle`, each workflow in the loop); `ref` + `refKind` what it
-        names that is not in the pack (`reference`), or the repeated slug
-        (`duplicate` of a slug — `ref` set, `refKind` absent).
+        names that is not in the pack (`reference` — a dataset not in
+        `datasets[]`, a query or workflow not in the pack), or the repeated
+        slug (`duplicate` of a slug — `ref` set, `refKind` absent); `path` +
+        `detail` where the shape is wrong (`shape`, e.g. `queries/0/dataset`).
       properties:
         kind:
           type: string
           enum: [query, workflow, dashboard, dataset]
         name: { type: string }
         ref: { type: string }
-        refKind: { $ref: '#/components/schemas/PlanKind' }
+        refKind:
+          type: string
+          enum: [query, workflow, dashboard, dataset]
+        path: { type: string }
+        detail: { type: string }
 
     UnresolvedProblem:
       type: object
