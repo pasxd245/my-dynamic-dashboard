@@ -12,7 +12,8 @@ that round".
 
 **Order:** 4.2 → 4.3 → 4.4 → 4.1, then conditional items 4.5–4.7 only if their entry condition is
 met in the rolling log. 4.1 (scheduled refresh) goes last because it depends on how the product is
-deployed, which is the least settled question.
+deployed, which is the least settled question — and was **deferred** by the owner on 2026-10-19
+(§ 4.1).
 
 ## 4.1 Scheduled refresh
 
@@ -21,6 +22,12 @@ deployed, which is the least settled question.
 | Track                                   | 1                                                                                                                                |
 | Flow                                    | **DFCFBI** — the source location model is new                                                                                    |
 | Open question (Design gate must answer) | where does a scheduled refresh read from? Options: a watched server folder; a URL; nothing (keep refresh manual and only remind) |
+| Status                                  | **Deferred** by the owner, 2026-10-19 (`Round_201`) — not built in rc.4                                                          |
+
+_**Deferred (owner, 2026-10-19).** Reason: "no deployment pull yet — the only active install
+refreshes by hand on a weekly cadence and runs no scheduler; reopen when a deployment names a
+watched source." Logged in the program's rolling log. The spec below is kept as written, unbuilt;
+the open question stays open until a deployment names its source._
 
 - **If a watched folder:** `refresh_source: {kind: folder, path, pattern, mode, periodColumn?}` on a
   dataset; a job in `app/jobs/` (pattern: `tmp_sweep.py`) runs on an interval from `app_config`,
@@ -108,7 +115,8 @@ changed_by)`; written in the same transaction as the definition update.
 
 ## rc.4 exit gate
 
-- [ ] 4.1–4.4 `Complete`, or 4.1 explicitly deferred by the human with the reason logged
+- [ ] 4.1–4.4 `Complete`, or 4.1 explicitly deferred by the human with the reason logged — **4.1
+      deferred** by the owner 2026-10-19, reason logged (§ 4.1, rolling log); 4.2–4.4 open
 - [ ] Shared filters and date range survive a URL round trip
 - [ ] Every conditional item that opened has its measurement in the rolling log; those that didn't
       are listed as "not opened"
