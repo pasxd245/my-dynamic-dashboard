@@ -14,7 +14,18 @@ from starlette.responses import Response
 from app._config import CONFIG
 from app.db import run_startup_migrations
 from app.jobs.tmp_sweep import sweep_loop
-from app.routers import dashboards, datasets, history, metadata, queries, relationships, uploads, workflows, workspaces
+from app.routers import (
+    dashboards,
+    datasets,
+    definitions,
+    history,
+    metadata,
+    queries,
+    relationships,
+    uploads,
+    workflows,
+    workspaces,
+)
 from app.storage import get_data_root
 
 
@@ -116,6 +127,7 @@ app.include_router(dashboards.router)
 app.include_router(workflows.router)
 app.include_router(metadata.router)
 app.include_router(history.router)  # R200 (4.4) — definition history reads
+app.include_router(definitions.router)  # R201 (4.8) — definition pack export / import
 
 
 @app.get("/health")

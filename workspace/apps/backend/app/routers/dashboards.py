@@ -46,7 +46,7 @@ from app.saved_copies import read_only_refusal
 from app import history
 from app.metadata import sweep as metadata_sweep
 from app.metadata import unsweep_widgets as metadata_unsweep_widgets
-from app.routers._shared import _now_iso
+from app.routers._shared import NounGone, _now_iso
 
 
 router = APIRouter(tags=["dashboards"])
@@ -238,6 +238,65 @@ def _dashboard_from_row(row: sqlite3.Row) -> DashboardModel:
     )
 
 
+def write_dashboard_create(
+    con: sqlite3.Connection,
+    workspace_id: str,
+    name: str,
+    slug: str,
+    definition: dict,
+    writer: tuple[str | None, str | None],
+    now: str,
+) -> str:
+    """R201 (4.8) — the body of ``POST /workspaces/{id}/dashboards`` on the
+    caller's connection, without a commit: every widget's query in this
+    workspace and the controls (422), then the ``INSERT`` and the R200 history
+    row. A name / slug collision surfaces as ``sqlite3.IntegrityError``."""
+    _validate_widget_queries(con, workspace_id, definition)
+    _validate_controls(con, workspace_id, definition)  # R195
+    dsh_id = _new_dsh_id()
+    definition_json = json.dumps(definition)
+    con.execute(
+        "INSERT INTO dashboards (id, workspace_id, name, slug, definition_json, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        (dsh_id, workspace_id, name, slug, definition_json, now),
+    )
+    # R200 (4.4) — the first history row, in the create's transaction.
+    history.record(con, "dashboard", dsh_id, definition_json, "create", writer, now)
+    return dsh_id
+
+
+def write_dashboard_update(
+    con: sqlite3.Connection,
+    dashboard_id: str,
+    name: str,
+    slug: str,
+    definition: dict,
+    writer: tuple[str | None, str | None],
+    now: str,
+) -> None:
+    """R201 (4.8) — the body of ``PUT /dashboards/{id}`` on the caller's
+    connection, which already holds the write lock, without a commit:
+    ``NounGone`` when the dashboard is gone; the same guards as create (422);
+    the ``UPDATE``; the R197 metadata sweep and the R200 unsweep of widgets that
+    came back; one history row when the definition changed. A name / slug
+    collision surfaces as ``sqlite3.IntegrityError``."""
+    old = con.execute("SELECT workspace_id, definition_json FROM dashboards WHERE id = ?", (dashboard_id,)).fetchone()
+    if old is None:
+        raise NounGone(dashboard_id)
+    _validate_widget_queries(con, old["workspace_id"], definition)
+    _validate_controls(con, old["workspace_id"], definition)  # R195
+    definition_json = json.dumps(definition)
+    con.execute(
+        "UPDATE dashboards SET name = ?, slug = ?, definition_json = ? WHERE id = ?",
+        (name, slug, definition_json, dashboard_id),
+    )
+    # R197 (3.8) — a widget removed here takes its metadata entries with it.
+    metadata_sweep(con, now)
+    # R200 (4.4, CR-1) — … and a widget that comes back (a restore) takes them back.
+    metadata_unsweep_widgets(con, dashboard_id, now)
+    # R200 (4.4) — a definition change (not a rename) writes one history row.
+    history.record_if_changed(con, "dashboard", dashboard_id, old["definition_json"], definition_json, writer, now)
+
+
 @router.post("/workspaces/{id}/dashboards", status_code=status.HTTP_201_CREATED)
 def create_dashboard(
     id: WsIdPath,  # noqa: A002
@@ -249,25 +308,11 @@ def create_dashboard(
     # R193 — nothing inside a saved workspace can be changed.
     if (ro := read_only_refusal(workspaces=[id])) is not None:
         return ro
-    definition_dict = body.definition.model_dump()
-    with get_conn() as con:
-        _validate_widget_queries(con, id, definition_dict)
-        _validate_controls(con, id, definition_dict)  # R195
-
-    dsh_id = _new_dsh_id()
     created_at = _now_iso()
-    definition_json = json.dumps(definition_dict)
     try:
         with get_conn() as con:
-            con.execute(
-                "INSERT INTO dashboards "
-                "(id, workspace_id, name, slug, definition_json, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (dsh_id, id, body.name, body.slug, definition_json, created_at),
-            )
-            # R200 (4.4) — the first history row, in the create's transaction.
-            history.record(
-                con, "dashboard", dsh_id, definition_json, "create", history.writer_of(authorization), created_at
+            dsh_id = write_dashboard_create(
+                con, id, body.name, body.slug, body.definition.model_dump(), history.writer_of(authorization), created_at
             )
             con.commit()
     except sqlite3.IntegrityError as err:
@@ -324,35 +369,17 @@ def update_dashboard(
     # R193 — nothing inside a saved workspace can be changed.
     if (ro := read_only_refusal(dashboards=[id])) is not None:
         return ro
-    definition_dict = body.definition.model_dump()
-    with get_conn() as con:
-        row = con.execute(_SELECT_DASHBOARD, (id,)).fetchone()
-        if row is None:
-            return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
-        _validate_widget_queries(con, row["workspace_id"], definition_dict)
-        _validate_controls(con, row["workspace_id"], definition_dict)  # R195
-
-    definition_json = json.dumps(definition_dict)
     try:
         with get_conn() as con:
             # R200 (4.4) — the write lock first, so the definition compared is the one replaced.
             con.execute("BEGIN IMMEDIATE")
-            old = con.execute("SELECT definition_json FROM dashboards WHERE id = ?", (id,)).fetchone()
-            if old is None:  # deleted between the validation read and this write
+            try:
+                write_dashboard_update(
+                    con, id, body.name, body.slug, body.definition.model_dump(), history.writer_of(authorization), _now_iso()
+                )
+            except NounGone:
                 con.rollback()
                 return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
-            con.execute(
-                "UPDATE dashboards SET name = ?, slug = ?, definition_json = ? WHERE id = ?",
-                (body.name, body.slug, definition_json, id),
-            )
-            # R197 (3.8) — a widget removed here takes its metadata entries with it.
-            metadata_sweep(con, _now_iso())
-            # R200 (4.4, CR-1) — … and a widget that comes back (a restore) takes them back.
-            metadata_unsweep_widgets(con, id, _now_iso())
-            # R200 (4.4) — a definition change (not a rename) writes one history row.
-            history.record_if_changed(
-                con, "dashboard", id, old["definition_json"], definition_json, history.writer_of(authorization), _now_iso()
-            )
             con.commit()
             updated = _dashboard_from_row(con.execute(_SELECT_DASHBOARD, (id,)).fetchone())
     except sqlite3.IntegrityError as err:

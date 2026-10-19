@@ -75,7 +75,7 @@ rc.4 by the owner's call of 2026-10-19._
       `definitions-import` route contracts (+ rationale), the three error codes through the whole
       chain; MSW validated against the YAML. **BA pass 1 at Contract exit.**
 - [x] **F2** — the confirmation pass against the contract-derived MSW
-- [ ] **B** — extract the six create / update bodies; `app/definition_pack.py`;
+- [x] **B** — extract the six create / update bodies; `app/definition_pack.py`;
       `routers/definitions.py`; tests (criteria 1–13)
 - [ ] **I** — the builder against the real backend; visual gate (light EN + VI; dark N/A — no theme)
 - [ ] Reviews: code review + QA in parallel, then BA pass 2; every P0/P1 fixed
@@ -347,6 +347,45 @@ F2 against the contract-derived MSW after it.
   contract does not hold — no contract v2. Builder 626 at `f533100`.
 - **F2 gate closed** — confirmation complete, no shape change re-routed; committed as
   `docs(R201): F2 — …`.
+
+### B
+
+- 2026-10-19 — **B**: the six create / update route bodies extracted into connection-taking
+  functions that never commit — `write_query_create` / `write_query_update`
+  (`routers/queries.py`), `write_dashboard_create` / `write_dashboard_update`
+  (`routers/dashboards.py`), `write_workflow_create` / `write_workflow_update` + `_check_sources`
+  (`routers/workflows.py`; `defer_unrun` for the import only — the routes keep R186's save check);
+  `NounGone` in `routers/_shared.py` for an update whose noun is gone. The routes call them and
+  commit; the PUTs take `BEGIN IMMEDIATE` first, so validation now runs under the write lock (the
+  answers are unchanged — the routes' suites and criterion 13's test). New `app/definition_pack.py`:
+  `read_pack` (size → JSON → version → the one total cap → the closed pydantic shape → the renamed
+  reference fields → duplicates → references, datasets included → cycles; `PackInvalid`),
+  `export_pack` (every listing `ORDER BY name, id` — review-cr item 13; definitions normalized by
+  the app's models, `null` members dropped; `publishedBy` from `published_workflow_id`;
+  `PackUnresolved`), `plan_import` (the dataset statuses; queries, workflows in Kahn order with a
+  name heap, dashboards; each write in a `SAVEPOINT` so a refused noun is undone and the plan goes
+  on; "unchanged" by `definition_version` of the candidate install form against the stored one —
+  for a query without its `originRelationshipId`; `binds` / `warnings`; `deferred`), `plan_hash`.
+  New `routers/definitions.py`: the export GET; the import POST reads the raw body itself
+  (`Content-Length` over the cap → `too_large` before reading), runs in the threadpool, one
+  `BEGIN IMMEDIATE` → dry run rollback / `plan_changed` / `not_ok` rollback / commit; a rolled-back
+  plan names no id it minted. `tests/test_definition_pack.py` (19): criteria 1–14 — export shape
+  (no install id, order, `publishedBy`, re-export equal), dangling references, **parity** into a
+  clean workspace and into a second install (a second database + data root): import → the
+  published dataset's readers deferred → run + publish → re-import → every query's rows, widget
+  aggregate (with the saved controls) and workflow output equal A's; re-import writes nothing (a
+  whole-database dump); datasets missing / columns differ / unused; dry run writes nothing, equals
+  the apply, a stale `expectedPlan` refused; refuse / Keep mine (`binds`, `warnings`) / replace
+  (id kept, one history row, a changed workflow's output cleared, a widget note kept, the slug
+  taken); `source_differs` under all three, `slug_taken`; a failing last dashboard writes nothing;
+  an exception half-way → 500, nothing written; a writer holding the lock past the 5 s busy
+  timeout → 500, nothing written, the retry works; the read order (each `pack_invalid` reason
+  and path); history + writer token; saved / unknown workspace; same install two workspaces
+  (widget ids repeat, notes and deletes stay apart); a workflow over never-run workflows imports
+  and its run refuses diverging shapes; the six routes' answers after the extraction. Every
+  response checked against the contracts. Backend **775** green (756 + 19), `ruff check` clean.
+- **Backend gate closed** — conformance (every route response validated against the two
+  contracts) and behaviour tests green; committed as `feat(R201): B — …`.
 
 ## Check
 

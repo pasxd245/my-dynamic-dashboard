@@ -50,6 +50,15 @@ def _compatible(left: str | None, right: str | None) -> bool:
     return left in _NUMERIC and right in _NUMERIC
 
 
+# --- the noun a write targets is gone (R201 extraction) ---------------------
+
+
+class NounGone(Exception):
+    """R201 (4.8) — raised by a connection-taking update body (``write_*_update``)
+    when its noun no longer exists (or a query's source dataset is gone): the
+    route answers ``404 not_found``; the definition-pack import records it."""
+
+
 # --- sqlite integrity-error mapping (was workspaces.py) --------------------
 
 

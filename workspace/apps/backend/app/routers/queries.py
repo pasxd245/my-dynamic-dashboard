@@ -76,7 +76,7 @@ from app.query_engine import (
 from app.saved_copies import read_only_refusal
 from app import history
 from app.metadata import sweep as metadata_sweep
-from app.routers._shared import RowsPage, _is_unique_violation, _now_iso
+from app.routers._shared import NounGone, RowsPage, _is_unique_violation, _now_iso
 from app.storage import dataset_dir
 
 
@@ -151,6 +151,92 @@ def _query_from_row(con: sqlite3.Connection, row: sqlite3.Row) -> QueryModel:
     )
 
 
+def write_query_create(
+    con: sqlite3.Connection,
+    workspace_id: str,
+    name: str,
+    source_id: str,
+    definition: dict,
+    writer: tuple[str | None, str | None],
+    now: str,
+) -> str:
+    """R201 (4.8) — the body of ``POST /workspaces/{id}/queries`` on the caller's
+    connection, without a commit (the route commits; the definition-pack import
+    runs many of these in one transaction). The source dataset must exist in the
+    workspace and the definition must validate against its current columns (422,
+    as the route always answered); then the ``INSERT`` and the R200 history row.
+    A name collision surfaces as ``sqlite3.IntegrityError`` for the caller."""
+    chain = _chain_of(definition)
+    # R79 — the driving source is the single, canonical `sourceId`; R167 narrowed it
+    # to a `ds_` dataset. R71/R73 — a joined query's atoms index the EFFECTIVE space;
+    # the driving source + every hop must resolve at save time.
+    plan, reason = _resolve_plan(con, source_id, chain, _rels_of(definition), workspace_id)
+    if reason == "source_missing":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=[
+                {
+                    "loc": ["body", "sourceId"],
+                    "msg": f"unknown_source: {source_id} is not a dataset in workspace {workspace_id}",
+                    "type": "value_error",
+                }
+            ],
+        )
+    if reason is not None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=[{"loc": ["body", "definition", "joins"], "msg": reason, "type": "value_error"}],
+        )
+    # Validate every atom against the relevant column space → 422 on a bad atom
+    # (you cannot persist a query that can't run). R120 — steps too; R194 — the
+    # parameter rules first, then atoms/steps with placeholders bound.
+    _check_definition(definition, plan["columns"])
+
+    qid = _new_qr_id()
+    definition_json = json.dumps(definition)
+    con.execute(
+        "INSERT INTO queries (id, workspace_id, source_id, name, definition_json, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        (qid, workspace_id, source_id, name, definition_json, now),
+    )
+    # R200 (4.4) — the first history row, in the create's transaction.
+    history.record(con, "query", qid, definition_json, "create", writer, now)
+    return qid
+
+
+def write_query_update(
+    con: sqlite3.Connection,
+    query_id: str,
+    definition: dict,
+    writer: tuple[str | None, str | None],
+    now: str,
+) -> None:
+    """R201 (4.8) — the body of ``PUT /queries/{id}`` on the caller's connection,
+    which already holds the write lock (``BEGIN IMMEDIATE``), without a commit.
+    ``NounGone`` when the query (or its source dataset) is gone; 422 when the
+    definition no longer validates; else the ``UPDATE`` and, when the definition
+    changed, one R200 history row."""
+    qrow = con.execute(_SELECT_QUERY, (query_id,)).fetchone()
+    if qrow is None:
+        raise NounGone(query_id)
+    # The driving source is unchanged by a definition-only PUT (R72).
+    plan, reason = _resolve_plan(
+        con, qrow["source_id"], _chain_of(definition), _rels_of(definition), qrow["workspace_id"]
+    )
+    if reason == "source_missing":
+        raise NounGone(query_id)
+    if reason is not None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=[{"loc": ["body", "definition", "joins"], "msg": reason, "type": "value_error"}],
+        )
+    # Validate every atom against the relevant column space → 422 on a bad atom
+    # (you cannot save a definition that can't run) — the create-time semantics.
+    _check_definition(definition, plan["columns"])  # R120 steps + R194 params too
+    definition_json = json.dumps(definition)
+    con.execute("UPDATE queries SET definition_json = ? WHERE id = ?", (definition_json, query_id))
+    history.record_if_changed(con, "query", query_id, qrow["definition_json"], definition_json, writer, now)
+
+
 @router.post("/workspaces/{id}/queries", status_code=status.HTTP_201_CREATED)
 def create_query(
     id: WsIdPath,  # noqa: A002
@@ -164,57 +250,18 @@ def create_query(
     # R193 — nothing inside a saved workspace can be changed.
     if (ro := read_only_refusal(workspaces=[id])) is not None:
         return ro
-    definition_dict = body.definition.model_dump()
-    chain = _chain_of(definition_dict)
-    # R79 — the driving source is the single, canonical `sourceId`; R167 narrowed it
-    # to a `ds_` dataset.
-    source_id = body.sourceId
-    # R71/R73 — a joined query's atoms index the EFFECTIVE space; the driving source
-    # + every hop must resolve at save time (resolve_source checks the dataset exists
-    # + is in-workspace). A bare single-dataset query validates against its one
-    # dataset's columns.
-    with get_conn() as con:
-        plan, reason = _resolve_plan(con, source_id, chain, _rels_of(definition_dict), id)
-    if reason == "source_missing":
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=[
-                {
-                    "loc": ["body", "sourceId"],
-                    "msg": f"unknown_source: {source_id} is not a dataset in workspace {id}",
-                    "type": "value_error",
-                }
-            ],
-        )
-    if reason is not None:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=[{"loc": ["body", "definition", "joins"], "msg": reason, "type": "value_error"}],
-        )
-
-    # Validate every atom against the relevant column space → 422 on a bad atom
-    # (you cannot persist a query that can't run). R120 — steps too; R194 — the
-    # parameter rules first, then atoms/steps with placeholders bound.
-    _check_definition(definition_dict, plan["columns"])
-
-    qid = _new_qr_id()
     created_at = _now_iso()
-    definition_json = json.dumps(body.definition.model_dump())
     try:
         with get_conn() as con:
-            con.execute(
-                "INSERT INTO queries "
-                "(id, workspace_id, source_id, name, definition_json, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (qid, id, source_id, body.name, definition_json, created_at),
+            qid = write_query_create(
+                con, id, body.name, body.sourceId, body.definition.model_dump(), history.writer_of(authorization), created_at
             )
-            # R200 (4.4) — the first history row, in the create's transaction.
-            history.record(con, "query", qid, definition_json, "create", history.writer_of(authorization), created_at)
             con.commit()
     except sqlite3.IntegrityError as err:
         if "idx_queries_name_unique" in str(err) or _is_unique_violation(err, "queries.name"):
             return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorNameTaken().model_dump())
         raise
+    source_id = body.sourceId
 
     created = QueryModel(
         id=qid,
@@ -916,40 +963,14 @@ def update_query(
     # R193 — nothing inside a saved workspace can be changed.
     if (ro := read_only_refusal(queries=[id])) is not None:
         return ro
-    definition = body.definition.model_dump()
-    chain = _chain_of(definition)
-    with get_conn() as con:
-        qrow = con.execute(_SELECT_QUERY, (id,)).fetchone()
-        if qrow is None:
-            return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
-        # The driving source is unchanged by a definition-only PUT (R72); R76/R79 — a
-        # composed query keeps its `qr_` base, a dataset-rooted one its `ds_`.
-        plan, reason = _resolve_plan(con, qrow["source_id"], chain, _rels_of(definition), qrow["workspace_id"])
-
-    if reason == "source_missing":
-        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
-    if reason is not None:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=[{"loc": ["body", "definition", "joins"], "msg": reason, "type": "value_error"}],
-        )
-
-    # Validate every atom against the relevant column space → 422 on a bad atom
-    # (you cannot save a definition that can't run) — the create-time semantics.
-    _check_definition(definition, plan["columns"])  # R120 steps + R194 params too
-
-    definition_json = json.dumps(body.definition.model_dump())
     with get_conn() as con:
         # R200 (4.4) — the write lock first, so the definition compared is the one replaced.
         con.execute("BEGIN IMMEDIATE")
-        old = con.execute("SELECT definition_json FROM queries WHERE id = ?", (id,)).fetchone()
-        if old is None:  # deleted between the validation read and this write
+        try:
+            write_query_update(con, id, body.definition.model_dump(), history.writer_of(authorization), _now_iso())
+        except NounGone:
             con.rollback()
             return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
-        con.execute("UPDATE queries SET definition_json = ? WHERE id = ?", (definition_json, id))
-        history.record_if_changed(
-            con, "query", id, old["definition_json"], definition_json, history.writer_of(authorization), _now_iso()
-        )
         con.commit()
         updated = _query_from_row(con, con.execute(_SELECT_QUERY, (id,)).fetchone())
     return JSONResponse(status_code=status.HTTP_200_OK, content=updated.model_dump(exclude_none=True))

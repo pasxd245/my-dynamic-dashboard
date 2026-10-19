@@ -61,7 +61,14 @@ from app.workflow_runs import new_run_id, stale_sources, stamp_sources
 from app.params import ParamError, check_workflow_steps, one_today
 from app.query_engine import _step_plan, build_consolidated_relation
 from app.saved_copies import read_only_refusal
-from app.routers._shared import RowsPage, _carry_forward_hidden, _dataset_from_row, _is_unique_violation, _now_iso
+from app.routers._shared import (
+    NounGone,
+    RowsPage,
+    _carry_forward_hidden,
+    _dataset_from_row,
+    _is_unique_violation,
+    _now_iso,
+)
 from app.storage import dataset_dir, workflow_dir
 
 
@@ -165,6 +172,90 @@ def _validate_consolidation(con: sqlite3.Connection, sources: list[str], workspa
         )
 
 
+def _check_sources(
+    con: sqlite3.Connection, sources: list[str], workspace_id: str, *, defer_unrun: bool
+) -> None:
+    """The save checks on a workflow's sources: each exists in the workspace, then
+    (R186) they consolidate now. R201 (4.8, BA C8) — with ``defer_unrun`` (the
+    definition-pack import only) a ``wf_`` source WITHOUT an output (new,
+    replaced, never run) leaves the consolidation check to the run, which refuses
+    as it always has (``409 query_stale``); the routes keep R186's save check."""
+    _validate_sources(con, sources, workspace_id)
+    if defer_unrun:
+        for src in sources:
+            if src.startswith("wf_"):
+                row = con.execute("SELECT output_columns_json FROM workflows WHERE id = ?", (src,)).fetchone()
+                if row is not None and row["output_columns_json"] is None:
+                    return
+    _validate_consolidation(con, sources, workspace_id)
+
+
+def write_workflow_create(
+    con: sqlite3.Connection,
+    workspace_id: str,
+    name: str,
+    definition: dict,
+    writer: tuple[str | None, str | None],
+    now: str,
+    *,
+    defer_unrun: bool = False,
+) -> str:
+    """R201 (4.8) — the body of ``POST /workspaces/{id}/workflows`` on the
+    caller's connection, without a commit: no parameter refs in the steps, the
+    sources (422), then the ``INSERT`` and the R200 history row. A name
+    collision surfaces as ``sqlite3.IntegrityError``."""
+    check_workflow_steps(definition["steps"])  # R194 (D6) — no parameter refs
+    _check_sources(con, list(definition["sources"]), workspace_id, defer_unrun=defer_unrun)
+    wid = _new_wf_id()
+    definition_json = json.dumps(definition)
+    con.execute(
+        "INSERT INTO workflows (id, workspace_id, name, definition_json, created_at) VALUES (?, ?, ?, ?, ?)",
+        (wid, workspace_id, name, definition_json, now),
+    )
+    # R200 (4.4) — the first history row, in the create's transaction.
+    history.record(con, "workflow", wid, definition_json, "create", writer, now)
+    return wid
+
+
+def write_workflow_update(
+    con: sqlite3.Connection,
+    workflow_id: str,
+    name: str,
+    definition: dict,
+    writer: tuple[str | None, str | None],
+    now: str,
+    *,
+    defer_unrun: bool = False,
+) -> None:
+    """R201 (4.8) — the body of ``PUT /workflows/{id}`` on the caller's
+    connection, which already holds the write lock, without a commit:
+    ``NounGone`` when the workflow is gone; the steps and sources (422); the
+    ``UPDATE`` (a changed definition clears the output — R133 / CR-6); one
+    history row when the definition changed. A name collision surfaces as
+    ``sqlite3.IntegrityError``."""
+    check_workflow_steps(definition["steps"])  # R194 (D6) — no parameter refs
+    old = con.execute("SELECT workspace_id, definition_json FROM workflows WHERE id = ?", (workflow_id,)).fetchone()
+    if old is None:
+        raise NounGone(workflow_id)
+    _check_sources(con, list(definition["sources"]), old["workspace_id"], defer_unrun=defer_unrun)
+    definition_json = json.dumps(definition)
+    # CR-6 — the same null-stripped hash as the history, so a re-save of an
+    # unchanged definition (other key order, `null`s spelled out) keeps the output.
+    if definition_version(definition) != definition_version(json.loads(old["definition_json"])):
+        # Invalidate the stale materialized output — must re-run.
+        # R187 — the run stamp goes with the output; the counter stays.
+        con.execute(
+            "UPDATE workflows SET name = ?, definition_json = ?, "
+            "output_columns_json = NULL, materialized_at = NULL, run_id = NULL, run_json = NULL "
+            "WHERE id = ?",
+            (name, definition_json, workflow_id),
+        )
+    else:
+        con.execute("UPDATE workflows SET name = ?, definition_json = ? WHERE id = ?", (name, definition_json, workflow_id))
+    # R200 (4.4) — a definition change (not a rename) writes one history row.
+    history.record_if_changed(con, "workflow", workflow_id, old["definition_json"], definition_json, writer, now)
+
+
 @router.post("/workspaces/{id}/workflows", status_code=status.HTTP_201_CREATED)
 def create_workflow(
     id: WsIdPath,  # noqa: A002
@@ -176,22 +267,12 @@ def create_workflow(
     # R193 — nothing inside a saved workspace can be changed.
     if (ro := read_only_refusal(workspaces=[id])) is not None:
         return ro
-    check_workflow_steps(body.definition.model_dump()["steps"])  # R194 (D6) — no parameter refs
-    with get_conn() as con:
-        _validate_sources(con, list(body.definition.sources), id)
-        _validate_consolidation(con, list(body.definition.sources), id)
-
-    wid = _new_wf_id()
     created_at = _now_iso()
-    definition_json = json.dumps(body.definition.model_dump())
     try:
         with get_conn() as con:
-            con.execute(
-                "INSERT INTO workflows (id, workspace_id, name, definition_json, created_at) VALUES (?, ?, ?, ?, ?)",
-                (wid, id, body.name, definition_json, created_at),
+            wid = write_workflow_create(
+                con, id, body.name, body.definition.model_dump(), history.writer_of(authorization), created_at
             )
-            # R200 (4.4) — the first history row, in the create's transaction.
-            history.record(con, "workflow", wid, definition_json, "create", history.writer_of(authorization), created_at)
             con.commit()
     except sqlite3.IntegrityError as err:
         if "idx_workflows_name_unique" in str(err) or _is_unique_violation(err, "workflows.name"):
@@ -239,45 +320,17 @@ def update_workflow(
     # R193 — nothing inside a saved workspace can be changed.
     if (ro := read_only_refusal(workflows=[id])) is not None:
         return ro
-    check_workflow_steps(body.definition.model_dump()["steps"])  # R194 (D6) — no parameter refs
     with get_conn() as con:
-        row = con.execute(_SELECT_WORKFLOW, (id,)).fetchone()
-        if row is None:
-            return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
-        _validate_sources(con, list(body.definition.sources), row["workspace_id"])
-        _validate_consolidation(con, list(body.definition.sources), row["workspace_id"])
-
-        new_definition = body.definition.model_dump()
-        definition_json = json.dumps(new_definition)
         try:
             # R200 (4.4) — the write lock first, so the definition compared is the one replaced.
             con.execute("BEGIN IMMEDIATE")
-            old = con.execute("SELECT definition_json FROM workflows WHERE id = ?", (id,)).fetchone()
-            if old is None:  # deleted between the validation read and this write
-                con.rollback()
-                return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
-            # CR-6 — the same null-stripped hash as the history, so a re-save of an
-            # unchanged definition (other key order, `null`s spelled out) keeps the output.
-            definition_changed = definition_version(new_definition) != definition_version(json.loads(old["definition_json"]))
-            if definition_changed:
-                # Invalidate the stale materialized output — must re-run.
-                # R187 — the run stamp goes with the output; the counter stays.
-                con.execute(
-                    "UPDATE workflows SET name = ?, definition_json = ?, "
-                    "output_columns_json = NULL, materialized_at = NULL, run_id = NULL, run_json = NULL "
-                    "WHERE id = ?",
-                    (body.name, definition_json, id),
-                )
-            else:
-                con.execute(
-                    "UPDATE workflows SET name = ?, definition_json = ? WHERE id = ?",
-                    (body.name, definition_json, id),
-                )
-            # R200 (4.4) — a definition change (not a rename) writes one history row.
-            history.record_if_changed(
-                con, "workflow", id, old["definition_json"], definition_json, history.writer_of(authorization), _now_iso()
+            write_workflow_update(
+                con, id, body.name, body.definition.model_dump(), history.writer_of(authorization), _now_iso()
             )
             con.commit()
+        except NounGone:
+            con.rollback()
+            return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
         except sqlite3.IntegrityError as err:
             if "idx_workflows_name_unique" in str(err) or _is_unique_violation(err, "workflows.name"):
                 return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorNameTaken().model_dump())
