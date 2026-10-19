@@ -148,8 +148,21 @@ def query_dataset_rows(
 
     offset = (page - 1) * page_size
 
+    # R199 (CR-1) — a FILTERED scan is paged in an EXPLICIT file order. A WHERE
+    # with an `IN (?, ?)` list or an `… OR col IS NULL` term (a shared filter of
+    # two values or with `(blank)`, a definition `in` atom) made DuckDB emit rows
+    # out of file order despite `preserve_insertion_order` — measured from 50k
+    # rows, and past ~130k LIMIT/OFFSET pages overlapped and missed rows. The
+    # unfiltered scan keeps the R172 file-order behaviour (no ORDER BY, so page 1
+    # of a large dataset still stops early); a filtered read already scans the
+    # whole file for its count, so the ordered top-N costs little more.
+    source = "read_parquet(?)"
+    order_by = ""
+    if where_clause:
+        source, order_by = "read_parquet(?, file_row_number=true)", " ORDER BY file_row_number"
+
     with duck.connect() as con:
-        rows_sql = f"SELECT {select_list} FROM read_parquet(?) {where_clause} LIMIT ? OFFSET ?"
+        rows_sql = f"SELECT {select_list} FROM {source} {where_clause}{order_by} LIMIT ? OFFSET ?"
         rows_params: list[Any] = [
             str(parquet_path),
             *where_params,
@@ -326,13 +339,19 @@ def build_single_inner(
     q: str | None,
     filters: list[FilterPredicate] | None = None,
     advanced: list[list[FilterPredicate]] | None = None,
+    row_number: bool = False,
 ) -> tuple[str, list[Any]]:
     """Typed inner relation for a SINGLE-source query: ``read_parquet`` with the
     query's own filters applied — no CAST, no pagination (the aggregate wrapper
-    groups over it). Mirrors the front half of ``query_dataset_rows``."""
+    groups over it). Mirrors the front half of ``query_dataset_rows``.
+
+    R199 (CR-1) — ``row_number`` adds the parquet's ``file_row_number`` column so
+    a consumer that lists rows (the export) can ORDER BY it: a filtered scan is
+    not guaranteed to emit in file order."""
     quoted_cols = [_quote_ident(c) for c in columns]
     where_clause, where_params = _build_where(quoted_cols, q, filters, advanced)
-    sql = f"SELECT * FROM read_parquet(?) {where_clause}"
+    source = "read_parquet(?, file_row_number=true)" if row_number else "read_parquet(?)"
+    sql = f"SELECT * FROM {source} {where_clause}"
     return sql, [str(parquet_path), *where_params]
 
 

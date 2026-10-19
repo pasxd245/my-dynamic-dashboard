@@ -473,6 +473,24 @@ export function ValuesSelect({
         disabled={!source}
         loading={opts.isLoading && Boolean(source)}
         maxTagCount="responsive"
+        // QA-3 — the open list covers the note below, exactly when it matters:
+        // say "First 1 000 values" in the list's own footer too.
+        popupRender={(menu) =>
+          opts.partial ? (
+            <>
+              {menu}
+              <Typography.Text
+                type="secondary"
+                style={{ display: 'block', padding: '4px 12px', fontSize: token.fontSizeSM }}
+                data-component="ValuesPartialFooter"
+              >
+                {t('dashboard.params.values.partial')}
+              </Typography.Text>
+            </>
+          ) : (
+            menu
+          )
+        }
         style={{ minWidth: width, maxWidth: 360 }}
         aria-label={ariaLabel}
         data-component={dataComponent}

@@ -248,6 +248,46 @@ DateRangeControl | ValuesControl` (discriminator `kind`), `FilterValues`;
   Reset), the options list (blank first, the selection checked), the skipped badge tooltip, the
   editor's values row (EN + VI). Network: only the three targeted widgets' reads carried
   `f.ctl_0000c199=South,~blank`, byte-for-byte; the skipped widget read 56 of 56 rows.
+- **Reviews after F** (run by the orchestrator on `468befe..42abfd2`):
+  - **Code review: CHANGES** — **CR-1 (P1)**: on the single-source read
+    (`query_dataset_rows`) a shared filter of two values (`IN (?, ?)`) or with blank
+    (`… OR col IS NULL`) made DuckDB emit the scan out of file order despite
+    `preserve_insertion_order`; the read pages with `LIMIT/OFFSET` and no `ORDER BY`, so pages
+    overlapped and missed rows (CR, 400k rows: 19 671 / 19 123 distinct of 19 900); the unpaged
+    widget read and the single-source export were out of order too. The round's own test hid it
+    with `sorted()` — the coder's "Seen" note above called it an order quirk; it was the R171
+    reliance failing. P2: CR-2 (a malformed escape decoded differently by the two parsers), CR-3
+    (MSW `/rows` ignores `f.*`), CR-4 (no joined-query `/rows` shared-filter test), CR-5 (unused
+    `values.noSaved` copy).
+  - **QA: PASS** — gates re-run clean (backend 700 · builder 580 · contracts 50), new tests red
+    at base, 11 base-vs-HEAD shapes (9 byte-identical, 2 differing only by the intended `scope |
+source` columns), visual gate light EN 6/6 · VI 6/6; 37 adversarial tests handed over
+    (`scratchpad/r199/qa-tests/`). P2: QA-1 (= CR-1, rows grouped by value in the table), QA-2
+    (`/aggregate` applies a shared filter over the pre-step relation of a stepped query —
+    API-only, already in § Risks), QA-3 ("First 1 000 values" is covered by the open list).
+  - **BA pass 2:** pending (forwarded by the orchestrator).
+- **Fix** — **CR-1**: a FILTERED single-source read now reads
+  `read_parquet(?, file_row_number=true)` and pages `ORDER BY file_row_number`, an explicit
+  order rather than an engine default (the unfiltered scan keeps the R172 behaviour, so page 1 of
+  a large dataset still stops early; a filtered read already scans the whole file for its
+  count). The single-source export lists its relation `ORDER BY file_row_number`
+  (`_final_relation` carries the order column, the export selects the result columns by name so
+  it never leaks). Measured at base: out of file order from 50k rows, overlapping pages from
+  ~130k. **The definition `in` atom** (`filters.py`) builds the same shape on the same read
+  path and failed the same way (130k: 30 343 distinct of 30 389) — the same fix covers it, so
+  it is folded here, not logged. `tests/test_shared_filter_paging.py` (4, ~2.5 s, 130k rows):
+  pages partition in file order for two values, value + blank and a definition `in` atom; the
+  unpaged widget read and the export over HTTP in file order with no order column in the file —
+  **all four fail on the unfixed reader** (and the `~blank` assertion in `test_shared_filters`
+  with them); the `sorted()` is gone. **CR-2**: the server keeps a malformed token raw (a `%`
+  without two hex digits, or escapes that are not UTF-8) — the builder's `decodeURIComponent`
+  rule; same cases tested on both sides. **CR-4**: a joined query's `/rows` filters by the
+  effective (qualified) column, in driving order, and skips an unqualified name it lacks.
+  **CR-5**: `values.noSaved` dropped (EN/VI). **QA-3**: the open list's footer says "First 1 000
+  values" (`popupRender`); the note under the select stays for the closed state. **Logged**
+  (rolling log): CR-3, QA-2; the stepped and joined **exports** list their relation without an
+  `ORDER BY` (the stepped `/rows` path orders by `_page_order_sql`, the joined by `_ORD`; the
+  export of either does not) — outside this item's defect, a P2 candidate.
 
 ## Check
 
@@ -266,6 +306,10 @@ _(at close-out: rolling-log rows, promotion check, prune check)_
   controls on one column with disjoint targets be allowed (built: refused, `duplicate_column`)?
   (2) should the export's Filters sheet list a _skipped_ shared filter as "skipped: no column"
   (built: unlisted — it filtered nothing; BA-C4)?
+- **Rolling-log rows (at close-out):** CR-3 (MSW `/rows` ignores `f.*`; no mock applies a
+  control's `saved`); QA-2 (`/aggregate` over the pre-step relation of a stepped query,
+  API-only); the stepped / joined export without an `ORDER BY` (P2 candidate); the R171
+  `preserve_insertion_order` reliance now holds only for the UNFILTERED single-source scan.
 
 ## Feeds into → Round_200
 

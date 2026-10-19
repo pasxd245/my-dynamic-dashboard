@@ -546,10 +546,14 @@ def _aggregate_output_columns(
     return out
 
 
-def _build_inner_relation(plan: dict, q: str | None, filters: list, advanced: list) -> tuple[str, list]:
+def _build_inner_relation(
+    plan: dict, q: str | None, filters: list, advanced: list, *, row_number: bool = False
+) -> tuple[str, list]:
     """The typed inner relation (filters applied, no pagination) for a resolved
     plan — a joined CTE or a single-source ``read_parquet`` — shared by the
-    ``/aggregate`` endpoint and the aggregate-step run path."""
+    ``/aggregate`` endpoint and the aggregate-step run path. R199 —
+    ``row_number`` (single-source only) carries ``file_row_number`` for an
+    ordered listing (the export)."""
     if plan["kind"] == "join":
         payload = plan["payload"]
         return build_joined_select(
@@ -562,7 +566,12 @@ def _build_inner_relation(plan: dict, q: str | None, filters: list, advanced: li
             advanced=advanced,
         )
     return build_single_inner(
-        _parquet_of(plan["ds"]), [c["name"] for c in plan["columns"]], q=q, filters=filters, advanced=advanced
+        _parquet_of(plan["ds"]),
+        [c["name"] for c in plan["columns"]],
+        q=q,
+        filters=filters,
+        advanced=advanced,
+        row_number=row_number,
     )
 
 

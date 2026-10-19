@@ -18,6 +18,7 @@ travels in the EXISTING runtime ``filters`` list (no second engine —
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any, Literal
 from urllib.parse import unquote
@@ -55,6 +56,22 @@ def _422(loc: list, msg: str) -> HTTPException:
     )
 
 
+_BAD_ESCAPE = re.compile(r"%(?![0-9A-Fa-f]{2})")
+
+
+def _decode(token: str) -> str:
+    """Percent-decode one token, or keep it RAW when it is malformed — a ``%``
+    not followed by two hex digits, or escapes that are not UTF-8. The builder's
+    ``decodeURIComponent`` throws on exactly these and keeps the token as typed,
+    so both sides read the same value (CR-2)."""
+    if _BAD_ESCAPE.search(token):
+        return token
+    try:
+        return unquote(token, errors="strict")
+    except UnicodeDecodeError:
+        return token
+
+
 def parse_f_keys(raw_query: str) -> dict[str, list[str | None]]:
     """``f.<controlId>`` keys of a RAW query string → ``{control id: values}``.
 
@@ -63,7 +80,8 @@ def parse_f_keys(raw_query: str) -> dict[str, list[str | None]]:
     raw token ``~blank`` is the ``(blank)`` option (``None``) while ``%7Eblank``
     decodes to the literal string ``"~blank"``; an empty token between commas is
     ignored; a repeated key → the last wins; an empty value (``f.<id>=``) is an
-    empty list — the viewer cleared the control (BA-C1/C2/C5)."""
+    empty list — the viewer cleared the control (BA-C1/C2/C5). A malformed token
+    stays raw (CR-2, the builder's rule)."""
     out: dict[str, list[str | None]] = {}
     if not raw_query:
         return out
@@ -71,7 +89,7 @@ def parse_f_keys(raw_query: str) -> dict[str, list[str | None]]:
         if not part:
             continue
         key, sep, value = part.partition("=")
-        key = unquote(key)
+        key = _decode(key)
         if not key.startswith("f.") or len(key) <= 2:
             continue
         values: list[str | None] = []
@@ -79,7 +97,7 @@ def parse_f_keys(raw_query: str) -> dict[str, list[str | None]]:
             for token in value.split(","):
                 if token == "":
                     continue
-                values.append(None if token == BLANK_TOKEN else unquote(token))
+                values.append(None if token == BLANK_TOKEN else _decode(token))
         out[key[2:]] = values
     return out
 

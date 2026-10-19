@@ -205,8 +205,7 @@
         "all": "Mọi giá trị",
         "blank": "(trống)",
         "partial": "1 000 giá trị đầu tiên",
-        "noSource": "Không widget nào được áp dụng có cột {{column}}.",
-        "noSaved": "Không lưu lựa chọn — mọi giá trị"
+        "noSource": "Không widget nào được áp dụng có cột {{column}}."
       },
       "skippedNoColumn": "Kết quả của widget này không có cột {{column}}, nên bộ lọc không thay đổi nó."
     },

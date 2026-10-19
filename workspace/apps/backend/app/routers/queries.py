@@ -511,7 +511,10 @@ def _final_relation(
             return None, JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorQueryStale().model_dump())
         raise
 
-    inner_sql, inner_params = _build_inner_relation(plan, definition.get("q"), filters, advanced)
+    # R199 (CR-1) — a plain single-source relation carries `file_row_number`, so
+    # the export lists its rows in file order (a filtered scan does not keep it).
+    ordered = step_plan is None and plan["kind"] != "join"
+    inner_sql, inner_params = _build_inner_relation(plan, definition.get("q"), filters, advanced, row_number=ordered)
     if step_plan is not None:
         normalized, final_cols = step_plan
         relation_sql, relation_params, _names = build_steps_relation(
@@ -528,6 +531,8 @@ def _final_relation(
         "resolvedParams": resolved_params,
         "dataVersions": _data_versions(plan),
         "filters": shared,
+        # The relation's row-order column, when it has one (not a result column).
+        "order": "file_row_number" if ordered else None,
     }, None
 
 
@@ -619,7 +624,11 @@ def export_query(id: QueryIdPath, body: ExportBody) -> Response:  # noqa: A002
     col_names = {c["name"] for c in columns}
     dashboard_filters = shared_filters.pairs(relation["filters"], col_names)
     where_sql, where_params = _name_in_sql(dashboard_filters)
-    sql = f"SELECT * FROM ({relation['sql']}) AS _final {where_sql}"  # noqa: S608 — composed from validated parts
+    # The result columns by name (never `*`: the relation may carry its order
+    # column), in file order for a single-source query (R199 CR-1).
+    select_list = ", ".join(_quote_ident(c["name"]) for c in columns)
+    order_sql = f" ORDER BY {relation['order']}" if relation["order"] else ""
+    sql = f"SELECT {select_list} FROM ({relation['sql']}) AS _final {where_sql}{order_sql}"  # noqa: S608 — composed from validated parts
     params = [*relation["params"], *where_params]
     with duck.connect() as con:
         total = int(con.execute(f"SELECT COUNT(*) FROM ({sql}) AS _c", params).fetchone()[0])  # noqa: S608

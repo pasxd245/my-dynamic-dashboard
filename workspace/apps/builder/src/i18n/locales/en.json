@@ -205,8 +205,7 @@
         "all": "All values",
         "blank": "(blank)",
         "partial": "First 1 000 values",
-        "noSource": "No targeted widget has column {{column}}.",
-        "noSaved": "No saved selection — all values"
+        "noSource": "No targeted widget has column {{column}}."
       },
       "skippedNoColumn": "This widget's result has no column {{column}}, so the filter does not change it."
     },

@@ -75,6 +75,9 @@ describe('R199 URL — the raw f.* spelling (mirrors the server)', () => {
     expect(parseFilterSelections(`?f.${CTL}=North&f.${CTL}=South`)).toEqual({ [CTL]: ['South'] });
     expect(parseFilterSelections(`?f.${CTL}=`)).toEqual({ [CTL]: [] });
     expect(parseFilterSelections('?p.as_of=2026-10-01&f.=x')).toEqual({});
+    // CR-2 — a malformed token stays raw, the server's rule too.
+    expect(parseFilterSelections(`?f.${CTL}=a%2Cb%,ok%2`)).toEqual({ [CTL]: ['a%2Cb%', 'ok%2'] });
+    expect(parseFilterSelections(`?f.${CTL}=%C3,%C3%A0`)).toEqual({ [CTL]: ['%C3', 'à'] });
   });
 
   it('encodes so every value round-trips — a comma, a literal ~blank, a plus, (blank)', () => {
@@ -293,6 +296,12 @@ describe('R199 dashboard bar — criterion 6 and the URL round trip', () => {
     fireEvent.mouseDown(document.querySelector('[data-component="SharedFilterSelect"]') as HTMLElement);
     const selected = '.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option-selected';
     await waitFor(() => expect(document.querySelectorAll(selected).length).toBe(2));
+    // QA-3 — the open list says it is partial, in its own footer.
+    expect(
+      document.querySelector(
+        '.ant-select-dropdown:not(.ant-select-dropdown-hidden) [data-component="ValuesPartialFooter"]',
+      )?.textContent,
+    ).toBe('First 1 000 values');
     expect(Array.from(document.querySelectorAll(selected)).map((o) => o.getAttribute('title'))).toEqual([
       '(blank)',
       'won',

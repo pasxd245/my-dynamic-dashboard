@@ -156,8 +156,7 @@ def test_viewer_selection_in_the_url_overrides_clears_and_carries_blank() -> Non
     assert _ids(_rows(client, q1, dsh, _W1, f"&f.{_CTL}=South,West")) == ["3", "5"]
     # `~blank` is the (blank) option — a NULL / empty cell.
     assert _ids(_rows(client, q1, dsh, _W1, f"&f.{_CTL}=~blank")) == ["4"]
-    # (sorted: under an OR predicate the parquet scan does not keep file order — logged)
-    assert sorted(_ids(_rows(client, q1, dsh, _W1, f"&f.{_CTL}=North,~blank"))) == ["1", "2", "4"]
+    assert _ids(_rows(client, q1, dsh, _W1, f"&f.{_CTL}=North,~blank")) == ["1", "2", "4"]  # file order (CR-1)
     # An empty value = cleared: no filter, the saved selection NOT applied.
     page = _rows(client, q1, dsh, _W1, f"&f.{_CTL}=")
     assert _ids(page) == ["1", "2", "3", "4", "5"] and page["total"] == 5
@@ -181,6 +180,9 @@ def test_url_parsing_edges() -> None:
     assert parse_f_keys("f.ctl_1") == {"ctl_1": []}
     assert parse_f_keys("p.as_of=2026-01-01&unpaged=true&f.=x") == {}
     assert parse_f_keys("") == {}
+    # CR-2 — a malformed token stays raw (the builder's `decodeURIComponent` rule).
+    assert parse_f_keys("f.ctl_1=a%2Cb%,ok%2") == {"ctl_1": ["a%2Cb%", "ok%2"]}
+    assert parse_f_keys("f.ctl_1=%C3,%C3%A0") == {"ctl_1": ["%C3", "à"]}
 
 
 @pytest.mark.unit
@@ -253,6 +255,29 @@ def test_shared_filter_refusals() -> None:
     )
     assert r.status_code == 422 and r.json()["detail"][0]["msg"].startswith("control_column")
     assert r.json()["detail"][0]["loc"] == ["body", "filters", 0, "column"]
+
+
+@pytest.mark.unit
+def test_a_joined_query_rows_read_applies_the_shared_filter() -> None:
+    # CR-4 — the joined path (`build_joined_select` → `_build_where`) filters by the
+    # EFFECTIVE (collision-qualified) column name, before paging, in driving order.
+    from tests.test_joins import _create_join, _declare_id_join, _seed
+
+    client = TestClient(app)
+    ws, deals, accounts = _seed(client)
+    q = _create_join(client, ws, deals, _declare_id_join(client, ws, deals, accounts)).json()["id"]
+    names = [c["name"] for c in client.get(f"/queries/{q}").json()["resolvedColumns"]]
+    assert "deals.name" in names
+    dsh = _dashboard(client, ws, [_widget(_W1, q)], [_values(column="deals.name", saved=["Bob"])], name="J").json()[
+        "id"
+    ]
+    page = _rows(client, q, dsh, _W1)
+    assert [r[names.index("deals.name")] for r in page["rows"]] == ["Bob"] and page["total"] == 1
+    page = _rows(client, q, dsh, _W1, f"&f.{_CTL}=Carol,Alice")
+    assert [r[names.index("deals.name")] for r in page["rows"]] == ["Alice", "Carol"]
+    # A column the join lacks: skipped, every row.
+    dsh2 = _dashboard(client, ws, [_widget(_W1, q)], [_values(column="name", saved=["Bob"])], name="J2").json()["id"]
+    assert _rows(client, q, dsh2, _W1)["total"] == 3
 
 
 # --- the POST reads: aggregate · totals · export (criterion 7) ------------------------
