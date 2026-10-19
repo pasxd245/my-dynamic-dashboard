@@ -219,6 +219,13 @@ and is a flag, never a block**.
   restore is a normal save of an old definition, so a version can appear twice. The definition
   version is still a hash, not the `seq`. See
   [\_shared/definition-history.md](_shared/definition-history.md).
+- **Ids stay in their install; names travel (4.8, R201).** A definition pack writes a
+  workspace's queries, workflows and dashboards with every reference to a dataset, query or
+  workflow spelled as its **name** (unique per kind in a workspace); an import resolves the names
+  in the target workspace and mints fresh ids through the normal create. Ids that live inside one
+  definition (`wdg_`, `ctl_`, `qrel_`) travel verbatim. An imported definition's hash differs from
+  its original's (the hash covers the ids it holds). See
+  [\_shared/definition-pack.md](_shared/definition-pack.md).
 - **Stale sources.** On every workflow read, `stale_sources` (`app/workflow_runs.py`) compares
   the stamp with the database **now** — metadata lookups only, no data scanned — and lists
   each source that moved with one reason, the first that applies: `source_missing` (the source,

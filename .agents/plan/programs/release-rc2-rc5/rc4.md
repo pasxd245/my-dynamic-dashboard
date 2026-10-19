@@ -13,7 +13,8 @@ that round".
 **Order:** 4.2 → 4.3 → 4.4 → 4.1, then conditional items 4.5–4.7 only if their entry condition is
 met in the rolling log. 4.1 (scheduled refresh) goes last because it depends on how the product is
 deployed, which is the least settled question — and was **deferred** by the owner on 2026-10-19
-(§ 4.1).
+(§ 4.1). **4.8** (definition pack) was added by the owner the same day and runs after 4.4
+(`Round_201`).
 
 ## 4.1 Scheduled refresh
 
@@ -105,6 +106,53 @@ changed_by)`; written in the same transaction as the definition update.
 - **Tests:** every definition change writes one row; rename writes none; restore creates a new
   version.
 
+## 4.8 Definition pack
+
+|            |                                                                                                                                                      |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Track      | 1                                                                                                                                                    |
+| Flow       | **DFCFBI (triggers 1, 3, 4)** — `flow-selector` at the R201 Design gate                                                                              |
+| Depends on | 4.4 (an import writes history rows through the normal write path; a replaced definition stays restorable); 3.7 / 4.2 / 4.3 (controls travel as-is) |
+| Design     | [`_shared/definition-pack.md`](../../../design/data-management/_shared/definition-pack.md) (Draft, R201)                                            |
+
+_Added to rc.4 by the owner, 2026-10-19 (specified and built in rc.4). Track: 1. Pulled by: a named
+product gap — a second install, or a clean re-install, that should carry the same analysis as an
+existing one re-creates its queries, dashboards and workflows by hand or by scripting the create /
+update routes one by one, with ids that differ per install; an earlier round's parity check needed
+a probe built by hand for the same reason (`Round_200` § Feeds into)._
+
+- **Export** `GET /workspaces/{id}/definitions` → a pack (`packVersion: 1`): every query, workflow
+  and dashboard of the workspace, each list by name, with every reference to a dataset, query or
+  workflow written as its **name** (a query's `dataset`, its relationships' `leftDataset` /
+  `rightDataset`; a widget's `query`; a workflow source `{query}` / `{workflow}`), and the datasets
+  the queries read with their columns (`name`, `dtype`, in order). Ids that live inside one
+  definition (`wdg_`, `ctl_`, `qrel_`) travel verbatim; no install id appears. A reference to a
+  deleted noun refuses the export (`409 pack_unresolved`, listed). Data never travels.
+- **Import** `POST /workspaces/{id}/definitions/import?dryRun=&onConflict=` with the pack as body:
+  the datasets are found **by name** in the target and must have the pack's columns (a missing or
+  differing one is listed with both column lists); each noun is planned against its same-named
+  noun — `create`, `unchanged` (the target already holds exactly this, so a re-import writes
+  nothing), or by `onConflict`: `refuse` (default, `conflict`), `replace` (the noun's own update:
+  the id kept, one history row), `skip`. Every noun runs every check its own create / update runs
+  (the route bodies are extracted into functions that take a connection — no parallel writer).
+- **One transaction:** the whole plan runs in one `BEGIN IMMEDIATE`; a dry run rolls back and
+  returns the plan (200); an apply commits only when the plan is ok, else `409 pack_refused`
+  with the plan — whole pack or nothing. A pack this install cannot read (another
+  `packVersion`, a name not in the pack, a duplicate name, a workflow loop, over 10 MiB or
+  1 000 nouns) → `422 pack_invalid`. A saved workspace → `409 read_only_workspace`. An optional
+  writer token labels the history rows; import is as open as the PUTs.
+- **Out:** metadata notes (server-stamped by their writers; anchors do not cross installs),
+  governed relationships, runs / outputs / the publish link, history, partial export, a per-noun
+  conflict choice, remapping columns by name — each with a trigger in the design doc.
+- **Builder:** **Export definitions** (main and saved workspaces) and **Import definitions…**
+  (main only) in the workspace card menu; the import modal reads the file, checks it at once
+  (the dry run), shows the datasets and the plan, and imports on one click; EN / VI.
+- **Tests:** export A → import into a clean workspace B with same-named fake datasets → every
+  query's rows, every widget's aggregate and every workflow's output (after running) equal A's
+  (a parity test over fake data, also across two data roots); re-import is idempotent (no row
+  written); a missing dataset refuses with the list; a dry run writes nothing; the conflict
+  rules; whole pack or nothing; design criteria 1–15.
+
 ## Conditional items (open only with logged evidence)
 
 | #   | Item                                                              | Entry condition (must be in the rolling log first)                                                                                                                                                 |
@@ -117,6 +165,8 @@ changed_by)`; written in the same transaction as the definition update.
 
 - [ ] 4.1–4.4 `Complete`, or 4.1 explicitly deferred by the human with the reason logged — **4.1
       deferred** by the owner 2026-10-19, reason logged (§ 4.1, rolling log); 4.2–4.4 open
+- [ ] 4.8 `Complete` — a pack exported from one workspace imports into a clean workspace with
+      the same numbers (parity test), and a re-import writes nothing
 - [ ] Shared filters and date range survive a URL round trip
 - [ ] Every conditional item that opened has its measurement in the rolling log; those that didn't
       are listed as "not opened"

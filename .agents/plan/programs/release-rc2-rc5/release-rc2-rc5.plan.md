@@ -60,7 +60,7 @@ contract delta, backend/builder files, migration, tests, acceptance walk — liv
 | -------------------------------------- | ------------------------------------------------------------- |
 | [`rc2.md`](rc2.md)                     | items 2.0–2.6, 2.8 (as built) + rc.2 exit gate                |
 | [`rc3.md`](rc3.md)                     | items 3.1–3.8 + 2.7 (moved) + dependency order + rc.3 gates   |
-| [`rc4.md`](rc4.md)                     | items 4.1–4.4, conditional 4.5–4.7 + rc.4 exit gate           |
+| [`rc4.md`](rc4.md)                     | items 4.1–4.4 (4.1 deferred), 4.8, conditional 4.5–4.7 + rc.4 exit gate |
 | [`rc5.md`](rc5.md)                     | conditional tags                                              |
 | [`claude-code.md`](claude-code.md)     | who does what, kickoff / per-gate / close prompts             |
 | [`walk-rc2-rc3a.md`](walk-rc2-rc3a.md) | one-sitting walk pack for R177–R189 (fake data, own worktree) |
@@ -180,6 +180,7 @@ copy of the real database (logged in `Round_187`).
 | 4.5 | _Conditional:_ cohort ratios flag cohorts not yet observable for the full window                                                   | conditional | —     |
 | 4.6 | _Conditional:_ previous/next row per entity step — opens only if a measured rebuild with existing steps succeeds on < 70% of cases | conditional | —     |
 | 4.7 | _Conditional:_ default filters inherited from an official measure's definition                                                     | conditional | —     |
+| 4.8 | Definition pack: export a workspace's queries, dashboards and workflows by name; import into another workspace (same or another install), dry run first, whole pack or nothing — added by the owner 2026-10-19 | in progress | R201  |
 
 ### rc.5 — tags (conditional)
 
@@ -201,7 +202,7 @@ rc mode). The checklists live in the detail files; summary:
 | rc.2 | R176–R183 `Complete` · walks logged for every UI round · ratio total = SUM/SUM proven · metadata with HTML or external images rejected · tests green · migration 0005 downgrades cleanly on a real-database copy · design-corpus debt paid (done, on rc.3) · release note                                                                                                             |
 | G-wf | (inside rc.3, before 3.6) double-count, shape divergence and source change are all caught; `dataVersion` / `run` written by the server only — evidence table in `Round_187`; **accepted by the owner 2026-10-17**, walk session B to confirm before 3.6                                                                                                                               |
 | rc.3 | Dogfood dual-run against rc.2: 0 differing cells except declared changes · deleting a workflow source marks its output stale (W-7) · saved copy is read-only and its workspace delete returns `409` · an annotation written for another period renders collapsed · visual gate for a parameterised dashboard in light and dark · migrations 0006+ downgrade cleanly · repo scan clean |
-| rc.4 | Shared filters survive a URL round trip · every conditional item that opened has its measurement in the rolling log · 4.1 deferred by the owner with the reason logged (2026-10-19)                                                                                                                                                                                                                                                                   |
+| rc.4 | Shared filters survive a URL round trip · every conditional item that opened has its measurement in the rolling log · 4.1 deferred by the owner with the reason logged (2026-10-19) · 4.8 pack parity + idempotent re-import                                                                                                                                                                                                                                                                   |
 | rc.5 | Evidence row for tags present in the rolling log; otherwise rc.5 is skipped and rc.4 becomes v0.0.1                                                                                                                                                                                                                                                                                   |
 
 ## Rolling log

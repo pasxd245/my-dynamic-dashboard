@@ -111,6 +111,9 @@ Manage logical containers for your data and reports.
   **Delete** (danger). Card click → `/data-management/datasets?workspace=<id>` (the
   workspace-filtered datasets view — there is **no** workspace detail page); the Relationships
   item → `/data-management/workspaces/<id>/relationships`.
+- R201 (4.8): the menu also holds **Export definitions** (main and saved workspaces) and
+  **Import definitions…** (main workspaces only) — the pack, its plan and the import modal are
+  owned by [definition-pack.md](../_shared/definition-pack.md).
 
 ### Empty state
 
