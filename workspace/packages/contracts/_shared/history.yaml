@@ -1,0 +1,154 @@
+# Shared schema: Definition history (R200 — item 4.4)
+# Used by: queries/history-get, dashboards/history-get, workflows/history-get
+# (responses); the `WriterToken` header by queries|dashboards|workflows post/put.
+#
+# A query, a dashboard and a workflow each store ONE definition; its version is
+# the 12-hex hash of that definition with `null` members dropped (decision 14 —
+# the same value a metadata entry records as `definitionVersion` and a workflow
+# run as `definitionHash`). The server keeps one HISTORY ROW per definition
+# change, written in the same transaction as the change:
+#
+#   - creating the noun writes `#1` (`change: create`);
+#   - a PUT whose definition hashes differently from the stored one writes
+#     `#n+1` (`change: update`);
+#   - a rename, a re-save of the same definition, or a refused save writes
+#     nothing;
+#   - migration 0011 seeded one `baseline` row per noun that existed before it
+#     (its definition at the upgrade; `changedAt` is the upgrade's time — when
+#     the history began, not when that definition was written).
+#
+# RESTORE is the noun's ordinary PUT with an old definition (the current name):
+# it writes `#n+1` whose `version` equals the old row's. There is no restore
+# route and no client-sent version. The history is read-only.
+#
+# `changedBy` is stamped by the SERVER: the `author` of the configured writer
+# token (`backend.metadata_tokens`, R180) the create / update request carried
+# as `Authorization: Bearer <token>`; `null` when there was none or it matched
+# no token. A token only labels a change — it never authorizes or refuses one.
+#
+# Deleting a noun deletes its history in the same transaction.
+components:
+  parameters:
+    WriterToken:
+      name: Authorization
+      in: header
+      required: false
+      schema:
+        type: string
+        pattern: '^[Bb]earer .+$'
+      description: |
+        R200 — optional. A configured writer token (`backend.metadata_tokens`,
+        the same tokens that write metadata) whose `author` the server records
+        as the change's `changedBy` in the definition history. It only
+        LABELS the change: no header, a malformed one or an unknown token is
+        not an error (the change is recorded with `changedBy: null`), and it
+        grants nothing — creating and updating definitions stays open as
+        before.
+      examples:
+        agent:
+          value: 'Bearer 0123456789abcdef0123'
+    Version:
+      name: version
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^[0-9a-f]{12}$'
+      description: |
+        A definition version (12 hex). When the version occurs more than once
+        in the history (a restore), the newest row with it is returned — every
+        such row holds the same definition.
+      examples:
+        restored:
+          value: '3f1c9a0b7d2e'
+
+  schemas:
+    HistoryKind:
+      type: string
+      enum: [query, dashboard, workflow]
+      description: The noun kind whose definition the history keeps.
+
+    HistoryChange:
+      type: string
+      enum: [create, update, baseline]
+      description: |
+        How the row came to be: `create` — the noun was created with this
+        definition; `update` — a PUT changed the definition to this one (a
+        restore is an `update` whose version an older row also has);
+        `baseline` — the definition the noun had when the history began
+        (migration 0011); its time is the upgrade's.
+
+    HistoryEntry:
+      type: object
+      required: [seq, version, change, changedAt, changedBy]
+      additionalProperties: false
+      properties:
+        seq:
+          type: integer
+          minimum: 1
+          description: The row's own number for this noun, from 1, +1 per change. Never reused.
+        version:
+          type: string
+          pattern: '^[0-9a-f]{12}$'
+          description: The definition version (hash) the change saved.
+        change:
+          $ref: '#/components/schemas/HistoryChange'
+        changedAt:
+          type: string
+          pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$'
+          description: Server UTC time of the change (`Z`); for `baseline`, of the upgrade.
+        changedBy:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 120
+          description: The writer token's author; `null` when the change carried none (every builder save).
+
+    HistoryList:
+      type: object
+      required: [kind, id, current, entries]
+      additionalProperties: false
+      properties:
+        kind:
+          $ref: '#/components/schemas/HistoryKind'
+        id:
+          type: string
+          description: The noun's id (`qr_` / `dsh_` / `wf_`).
+        current:
+          type: string
+          pattern: '^[0-9a-f]{12}$'
+          description: |
+            The noun's definition version now. The newest entry whose version
+            equals it is the current one (normally `entries[0]`).
+        entries:
+          type: array
+          description: |
+            Newest first, ordered by `seq` descending. Not paged. Empty only
+            for a noun that has no row (not reachable through the API: every
+            create writes #1 and 0011 seeded the rest).
+          items:
+            $ref: '#/components/schemas/HistoryEntry'
+
+    HistoryVersion:
+      description: |
+        One past definition, read-only: the newest row with the asked version
+        and the definition AS STORED — a definition saved under an older model
+        is returned in its own shape (it may lack fields today's model has).
+        Restoring it is the noun's ordinary PUT, which validates it like any
+        edit.
+      type: object
+      required: [seq, version, change, changedAt, changedBy, definition]
+      additionalProperties: false
+      properties:
+        seq:
+          $ref: '#/components/schemas/HistoryEntry/properties/seq'
+        version:
+          $ref: '#/components/schemas/HistoryEntry/properties/version'
+        change:
+          $ref: '#/components/schemas/HistoryChange'
+        changedAt:
+          $ref: '#/components/schemas/HistoryEntry/properties/changedAt'
+        changedBy:
+          $ref: '#/components/schemas/HistoryEntry/properties/changedBy'
+        definition:
+          type: object
+          description: The stored definition (a QueryDefinition, DashboardDefinition or WorkflowDefinition as saved).

@@ -1,0 +1,146 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — GET /workflows/{id}/history
+  version: 0.1.0
+  description: |
+    R200 (item 4.4) — the definition history of one workflow: every saved
+    definition, newest first, and any past definition read-only. Shapes and
+    write rules: `_shared/history.yaml`; rationale:
+    [queries/history-get.contract.md](../queries/history-get.contract.md).
+
+    A row is written in the same transaction as the definition change
+    (create → #1; a PUT that changes the definition's version → #n+1; a
+    rename or an unchanged re-save → nothing). Restore is
+    `PUT /workflows/{id}` with an old definition — it saves a new version.
+
+paths:
+  /workflows/{id}/history:
+    get:
+      operationId: workflowHistory
+      summary: List a workflow's saved definitions, newest first
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: The history (`kind` is `workflow`), newest first by `seq`.
+          content:
+            application/json:
+              schema:
+                $ref: '../_shared/history.yaml#/components/schemas/HistoryList'
+              examples:
+                restored:
+                  summary: "#3 restored #1's definition; #4 is an agent's change"
+                  value:
+                    kind: workflow
+                    id: 'wf_5c3e9a10'
+                    current: '9a0b7d2e3f1c'
+                    entries:
+                      - {
+                          seq: 4,
+                          version: '9a0b7d2e3f1c',
+                          change: update,
+                          changedAt: '2026-10-19T14:02:00Z',
+                          changedBy: 'aicowork',
+                        }
+                      - {
+                          seq: 3,
+                          version: '3f1c9a0b7d2e',
+                          change: update,
+                          changedAt: '2026-10-19T13:40:00Z',
+                          changedBy: null,
+                        }
+                      - {
+                          seq: 2,
+                          version: '7d2e3f1c9a0b',
+                          change: update,
+                          changedAt: '2026-10-19T11:15:00Z',
+                          changedBy: null,
+                        }
+                      - {
+                          seq: 1,
+                          version: '3f1c9a0b7d2e',
+                          change: baseline,
+                          changedAt: '2026-10-19T09:00:00Z',
+                          changedBy: null,
+                        }
+        '404':
+          description: No such workflow (never existed, deleted, or an id of another kind).
+          content:
+            application/json:
+              schema:
+                $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound'
+              examples:
+                missing:
+                  value: { code: not_found }
+        '422':
+          description: A malformed id (FastAPI validation envelope).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [detail]
+                properties:
+                  detail:
+                    type: array
+                    items:
+                      type: object
+  /workflows/{id}/history/{version}:
+    get:
+      operationId: workflowHistoryVersion
+      summary: Read one past definition of a workflow (read-only)
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '../_shared/history.yaml#/components/parameters/Version'
+      responses:
+        '200':
+          description: |
+            The newest row with that version and its definition as stored. To
+            restore it, send it as the definition of `PUT /workflows/{id}`.
+          content:
+            application/json:
+              schema:
+                $ref: '../_shared/history.yaml#/components/schemas/HistoryVersion'
+              examples:
+                baseline:
+                  value:
+                    seq: 1
+                    version: '3f1c9a0b7d2e'
+                    change: baseline
+                    changedAt: '2026-10-19T09:00:00Z'
+                    changedBy: null
+                    definition: { sources: ['qr_101a0001'], steps: [] }
+        '404':
+          description: No such workflow, or the version is not in its history (another noun's version included).
+          content:
+            application/json:
+              schema:
+                $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound'
+              examples:
+                unknown_version:
+                  value: { code: not_found }
+        '422':
+          description: A malformed id or version (not 12 hex) — FastAPI validation envelope.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [detail]
+                properties:
+                  detail:
+                    type: array
+                    items:
+                      type: object
+
+components:
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^wf_[0-9a-f]{8}$'
+      description: Workflow id.
+      examples:
+        one:
+          value: 'wf_5c3e9a10'

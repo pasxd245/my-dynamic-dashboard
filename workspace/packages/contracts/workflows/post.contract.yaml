@@ -8,6 +8,12 @@ info:
     Validate-on-save: every source must be a query or workflow in this workspace,
     resolve now, appear once and share the first source's shape (else 422, R186);
     names are unique per workspace (409 name_taken).
+
+    R200 (item 4.4) — the create also writes the workflow's first
+    definition-history row (`#1`, `change: create`) in the same transaction
+    (a refused create writes none). An optional `Authorization: Bearer
+    <writer token>` names who made it (`changedBy`; `_shared/history.yaml`).
+
 paths:
   /workspaces/{id}/workflows:
     post:
@@ -19,6 +25,7 @@ paths:
           required: true
           schema: { type: string, pattern: "^ws_[0-9a-f]{8}$" }
           examples: { marketing: { value: "ws_3f8a2c91" } }
+        - $ref: "../_shared/history.yaml#/components/parameters/WriterToken"
       requestBody:
         required: true
         content:

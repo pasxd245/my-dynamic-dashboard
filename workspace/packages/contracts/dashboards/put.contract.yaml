@@ -16,6 +16,15 @@ info:
     workspace, a `sum` with no `measureCol`, a bad enum / span) → 422. The
     response is the updated `Dashboard`.
 
+    R200 (item 4.4) — a PUT whose definition's version (hash) differs from
+    the stored one also writes one definition-history row (`#n+1`,
+    `change: update`) in the same transaction; a name / slug change with
+    the same definition, an unchanged re-save and a refused save write
+    none. Restore is this PUT with an old definition
+    (`GET /dashboards/{id}/history/{version}`) — it saves a new version. An
+    optional `Authorization: Bearer <writer token>` names who made it
+    (`changedBy`; `_shared/history.yaml`).
+
 paths:
   /dashboards/{id}:
     put:
@@ -32,6 +41,7 @@ paths:
           examples:
             weekly:
               value: "dsh_71a4e2f0"
+        - $ref: "../_shared/history.yaml#/components/parameters/WriterToken"
       requestBody:
         required: true
         content:

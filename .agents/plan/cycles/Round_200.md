@@ -70,7 +70,7 @@ seq)`. `kind ∈ {query, dashboard, workflow}`; `change ∈ {create, update, bas
   changes a byte;
 - `alembic downgrade -1` on a populated 0011 database loses a noun or leaves the table.
 
-- [ ] **D** — `data-management/_shared/definition-history.md` (new, Draft), `_noun-model.md`
+- [x] **D** — `data-management/_shared/definition-history.md` (new, Draft), `_noun-model.md`
       § Versions (history line); `flow-selector`; `ux-design` design-spec on the drawer
 - [ ] **C** — `_shared/history.yaml`, three `history-get` route contracts, the writer token on
       six create / update contracts. **BA pass 1 at Contract exit.**
@@ -153,7 +153,7 @@ Other risks:
 | ------------------------------------ | ------ | ---------------------------------------------------------------------------------------------------- |
 | 1. >3 independent states/branches    | no     | a read-only list with three tags; restore is the existing save with its existing refusals            |
 | 2. New interaction pattern           | no     | a right drawer from a header button (the R183 relationship-check drawer) + `Modal.confirm`           |
-| 3. High user-error risk              | no     | restore removes nothing — the current definition stays in the list and can be restored back         |
+| 3. High user-error risk              | no     | restore removes nothing — the current definition stays in the list and can be restored back          |
 | 4. Contract depends on unresolved UI | no     | the routes and shapes are fixed by the item spec; the drawer only reads them and calls existing PUTs |
 | 5. UX confidence below threshold     | no     | layout and copy are in the design doc's ASCII intent; every primitive is an AntD one already in use  |
 
@@ -170,6 +170,25 @@ not a real change time, restore never rewrites the list; Utility: see what it wa
 it, put it back — the item's three questions; Desirability: AntD `Drawer` / `List` / `Tag`, no
 new token. Gap noted, not blocking: View shows JSON, not a "what changed" summary — OUT with a
 trigger.
+
+### C
+
+- **C** — `_shared/history.yaml` (new): `HistoryKind`, `HistoryChange` (`create | update |
+baseline`), `HistoryEntry` `{seq, version, change, changedAt, changedBy}` (`changedBy`
+  always present, `null` when unknown), `HistoryList` `{kind, id, current, entries}` (newest
+  first by `seq`, not paged), `HistoryVersion` (an entry + the stored `definition`, a free
+  object — an old shape is returned as saved); parameters `WriterToken` (optional
+  `Authorization`, labels only) and `Version` (12 hex). Route files
+  `queries|dashboards|workflows/history-get.contract.yaml` (two paths each; operationIds
+  `<kind>History` / `<kind>HistoryVersion`; 404 `not_found` for a missing noun or version,
+  FastAPI 422 for a malformed id / version) + one rationale `queries/history-get.contract.md`.
+  The six create / update contracts (`queries|dashboards|workflows` `post` / `put`) reference
+  `WriterToken` and say which saves write a row (create → #1; a changed version → #n+1; rename,
+  unchanged re-save, refusal → none; restore = this PUT). No new error code, no change to any
+  existing response shape. Contracts 53 green (50 + 3); the six new success schemas compile
+  under the MSW validator's Ajv and refuse an extra property.
+- **Contract exit** — handed to the orchestrator for **BA pass 1** (no sub-agent spawning in
+  the coder session, as in R198 / R199). B / F wait for its findings.
 
 ## Check
 

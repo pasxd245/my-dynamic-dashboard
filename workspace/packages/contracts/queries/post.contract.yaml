@@ -14,6 +14,11 @@ info:
     not validate is rejected 422 (you cannot save a broken query).
     Names are unique per workspace (mirrors the dataset rule).
 
+    R200 (item 4.4) — the create also writes the query's first
+    definition-history row (`#1`, `change: create`) in the same transaction
+    (a refused create writes none). An optional `Authorization: Bearer
+    <writer token>` names who made it (`changedBy`; `_shared/history.yaml`).
+
 paths:
   /workspaces/{id}/queries:
     post:
@@ -30,6 +35,7 @@ paths:
           examples:
             marketing:
               value: "ws_3f8a2c91"
+        - $ref: "../_shared/history.yaml#/components/parameters/WriterToken"
       requestBody:
         required: true
         content:

@@ -16,6 +16,14 @@ info:
     query). The response is the updated `Query` (with `resolvedColumns`
     recomputed when it joins).
 
+    R200 (item 4.4) — a PUT whose definition's version (hash) differs from
+    the stored one also writes one definition-history row (`#n+1`,
+    `change: update`) in the same transaction; an unchanged re-save
+    and a refused save write none. Restore is this PUT with an old definition
+    (`GET /queries/{id}/history/{version}`) — it saves a new version. An
+    optional `Authorization: Bearer <writer token>` names who made it
+    (`changedBy`; `_shared/history.yaml`).
+
 paths:
   /queries/{id}:
     put:
@@ -32,6 +40,7 @@ paths:
           examples:
             joined:
               value: "qr_101a0001"
+        - $ref: "../_shared/history.yaml#/components/parameters/WriterToken"
       requestBody:
         required: true
         content:

@@ -16,6 +16,11 @@ info:
     delete of that query is tolerated and renders the per-widget "unavailable"
     state on the detail view.
 
+    R200 (item 4.4) — the create also writes the dashboard's first
+    definition-history row (`#1`, `change: create`) in the same transaction
+    (a refused create writes none). An optional `Authorization: Bearer
+    <writer token>` names who made it (`changedBy`; `_shared/history.yaml`).
+
 paths:
   /workspaces/{id}/dashboards:
     post:
@@ -32,6 +37,7 @@ paths:
           examples:
             marketing:
               value: "ws_3f8a2c91"
+        - $ref: "../_shared/history.yaml#/components/parameters/WriterToken"
       requestBody:
         required: true
         content:

@@ -11,6 +11,15 @@ info:
     result no longer matches the definition), so `resolvedColumns` +
     `materializedAt` are cleared on the response — the workflow must be re-run
     (`POST /workflows/{id}/run`). A name-only edit keeps the materialized output.
+
+    R200 (item 4.4) — a PUT whose definition's version (hash) differs from
+    the stored one also writes one definition-history row (`#n+1`,
+    `change: update`) in the same transaction; a name change with the
+    same definition, an unchanged re-save and a refused save write none. Restore is this PUT with an old definition
+    (`GET /workflows/{id}/history/{version}`) — it saves a new version. An
+    optional `Authorization: Bearer <writer token>` names who made it
+    (`changedBy`; `_shared/history.yaml`).
+
 paths:
   /workflows/{id}:
     put:
@@ -21,6 +30,7 @@ paths:
           in: path
           required: true
           schema: { type: string, pattern: "^wf_[0-9a-f]{8}$" }
+        - $ref: "../_shared/history.yaml#/components/parameters/WriterToken"
       requestBody:
         required: true
         content:
