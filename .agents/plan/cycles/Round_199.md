@@ -1,6 +1,6 @@
 # Round 199: shared filters for a group of widgets (item 4.3)
 
-**Status**: In Progress
+**Status**: Review
 **Flow**: **DCFBI** — set at the Design gate via `flow-selector` (see Do).
 **Date started**: 2026-10-19
 **Date completed**: —
@@ -127,7 +127,8 @@ _Track: 1 (product). Pulled by: release program item 4.3
       MSW, EN/VI; tests
 - [x] **I** — visual gate (light EN + VI; dark N/A — no theme)
 - [x] Reviews: code review + QA in parallel, then BA pass 2; every P0/P1 fixed (CR-1..CR-5
-      re-checked at `588104b`: closed, CR-6 raised; CR-6 / CR-6b / CR-7 fixed, re-check pending)
+      re-checked at `588104b`: closed, CR-6 raised; CR-6 / CR-6b / CR-7 fixed, re-checked at
+      `d3423f0`: closed)
 
 ## Risks / unknowns
 
@@ -391,10 +392,11 @@ source` columns), visual gate light EN 6/6 · VI 6/6; 37 adversarial tests hande
       design lints 0; M3 guard over `468befe..HEAD` empty
 - [x] Visual gate: light (EN + VI) — coder's run (`scratchpad/r199/shots/`, 10) and QA's (EN 6/6 ·
       VI 6/6, `scratchpad/r199/qa-shots/`); dark N/A (no dark theme — owner)
-- [ ] BA (contract exit + after build) · code review · QA — no open P0/P1 — **CR re-check
-      pending** (CR-6b / CR-7 at their fix; CR-1, 2, 4, 5 closed at `588104b`); BA pass 1 CHANGES →
-      folded (`e475f5d`), BA pass 2 PASS (conditional on CR-1), QA PASS, code review CHANGES →
-      CR-1 fixed (`588104b`), CR-6 fixed
+- [x] BA (contract exit + after build) · code review · QA — no open P0/P1. BA pass 1 CHANGES →
+      folded (`e475f5d`); BA pass 2 PASS (conditional on CR-1); QA PASS; code review CHANGES →
+      CR-1 fixed (`588104b`), CR-6 raised by that fix → fixed (`9c47dba`, mixed case `d3423f0`),
+      CR-7 fixed (`d3423f0`); final code-review re-check at `d3423f0` PASS (single-source and
+      joined collision probes over HTTP, 84 targeted tests; fallback 0 mismatches at 400k / 4M)
 - [x] ⟢ At a glance **Studied** line written
 - [ ] **Acceptance walk** (human reviewer) — ⬜ verdicts, `coverage: 0 of 17`. Light theme, fake
       data only. Walk script drafted by the BA (pass 2):
@@ -459,6 +461,9 @@ source`: viewer South,(blank) → `team | South, (blank) | dashboard filter Team
   owner questions; CR re-check: the stepped / joined export order **confirmed**, the filtered-read
   cost (~3–5×), and the CR-6 collision fallback (numbered over the bare scan, not a stored
   position).
+  Final re-check P2 (not filed as a row): `_driving_relation_with_order`'s composed-driving branch
+  (rows_reader.py:139) still writes a raw `_mdd_row_ord` — same class as CR-7, unreachable today
+  (R167: operands are `ds_` only); switch it to `_free_name` if that branch ever opens.
 - **Owner questions**: (1) should two `values` controls on one column with disjoint targets be
   allowed (built: refused, `duplicate_column`)? (2) should the export's Filters sheet list a
   _skipped_ shared filter as "skipped: no column" (built: unlisted — it filtered nothing; BA-C4)?
