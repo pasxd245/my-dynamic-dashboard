@@ -7,11 +7,35 @@
 
 ## ⟢ At a glance
 
-**Shipped** — (written at close-out)
+**Shipped** — one period control on a dashboard.
 
-**Studied** — (written at close-out)
+- A `date_range` control binds two date parameters (`from`, `to`) the targeted queries use. Its
+  saved value is a **preset** (this week, last week, last 7 days, this month, last month) or a
+  fixed pair; the **server** resolves it in `backend.time_zone` on every read, so "last 7 days"
+  saved today still reads "last 7 days" next month.
+- A viewer picks a preset or types a bound in the bar; the URL holds the two absolute dates
+  (`?p.from=…&p.to=…`), Copy link pins them, Reset to saved drops them. Nothing a viewer does is
+  saved; the editor adds the control, binds `from` → `to`, saves a preset or fixed dates.
+- When the period runs past the data (D7), a reached widget says "Data only through <max>" — a
+  note under its badge, never a block. A widget whose query uses neither parameter is skipped and
+  badged (D5); one using only `to` is reached.
+- Backend 687 · builder 564 · contracts 49; BA (both passes) PASS, code review PASS, QA CHANGES →
+  one P1 fixed; the owner's walk W1–W11 is open.
 
-**Watch** — (written at close-out)
+**Studied** _(predicted → saw → now believe)_ — predicted that the hard part was the server's
+calendar (presets in a zone, week starts, month ends) and that the builder would be routing only.
+Saw: every calendar probe the reviewers threw (three zones at one instant, DST-free zones, Dec 31,
+Feb 29, the 31st) passed first time; the one P1 was in the **editor's defaults** — "Add → Date
+range" bound the pair in the query's declaration order and the two selects could not swap it
+(each hid the other's name), so a query declaring `to` first made every preset read refuse. Now
+believe (medium confidence): a control that owns two bindings needs its editor tested for the
+_swap_, not only the add — the same "routing slip" shape as R195, one level up.
+
+**Watch** — "this week" = whole calendar week vs Monday–today (owner); a rolling "last N days"
+preset (owner); a viewer's preset is resolved in the browser's zone (no "today" endpoint); no
+coverage on joined columns (no D7 note on a join); the exclusive-bound off-by-one of `dataThrough`
+(`before X`); an API-authored relative pair that reverses later stays a refusal (CR-1, like R194's
+`source: default` row); the Sunday tie between "this week" and "last 7 days" in the bar's select.
 
 ## Goal
 
@@ -164,27 +188,106 @@ saying so beats an empty table that looks like "no calls". Row updated; the BA m
   calls**, the preset menu, the editor (EN + VI). Browser probe: picking "Last week" wrote
   `?p.from=2026-10-12&p.to=2026-10-18`; the editor's Save is disabled on a reversed pair and a
   fixed pair saves (`PUT` 200, GET returns `{from, to}`).
-- **Reviews after F — pending.** The coder session had no sub-agent spawning, so the code review,
-  QA and BA pass 2 (and the BA pass 1 above) are to be run by the orchestrator on
-  `git diff 458aabc..HEAD` with this file; their P0/P1 fold in `fix(R198)` commits, then close-out
-  (§ Check, § Act, the `agents.csv` row, the bundle). The round stays `In Progress` until every role
-  reports PASS — a coder never grades its own work.
+- **Reviews after F** (run by the orchestrator — the coder session had no sub-agent spawning, so
+  BA pass 1 also ran after the build, on the contract commit's diff):
+  - **BA pass 1 (contract exit, `458aabc..1f66291`): PASS** — P2 ×3: no rolling "last N days"
+    preset / relative pair API-only (C1); `dataThrough` on an exclusive bound compares the operand
+    (C2); the post/put 422 descriptions do not name the control reasons (C3).
+  - **BA pass 2: PASS** — AC1–AC5 and criterion 9 verified against the tests; the falsified-ifs
+    held. P2 ×6: singular "parameter" for two names (F1); the Sunday tie "this week" = "last 7
+    days" in the select (F2); browser-zone preview before a read answers (F3, = R195 BA-3);
+    "Date range" silently absent with one free date parameter (F4); verbose collapsed metadata
+    label (F5); no vitest reached the editor (F6 = CR-4); F7 = C2. Walk script W1–W11 below.
+  - **Code review: PASS** — P2 ×4: an API-authored relative pair that reverses later (CR-1);
+    `populate_by_name` lets `from_` in (CR-2); editing one bound of a relative pair rewrites the
+    other to an absolute date (CR-3); editor test gap (CR-4).
+  - **QA: CHANGES** — gates re-run from a clean worktree (backend 677 · builder 550 · contracts 49,
+    match), `test_date_range` 7/7 red at base, live probe in the HCM zone of criterion 9, D5, D7
+    and the save checks all PASS, visual gate light EN 5/5 · VI 4/4 inspected. **QA-1 (P1):**
+    "Add → Date range" binds the pair in the query's declaration order and the two selects could
+    not swap it (`rangeOptions` hid this control's own other end): a query declaring `to` before
+    `from` saved a backwards pair and every preset read refused `range_reversed`. QA-2 (P2): the
+    editor screenshot did not evidence the enabled Save. 25 adversarial tests (10 backend, 15
+    builder) handed over.
+- **Fix (`cce4f4b`)** — QA-1: each range select offers every date parameter no _other_ draft
+  control binds (its own two included), so a pair can be swapped; `from` = `to` still disables
+  Save. Folded P2s: BA-F1 (`skippedWhyMany`, EN/VI), BA-C3 (post/put 422 descriptions), CR-2
+  (`populate_by_name` dropped), QA-2 (re-shot `en-editor-fixed.png` with Save enabled, plus
+  `en-editor-swap.png`). QA's tests adopted: `tests/test_date_range_adversarial.py` (10; the
+  always-skipping string-column probe dropped), `tests/date-range-r198-adversarial.test.tsx` (14;
+  the describe that documented QA-1 as a bug dropped, the `to`-select assertion turned into the
+  swap), QA's failing test as the QA-1 regression in `date-range-r198.test.tsx` (now 11). They
+  close BA-F6 / CR-4. CR-1 decided: logged, not changed (§ Act). The rest → rolling log.
+  Gates after the fix: backend 687 · builder 564 · contracts 49 · `tsc` · ruff · lints 0 (the
+  full builder run under load timed out three `datasets.test.tsx` upload-wizard cases at 15 s —
+  the R196 rolling-log flake; green re-run alone).
 - Design doc § As built (4.2); rc4.md § 4.2 and the program table → `review`; rolling-log rows
   (the R194 row revisited; rc.4 before the tag; "this week" semantics; the viewer-side preset
   zone; coverage on joins).
 
 ## Check
 
-- [x] backend 677 · builder 550 · contracts 49 green; `tsc --noEmit`; `ruff check`; lints 0
-- [x] Visual gate: light (EN + VI); dark N/A (no dark theme — owner)
-- [ ] BA (contract exit + after build) · code review · QA — no open P0/P1
-- [ ] ⟢ At a glance **Studied** line written
-- [ ] **Acceptance walk** (human reviewer) — ⬜ verdicts, `coverage: 0 of N` (walk script from the
-      BA's pass 2)
+- [x] backend 687 · builder 564 · contracts 49 green; `tsc --noEmit`; `ruff check`; lints 0
+- [x] Visual gate: light (EN + VI) — coder's and QA's own runs; dark N/A (no dark theme — owner)
+- [x] BA (contract exit + after build) · code review · QA — no open P0/P1 (QA-1 fixed in
+      `cce4f4b`; QA re-check by the orchestrator)
+- [x] ⟢ At a glance **Studied** line written
+- [ ] **Acceptance walk** (human reviewer) — ⬜ verdicts, `coverage: 0 of 11`. Setup (fake data):
+      a dataset `calls_demo` (id, team, day, amount, at — e.g. 14 days of October); query **Calls
+      in period** with date parameters `from` (label From) and `to` (label To) and
+      `day between from → to`; query **All calls** (no parameter); a dashboard **Weekly** with a
+      bar and a table on **Calls in period** and a stat on **All calls**. Walk script drafted by
+      the BA (pass 2).
+  - ⬜ W1 — Editor: **Weekly** › **Parameters** › "Add a control for…" › **Date range (two date
+    parameters)** → a row with label "Period", "sets period From (from) → To (to)", Applies to,
+    Saved value = "No saved period"; choose **This week** → Save → toast. The bar shows **Period**,
+    the select "This week", Monday → Sunday of the current week (the server's zone).
+  - ⬜ W2 — Editor refusals: Saved value **Fixed dates**, from later than to → both inputs
+    warning-outlined, Save disabled; the same parameter for from and to → the "to" select red,
+    Save disabled.
+  - ⬜ W3 — Bar preset: pick **Last week** → the URL reads `?p.from=<Mon>&p.to=<Sun>` (absolute
+    dates), the control is outlined, **Reset to saved** shows, the bound widgets re-read. Reset to
+    saved → URL clean, the server's dates, outline gone.
+  - ⬜ W4 — Bar typed bound: type only "to" → the URL holds `p.to` alone; set from after to →
+    "The period ends before it starts." (VI "Kỳ kết thúc trước khi bắt đầu."); a `between` widget
+    shows the parameter message, no crash.
+  - ⬜ W5 — D7 note: a period past the data (to = next month) → every reached widget shows "Data
+    only through <coverage max>" under its badge, the numbers still render; back inside the
+    coverage → the note is gone; a query with a lower bound only → no note.
+  - ⬜ W6 — Reach: a widget whose query uses neither parameter → warning tag "Period skipped", the
+    tooltip names both; a widget whose query uses only `to` → the "Period" reached tag.
+  - ⬜ W7 — Copy link with no viewer change → the URL carries both `p.from` and `p.to` as shown;
+    a new tab → same dates, same numbers.
+  - ⬜ W8 — Byte-identity: a dashboard with an R195 **As of** control saved before this round →
+    the bar and `GET /dashboards/{id}` unchanged.
+  - ⬜ W9 — Metadata: a note written under the saved preset; change the period → the entry
+    collapses to "Written for Period · from … · viewing …"; reset → expanded, current.
+  - ⬜ W10 — Saved is the preset: reopen the editor another day → still "This week", the bar's
+    dates moved; `GET` `saved` = `{preset: this_week}`.
+  - ⬜ W11 — VI: "Kỳ" · Tuần này / Tuần trước / 7 ngày qua / Tháng này / Tháng trước / Tùy chọn ·
+    "Dữ liệu chỉ đến <date>" · editor "Khoảng ngày (hai tham số ngày)" · "đặt kỳ".
 
 ## Act
 
-(written at close-out)
+- **Rolling log:** the R194 `range_reversed` row revisited (a range moves both bounds together;
+  the one-literal case stays a refusal); rc.4 opened before the rc.3 tag; new rows for BA-C1,
+  BA-C2/F7, BA-F2, BA-F3, BA-F4, BA-F5, CR-1, CR-3, the viewer-zone preset, coverage on joins,
+  and QA-1 (fixed; a name-based first guess logged as demand).
+- **CR-1 decided — logged, not changed.** An API-authored pair with one relative bound that
+  reverses later keeps refusing `range_reversed` (source `dashboard`), like R194's
+  `source: default` row: the misconfiguration stays visible and the editor fixes it; dropping the
+  pair at bind would read as "no calls". The owner may reverse both rows together.
+- **Three business questions for the owner** (also in the rolling log): (1) "This week" /
+  "this month" = the whole calendar period (built; market convention) or Monday–today? (2) weeks
+  start on Monday for everyone? (3) is a rolling "last N days" preset wanted (BA-C1)?
+- **Promotion:** none. Candidate lesson (memory, if it recurs): a control that owns two bindings
+  needs its editor tested for the swap, not only the add — the defaults chosen at "add" are the
+  one path the reviewers' probes and the coder's tests both skipped (R195's routing lesson, one
+  level up).
+- **Prune check:** QA found the only P1, in a browser; BA pass 1 ran after the build (no spawning
+  in the coder session) and still raised nothing a pass before code would have changed — the
+  contract shape held. The loop earns its place; the contract-exit timing is the thing to fix in
+  the harness, not the pass.
 
 ## Feeds into → Round_199
 
