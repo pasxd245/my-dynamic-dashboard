@@ -9,7 +9,7 @@
 import { ArrowLeftOutlined, DatabaseOutlined, WarningOutlined } from '@ant-design/icons';
 import { PageCard, PageContainer, PageHeader } from '@mdd/ui';
 
-import { MetadataPanel } from '@/features/metadata/MetadataPanel';
+import { MetadataBar, MetadataDockRow, useMetadataDock } from '@/features/metadata/dock';
 import { App, Button, Skeleton, Tag, Typography } from 'antd';
 import i18n from 'i18next';
 import { useState } from 'react';
@@ -126,6 +126,8 @@ export function QueryDetailPage() {
   // its shaping entire.
   const [duplicateOpen, setDuplicateOpen] = useState(false);
   const createMutation = useCreateQueryMutation();
+  // R180 / R202 — the query's notes under the page's values, read in a dock beside the rows.
+  const metaDock = useMetadataDock('query', query?.id, urlParams);
   const workspacesQuery = useWorkspacesQuery();
   const workspaceName = workspacesQuery.data?.find((w) => w.id === query?.workspaceId)?.name;
 
@@ -512,87 +514,90 @@ export function QueryDetailPage() {
         actions={populatedActions}
         onNavigate={(r) => navigate(r)}
       />
-      <PageCard variant="fill">
-        {sourceLink ? (
-          <div style={{ flex: '0 0 auto', marginBottom: 8 }}>
-            <Typography.Text type="secondary">
-              {t('queries.detail.sourceLabel')} {sourceLink}
-            </Typography.Text>
-          </div>
-        ) : null}
-        {editing ? null : (
-          <MetadataPanel
-            kind="query"
-            nounId={query.id}
-            params={urlParams}
-            paramLabels={Object.fromEntries((query.definition.params ?? []).map((p) => [p.name, p.label ?? p.name]))}
-          />
-        )}
-        {editing ? (
-          <QueryBuilderPanel builder={builder} />
-        ) : (
-          <>
-            {joinSummary}
-            {def.q || def.filters.length > 0 || def.advanced.length > 0 ? predicateTags : null}
-            {/* R195 — the used parameters: their values (URL), and what the run used. */}
-            {usedDecls.length > 0 ? (
-              <div style={{ flex: '0 0 auto', marginBottom: 12 }} data-component="QueryParamValues">
-                <ParamValueInputs
-                  params={usedDecls}
-                  values={{ ...resolvedValues, ...urlParams }}
-                  onChange={setUrlParam}
-                  error={paramError as Parameters<typeof ParamValueInputs>[0]['error']}
-                />
-                {rowsQuery.data?.resolvedParams ? (
-                  <Typography.Text type="secondary" style={{ fontSize: 12 }} data-component="QueryResolvedParams">
-                    {Object.entries(rowsQuery.data.resolvedParams)
-                      .map(([n, r]) =>
-                        t('queries.params.usedValue', {
-                          name: n,
-                          value: r.value,
-                          source: t(`queries.params.source.${r.source}`),
-                        }),
-                      )
-                      .join(' · ')}
-                  </Typography.Text>
-                ) : null}
-              </div>
-            ) : null}
-            {/* R195 — a read refused for a parameter never ran: no count, no table. */}
-            {paramError ? null : (
-              <>
-                <div style={{ flex: '0 0 auto', marginBottom: 12 }}>
-                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                    {isJoined
-                      ? t('queries.detail.matchedRows', { matched: total.toLocaleString(locale) })
-                      : t('queries.detail.matchedOfTotal', {
-                          matched: total.toLocaleString(locale),
-                          total: (dataset?.rowCount ?? 0).toLocaleString(locale),
-                        })}
-                  </Typography.Text>
+      <MetadataDockRow
+        api={editing ? { ...metaDock, sel: null } : metaDock}
+        fill
+        cfg={{
+          kind: 'query',
+          nounLabel: query.name,
+          paramLabels: Object.fromEntries((query.definition.params ?? []).map((p) => [p.name, p.label ?? p.name])),
+        }}
+      >
+        <PageCard variant="fill">
+          {sourceLink ? (
+            <div style={{ flex: '0 0 auto', marginBottom: 8 }}>
+              <Typography.Text type="secondary">
+                {t('queries.detail.sourceLabel')} {sourceLink}
+              </Typography.Text>
+            </div>
+          ) : null}
+          {editing ? null : <MetadataBar api={metaDock} />}
+          {editing ? (
+            <QueryBuilderPanel builder={builder} />
+          ) : (
+            <>
+              {joinSummary}
+              {def.q || def.filters.length > 0 || def.advanced.length > 0 ? predicateTags : null}
+              {/* R195 — the used parameters: their values (URL), and what the run used. */}
+              {usedDecls.length > 0 ? (
+                <div style={{ flex: '0 0 auto', marginBottom: 12 }} data-component="QueryParamValues">
+                  <ParamValueInputs
+                    params={usedDecls}
+                    values={{ ...resolvedValues, ...urlParams }}
+                    onChange={setUrlParam}
+                    error={paramError as Parameters<typeof ParamValueInputs>[0]['error']}
+                  />
+                  {rowsQuery.data?.resolvedParams ? (
+                    <Typography.Text type="secondary" style={{ fontSize: 12 }} data-component="QueryResolvedParams">
+                      {Object.entries(rowsQuery.data.resolvedParams)
+                        .map(([n, r]) =>
+                          t('queries.params.usedValue', {
+                            name: n,
+                            value: r.value,
+                            source: t(`queries.params.source.${r.source}`),
+                          }),
+                        )
+                        .join(' · ')}
+                    </Typography.Text>
+                  ) : null}
                 </div>
-                <PagedRowsView
-                  columns={columns}
-                  rows={rowsQuery.data?.rows}
-                  loading={rowsQuery.isFetching || datasetQuery.isLoading}
-                  total={total}
-                  page={page}
-                  pageSize={pageSize}
-                  onPageChange={handlePageChange}
-                  emptyState={
-                    <>
-                      <Typography.Title level={5} style={{ marginTop: 0 }}>
-                        {t('queries.detail.zeroRowsTitle')}
-                      </Typography.Title>
-                      <Typography.Text type="secondary">{t('queries.detail.zeroRowsHint')}</Typography.Text>
-                    </>
-                  }
-                />
-              </>
-            )}
-          </>
-        )}
-      </PageCard>
+              ) : null}
+              {/* R195 — a read refused for a parameter never ran: no count, no table. */}
+              {paramError ? null : (
+                <>
+                  <div style={{ flex: '0 0 auto', marginBottom: 12 }}>
+                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                      {isJoined
+                        ? t('queries.detail.matchedRows', { matched: total.toLocaleString(locale) })
+                        : t('queries.detail.matchedOfTotal', {
+                            matched: total.toLocaleString(locale),
+                            total: (dataset?.rowCount ?? 0).toLocaleString(locale),
+                          })}
+                    </Typography.Text>
+                  </div>
+                  <PagedRowsView
+                    columns={columns}
+                    rows={rowsQuery.data?.rows}
+                    loading={rowsQuery.isFetching || datasetQuery.isLoading}
+                    total={total}
+                    page={page}
+                    pageSize={pageSize}
+                    onPageChange={handlePageChange}
+                    emptyState={
+                      <>
+                        <Typography.Title level={5} style={{ marginTop: 0 }}>
+                          {t('queries.detail.zeroRowsTitle')}
+                        </Typography.Title>
+                        <Typography.Text type="secondary">{t('queries.detail.zeroRowsHint')}</Typography.Text>
+                      </>
+                    }
+                  />
+                </>
+              )}
+            </>
+          )}
+        </PageCard>
+      </MetadataDockRow>
       <DeleteConfirmModal
         resourceLabel="query"
         resourceName={query.name}

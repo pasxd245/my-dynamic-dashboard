@@ -152,7 +152,10 @@ an uninterpreted pair as before (the R180 rule, kept for them). The server does 
 | `summary`  | 1–200 characters                         | the card's line, At a glance               | shown as a pair    |
 | `severity` | `info` \| `warn` \| `error` \| `decide` | chip, badge, order, At a glance filter     | shown as a pair    |
 
-A card without `summary` shows the body's first line (plain, ≤ 200 chars). Order everywhere:
+A frontmatter **key** may be written in any script and hold inner spaces (`Dữ liệu đến: 18/10`),
+≤ 40 characters (R202; R180 accepted ASCII keys only and showed others with an empty key).
+A card without `summary` shows the body's first line (plain, ≤ 200 chars; a table row reads as
+its cells joined by `·`). The Read view does not repeat a `summary` the body already says. Order everywhere:
 `error` → `decide` → `warn` → `info` → none, then namespace.
 
 ```text
@@ -333,13 +336,13 @@ needs one request. A child whose column / widget no longer exists is skipped.
 
 ### Where it is mounted
 
-| Host                                                              | Call                                            | Notes                                                               |
-| ----------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------- |
-| `DatasetDetailPage` (header strip, under the date-coverage strip) | `kind="dataset"`                                | column entries ride as children, labelled by column name            |
-| `QueryDetailPage`                                                 | `kind="query"`                                  | hidden while the query is being edited                              |
-| `WorkflowDetailPage` (read view, above the summary)               | `kind="workflow"`                               | hidden while editing                                                |
-| `DashboardDetailPage` (under the page header)                     | `kind="dashboard"`, `childLabel` = widget title | plus the per-widget info button / popover                           |
-| `RelationshipCheckDrawer` (below the check result)                | `kind="relationship"`, `alwaysShow`             | shown only once the check succeeds — a stale edge's drawer has none |
+| Host (R202)                                    | Read                                         | Layer 1 (badges)                         | Bar + dock                                                         |
+| ---------------------------------------------- | -------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------ |
+| `DashboardDetailPage`                          | `useMetadataDock('dashboard', id, viewer)`   | `WidgetMetadataBadges` in a widget header | bar + **At a glance** above the grid; dock beside it (grid − 1 col) |
+| `DatasetDetailPage`                            | `useMetadataDock('dataset', id)`             | `ColumnNoteDot` in a column header        | bar in the header strip; dock beside the card (`fill`)             |
+| `QueryDetailPage` (read view)                  | `useMetadataDock('query', id, urlParams)`    | —                                        | bar; dock beside the card; closed while editing                    |
+| `WorkflowDetailPage` (read view)               | `useMetadataDock('workflow', id)`            | —                                        | bar; dock beside the card; closed while editing                    |
+| `RelationshipCheckDrawer` (below the result)   | `MetadataPanel kind="relationship"`          | —                                        | the R180 inline panel (the drawer is already a side panel)         |
 
 `column` and `widget` are never read directly by the builder; they arrive as children of
 their parent.

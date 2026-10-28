@@ -1436,7 +1436,39 @@
     "hide": "Hide",
     "definitionWarning": "The definition changed after this was written; it may not describe what you see.",
     "assumed": "Written under the saved or default value of: {{names}}",
-    "beforePeriods": "Written before periods were recorded."
+    "beforePeriods": "Written before periods were recorded.",
+    "severity": {
+      "error": "Error",
+      "decide": "Decide",
+      "warn": "Warning",
+      "info": "Info"
+    },
+    "kind": {
+      "dataset": "Dataset",
+      "column": "Column",
+      "relationship": "Relationship",
+      "query": "Query",
+      "workflow": "Workflow",
+      "dashboard": "Dashboard",
+      "widget": "Widget"
+    },
+    "dock": {
+      "close": "Close",
+      "allNotes": "All notes",
+      "notes": "Notes",
+      "read": "Read",
+      "more_one": "+{{count}} more field",
+      "more_other": "+{{count}} more fields"
+    },
+    "bar": {
+      "open": "Open"
+    },
+    "glance": {
+      "title": "At a glance",
+      "hint": "the most serious current notes"
+    },
+    "columnTooltip_one": "Metadata on {{column}} ({{count}} note)",
+    "columnTooltip_other": "Metadata on {{column}} ({{count}} notes)"
   },
   "history": {
     "button": "History",

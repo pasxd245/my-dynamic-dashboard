@@ -1,19 +1,21 @@
 // R179 — the `note` widget: markdown text on a dashboard, no query. The text
-// is rendered by a hand-written parser into React nodes, so markup can never
-// become HTML; the same subset rule the server enforces (`markdownProblems`)
+// is rendered into React nodes (R202: react-markdown + a remark step that keeps
+// unsafe constructs as text), so markup can never become HTML; the same subset rule the server enforces (`markdownProblems`)
 // runs in the builder before a save.
 
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { SafeMarkdown, markdownProblems, parseBlocks } from '@/features/dashboard/SafeMarkdown';
+import { SafeMarkdown, markdownProblems } from '@/features/dashboard/SafeMarkdown';
 import { draftToConfig } from '@/features/dashboard/WidgetBuilder';
 import { WidgetView } from '@/features/dashboard/WidgetView';
 import type { Widget } from '@/features/dashboard/types';
 
 describe('R179 markdownProblems (mirror of app/markdown_safe.py)', () => {
   it('accepts the safe subset', () => {
-    expect(markdownProblems('## T\n\n- a\n- b\n\n> q\n\n`c` **b** [l](https://x.y/z?q=1)\n\n```\nf\n```\n')).toEqual([]);
+    expect(markdownProblems('## T\n\n- a\n- b\n\n> q\n\n`c` **b** [l](https://x.y/z?q=1)\n\n```\nf\n```\n')).toEqual(
+      [],
+    );
   });
   it('rejects tags, images and non-http links', () => {
     expect(markdownProblems('<script>x</script>')).toEqual(['html']);
@@ -27,9 +29,12 @@ describe('R179 markdownProblems (mirror of app/markdown_safe.py)', () => {
 });
 
 describe('R179 SafeMarkdown', () => {
-  it('parses headings, lists, quotes, code and rules into blocks', () => {
-    const kinds = parseBlocks('# H\n\npara\n\n- a\n- b\n\n1. one\n2. two\n\n> q\n\n```\nc\n```\n\n---\n').map((b) => b.kind);
-    expect(kinds).toEqual(['h', 'p', 'ul', 'ol', 'quote', 'code', 'hr']);
+  it('renders headings, lists, quotes, code and rules as elements (R202: through react-markdown)', () => {
+    const { container } = render(
+      <SafeMarkdown md={'# H\n\npara\n\n- a\n- b\n\n1. one\n2. two\n\n> q\n\n```\nc\n```\n\n---\n'} />,
+    );
+    for (const sel of ['h3', 'p', 'ul', 'ol', 'blockquote', 'pre code', 'hr'])
+      expect(container.querySelector(sel)).not.toBeNull();
   });
 
   it('renders bold, code and an http link as elements', () => {
@@ -52,10 +57,18 @@ describe('R179 SafeMarkdown', () => {
 });
 
 describe('R179 note widget', () => {
-  const note: Widget = { id: 'wdg_00000179', title: 'Read me', chartType: 'note', md: '## Hello\n\nA **note**.', span: 1 };
+  const note: Widget = {
+    id: 'wdg_00000179',
+    title: 'Read me',
+    chartType: 'note',
+    md: '## Hello\n\nA **note**.',
+    span: 1,
+  };
 
   it('draftToConfig emits title + md + size only', () => {
-    expect(draftToConfig({ title: ' Read me ', chartType: 'note', md: 'x', agg: 'sum', span: 2, queryId: 'qr_12345678' })).toEqual({
+    expect(
+      draftToConfig({ title: ' Read me ', chartType: 'note', md: 'x', agg: 'sum', span: 2, queryId: 'qr_12345678' }),
+    ).toEqual({
       title: 'Read me',
       chartType: 'note',
       md: 'x',

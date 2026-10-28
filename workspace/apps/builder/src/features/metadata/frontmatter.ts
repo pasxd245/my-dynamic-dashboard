@@ -1,6 +1,7 @@
 // R180 — the product does NOT interpret frontmatter. It only splits a leading
 // `---` block off the markdown and shows its `key: value` lines as a table;
 // nested YAML, lists or anything else stay as the text they are.
+// R202 — three keys are read by the builder (`reserved.ts`); the rest stay pairs.
 
 export type Frontmatter = { pairs: [string, string][]; body: string };
 
@@ -15,7 +16,8 @@ export function splitFrontmatter(md: string): Frontmatter {
   const body = rest.slice(end).replace(/^---[ \t]*\r?\n?/, '');
   const pairs: [string, string][] = [];
   for (const line of block.split(/\r?\n/)) {
-    const m = /^([A-Za-z0-9_.-]+)\s*:\s*(.*)$/.exec(line);
+    // R202 — a key may be written in any script and hold inner spaces (`Dữ liệu đến`), ≤ 40 chars.
+    const m = /^([\p{L}\p{N}_.-][\p{L}\p{N}\p{M}_. -]{0,39}?)\s*:\s*(.*)$/u.exec(line);
     if (m) pairs.push([m[1] ?? '', (m[2] ?? '').trim()]);
     else if (line.trim()) pairs.push(['', line.trim()]);
   }

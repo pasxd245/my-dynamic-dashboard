@@ -39,7 +39,8 @@ import {
   useRenameDatasetMutation,
   useSetColumnVisibilityMutation,
 } from './hooks';
-import { MetadataPanel } from '@/features/metadata/MetadataPanel';
+import { ColumnNoteDot } from '@/features/metadata/badges';
+import { MetadataBar, MetadataDockRow, useMetadataDock } from '@/features/metadata/dock';
 import { useWorkflowQuery } from '@/features/data-management/workflows/hooks';
 import { DateCoverageStrip } from './DateCoverage';
 import { downloadDatasetExport } from './exportDataset';
@@ -222,6 +223,8 @@ export function DatasetDetailPage() {
   // ─── Save as Query (R69) ───────────────────────────────────────────
   const [saveQueryOpen, setSaveQueryOpen] = useState(false);
   const createQueryMutation = useCreateQueryMutation();
+  // R180 / R202 — the dataset's and its columns' notes, read by layer in a dock beside the table.
+  const metaDock = useMetadataDock('dataset', dataset?.id);
   const openSaveQuery = () => {
     createQueryMutation.reset();
     setSaveQueryOpen(true);
@@ -600,140 +603,153 @@ export function DatasetDetailPage() {
         actions={actions}
         onNavigate={(r) => navigate(r)}
       />
-      <PageCard variant="fill">
-        <div style={{ flex: '0 0 auto' }}>
-          <FrozenCopyBand dataset={dataset} />
-          <MetadataStrip dataset={dataset} workspaceName={workspaceName} />
-          {dataset.lineage ? <PublishedFrom lineage={dataset.lineage} /> : null}
-          <DateCoverageStrip columns={dataset.columns} />
-          <MetadataPanel kind="dataset" nounId={dataset.id} />
-        </div>
-
-        <div
-          data-component="DatasetDetailSearchBar"
-          style={{
-            flex: '0 0 auto',
-            display: 'flex',
-            gap: 12,
-            alignItems: 'center',
-            marginBottom: 12,
-            flexWrap: 'wrap',
-          }}
-        >
-          <Input.Search
-            value={searchInput}
-            // Coerce to a string defensively (a controlled input must never
-            // render a literal "null").
-            onChange={(e) => onSearchChange(e.target.value ?? '')}
-            // Own Escape deterministically and BLOCK AntD's own Escape/clear
-            // path (allowClear's Escape handling emitted a stray "null" value
-            // on real browsers — repro'd on an empty box). stopPropagation
-            // prevents AntD's bubbling handler from running after ours; we
-            // dropped `allowClear` so the only clear paths are this Esc and
-            // the explicit "Clear" link below.
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') {
-                e.preventDefault();
-                e.stopPropagation();
-                onClearSearch();
-              }
-            }}
-            placeholder={t('datasets.detail.searchPlaceholder')}
-            style={{ maxWidth: 360, flex: '1 1 240px' }}
-            data-component="DatasetRowSearch"
-            // In-field × clear (consistent with the advanced-query field),
-            // replacing the old "Clear" text link. Custom suffix — NOT AntD
-            // `allowClear` (whose Escape path emitted "null").
-            suffix={
-              searchInput.length > 0 ? (
-                <XCircleIcon
-                  size={16}
-                  weight="fill"
-                  role="button"
-                  aria-label={t('datasets.detail.clear')}
-                  data-component="DatasetRowSearchClear"
-                  className="aq-icon-btn"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={onClearSearch}
-                />
-              ) : (
-                <span />
-              )
-            }
-          />
-          {showMatchedCounter ? (
-            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              {t('datasets.detail.matchedOfTotal', {
-                matched: total.toLocaleString(i18n.language),
-                total: fullRowCount.toLocaleString(i18n.language),
-              })}
-            </Typography.Text>
-          ) : null}
-          <div style={{ marginInlineStart: 'auto' }}>
-            <Button
-              size="small"
-              icon={<ColumnsIcon size={16} />}
-              onClick={() => setPropertiesOpen(true)}
-              data-component="ColumnsToolbarButton"
-            >
-              {t('datasets.detail.columns.button', {
-                visible: dataset.columns.filter((c) => !c.hidden).length,
-                total: dataset.columns.length,
-              })}
-            </Button>
+      <MetadataDockRow
+        api={metaDock}
+        fill
+        cfg={{ kind: 'dataset', nounLabel: dataset.name, childOrder: dataset.columns.map((c) => c.name) }}
+      >
+        <PageCard variant="fill">
+          <div style={{ flex: '0 0 auto' }}>
+            <FrozenCopyBand dataset={dataset} />
+            <MetadataStrip dataset={dataset} workspaceName={workspaceName} />
+            {dataset.lineage ? <PublishedFrom lineage={dataset.lineage} /> : null}
+            <DateCoverageStrip columns={dataset.columns} />
+            <MetadataBar api={metaDock} />
           </div>
-        </div>
 
-        <div style={{ flex: '0 0 auto' }}>
-          <AdvancedQueryInput
-            columns={dataset.columns}
-            value={advancedText}
-            onApply={applyAdvanced}
-            onClear={clearAdvanced}
-          />
-        </div>
-
-        <div style={{ flex: '0 0 auto' }}>
-          <ActiveFilterChips
-            filters={filters}
-            columns={dataset.columns}
-            onRemove={removeFilter}
-            onClearAll={clearAll}
-          />
-        </div>
-
-        {rowsQuery.isError && !queryNotFound ? (
-          <Alert
-            type="error"
-            showIcon
-            message={t('datasets.detail.loadRowsCouldnt')}
-            description={(rowsQuery.error as Error | undefined)?.message ?? t('common.unknownError')}
-            data-component="DatasetRowsError"
-            style={{ flex: '0 0 auto', marginBottom: 12 }}
-          />
-        ) : null}
-
-        <PagedRowsView
-          columns={dataset.columns}
-          showHiddenColumns={showAllColumns}
-          rows={rowsPage?.rows}
-          loading={rowsQuery.isFetching}
-          total={total}
-          page={page}
-          pageSize={pageSize}
-          onPageChange={handlePageChange}
-          emptyState={rowsEmptyState}
-          renderHeaderExtra={(col, ci) => (
-            <FilterPopover
-              column={col}
-              colIndex={ci}
-              existing={filters.find((p) => p.col === ci)}
-              onApply={applyFilter}
-              onClear={() => removeFilter(ci)}
+          <div
+            data-component="DatasetDetailSearchBar"
+            style={{
+              flex: '0 0 auto',
+              display: 'flex',
+              gap: 12,
+              alignItems: 'center',
+              marginBottom: 12,
+              flexWrap: 'wrap',
+            }}
+          >
+            <Input.Search
+              value={searchInput}
+              // Coerce to a string defensively (a controlled input must never
+              // render a literal "null").
+              onChange={(e) => onSearchChange(e.target.value ?? '')}
+              // Own Escape deterministically and BLOCK AntD's own Escape/clear
+              // path (allowClear's Escape handling emitted a stray "null" value
+              // on real browsers — repro'd on an empty box). stopPropagation
+              // prevents AntD's bubbling handler from running after ours; we
+              // dropped `allowClear` so the only clear paths are this Esc and
+              // the explicit "Clear" link below.
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onClearSearch();
+                }
+              }}
+              placeholder={t('datasets.detail.searchPlaceholder')}
+              style={{ maxWidth: 360, flex: '1 1 240px' }}
+              data-component="DatasetRowSearch"
+              // In-field × clear (consistent with the advanced-query field),
+              // replacing the old "Clear" text link. Custom suffix — NOT AntD
+              // `allowClear` (whose Escape path emitted "null").
+              suffix={
+                searchInput.length > 0 ? (
+                  <XCircleIcon
+                    size={16}
+                    weight="fill"
+                    role="button"
+                    aria-label={t('datasets.detail.clear')}
+                    data-component="DatasetRowSearchClear"
+                    className="aq-icon-btn"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={onClearSearch}
+                  />
+                ) : (
+                  <span />
+                )
+              }
             />
-          )}
-        />
-      </PageCard>
+            {showMatchedCounter ? (
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                {t('datasets.detail.matchedOfTotal', {
+                  matched: total.toLocaleString(i18n.language),
+                  total: fullRowCount.toLocaleString(i18n.language),
+                })}
+              </Typography.Text>
+            ) : null}
+            <div style={{ marginInlineStart: 'auto' }}>
+              <Button
+                size="small"
+                icon={<ColumnsIcon size={16} />}
+                onClick={() => setPropertiesOpen(true)}
+                data-component="ColumnsToolbarButton"
+              >
+                {t('datasets.detail.columns.button', {
+                  visible: dataset.columns.filter((c) => !c.hidden).length,
+                  total: dataset.columns.length,
+                })}
+              </Button>
+            </div>
+          </div>
+
+          <div style={{ flex: '0 0 auto' }}>
+            <AdvancedQueryInput
+              columns={dataset.columns}
+              value={advancedText}
+              onApply={applyAdvanced}
+              onClear={clearAdvanced}
+            />
+          </div>
+
+          <div style={{ flex: '0 0 auto' }}>
+            <ActiveFilterChips
+              filters={filters}
+              columns={dataset.columns}
+              onRemove={removeFilter}
+              onClearAll={clearAll}
+            />
+          </div>
+
+          {rowsQuery.isError && !queryNotFound ? (
+            <Alert
+              type="error"
+              showIcon
+              message={t('datasets.detail.loadRowsCouldnt')}
+              description={(rowsQuery.error as Error | undefined)?.message ?? t('common.unknownError')}
+              data-component="DatasetRowsError"
+              style={{ flex: '0 0 auto', marginBottom: 12 }}
+            />
+          ) : null}
+
+          <PagedRowsView
+            columns={dataset.columns}
+            showHiddenColumns={showAllColumns}
+            rows={rowsPage?.rows}
+            loading={rowsQuery.isFetching}
+            total={total}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={handlePageChange}
+            emptyState={rowsEmptyState}
+            renderHeaderExtra={(col, ci) => (
+              <>
+                <ColumnNoteDot
+                  entries={metaDock.read?.children?.[col.name]}
+                  column={col.name}
+                  onOpen={() => metaDock.open({ scope: 'child', child: col.name })}
+                />
+                <FilterPopover
+                  column={col}
+                  colIndex={ci}
+                  existing={filters.find((p) => p.col === ci)}
+                  onApply={applyFilter}
+                  onClear={() => removeFilter(ci)}
+                />
+              </>
+            )}
+          />
+        </PageCard>
+      </MetadataDockRow>
 
       <RenameModal
         resourceLabel="dataset"

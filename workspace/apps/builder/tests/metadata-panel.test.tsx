@@ -4,7 +4,7 @@
 // the body as safe markdown — and nothing that edits.
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App } from 'antd';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
@@ -97,7 +97,9 @@ describe('R180 MetadataPanel', () => {
     expect(container.querySelector('[data-component="MetadataPanel"]')).toBeNull();
   });
 
-  it('shows the dataset page panel with the dataset entry and the column child', async () => {
+  // R202 — the dataset page reads by layer: a one-line bar, a dot on the
+  // column header, and the dock beside the table (All notes → Read).
+  it('shows the dataset page bar, the column dot and the dock with both entries', async () => {
     const { container } = withProviders(
       <AppLayout>
         <Routes>
@@ -106,16 +108,34 @@ describe('R180 MetadataPanel', () => {
       </AppLayout>,
       `/data-management/datasets/${MOCK_DATASET.id}`,
     );
-    await waitFor(() => expect(container.querySelector('[data-component="MetadataPanel"]')).not.toBeNull());
-    await waitFor(() => expect(container.querySelectorAll('[data-component="MetadataEntry"]').length).toBe(2));
-    expect(container.querySelector('[data-component="MetadataChild"]')?.getAttribute('data-child')).toBe('won_at');
-    expect(screen.getByText('What this is')).toBeInTheDocument();
-    expect(container.querySelectorAll('[data-component="MetadataAiBadge"]').length).toBe(2);
-    // R197 — the column's entry was written for an earlier definition (rc.2 `stale`).
-    expect(container.querySelectorAll('[data-component="MetadataState"][data-state="other_definition"]').length).toBe(
-      1,
+    const bar = await waitFor(() => {
+      const el = container.querySelector('[data-component="MetadataBar"]');
+      if (!el) throw new Error('no bar');
+      return el as HTMLElement;
+    });
+    expect(bar.textContent).toContain('2 entries');
+    expect(bar.textContent).toContain('2 by AI');
+    // The inline R180 panel is gone from the page.
+    expect(container.querySelector('[data-component="MetadataPanel"]')).toBeNull();
+    await waitFor(() =>
+      expect(container.querySelector('[data-component="ColumnNoteDot"]')?.getAttribute('data-count')).toBe('1'),
     );
-    // The panel has no edit control.
-    expect(container.querySelector('[data-component="MetadataPanel"] textarea')).toBeNull();
+    fireEvent.click(container.querySelector('[data-component="MetadataBarOpen"]') as HTMLElement);
+    const dock = await waitFor(() => {
+      const el = container.querySelector('[data-component="MetadataDock"]');
+      if (!el) throw new Error('no dock');
+      return el as HTMLElement;
+    });
+    expect(
+      [...dock.querySelectorAll('[data-component="MetadataGroup"]')].map((g) => g.getAttribute('data-child')),
+    ).toEqual(['', 'won_at']);
+    expect(dock.querySelectorAll('[data-component="MetadataAiBadge"]').length).toBe(2);
+    // R197 — the column's entry was written for an earlier definition (rc.2 `stale`).
+    expect(dock.querySelectorAll('[data-component="MetadataState"][data-state="other_definition"]').length).toBe(1);
+    fireEvent.click(dock.querySelector('[data-component="MetadataCardRead"]') as HTMLElement);
+    await waitFor(() => expect(screen.getByText('What this is')).toBeInTheDocument());
+    expect(dock.querySelector('[data-component="MetadataFrontmatter"]')?.textContent).toContain('q1 export');
+    // Nothing in the dock edits an entry.
+    expect(dock.querySelector('textarea, input')).toBeNull();
   });
 });

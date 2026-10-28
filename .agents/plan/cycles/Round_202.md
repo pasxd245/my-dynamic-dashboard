@@ -1,6 +1,6 @@
 # Round 202: metadata read by layer — badges, a side-by-side reading dock, a full markdown viewer (item 5.2)
 
-**Status**: In Progress
+**Status**: Review
 **Flow**: **DCFBI** — UI-bearing; the contract's shape does not change (C = the reserved-key note
 in `_shared/metadata.yaml`, documentation only).
 **Date started**: 2026-10-28
@@ -96,16 +96,78 @@ text, unsorted by what matters, with tables lost (the external dogfood's pilot s
 - [x] **D** — item 5.2 in `rc5.md`, the program row; design `_shared/metadata.md` § Reading by
       layer (R202); this round file
 - [x] **C** — `_shared/metadata.yaml`: the reserved-key note (description only; no shape change)
-- [ ] **F / B / I** — builder (no backend change); tests; visual gate on real data
-- [ ] Check — gates; owner walk script
+- [x] **F / B / I** — builder only (no backend change):
+  - `SafeMarkdown` → `react-markdown@10.1.0` + `remark-gfm@4.0.1` + `literalUnsafe` (remark step:
+    raw HTML / image / non-http(s) link → its source text; non-http(s) definitions dropped);
+    `urlTransform` http(s)-only, `skipHtml`; task boxes are marks, not inputs; tables scroll.
+  - `features/metadata/`: `reserved.ts` (keys, order, first line), `severity.tsx`, `dock.tsx`
+    (`useMetadataDock`, `MetadataDockRow`, Notes / Read, `?note=`, `MetadataBar`), `badges.tsx`
+    (`WidgetMetadataBadges`, `ColumnNoteDot`, `AtAGlance`); `MetadataPanel.tsx` split into reusable
+    parts (`anchorNotes`, `AnchorLines`, `PairsTable`) — the relationship drawer keeps it.
+  - `frontmatter.ts`: keys in any script with inner spaces (≤ 40 chars).
+  - Pages: dashboard (badges, bar, At a glance, dock; the grid drops one column while docked),
+    dataset (bar, column dots, dock beside the card), query and workflow (bar, dock).
+  - Fixture: a dashboard note (`warn`) and a widget note (`decide`, a table) using the reserved keys.
+  - Tests: `markdown-viewer-r202` (21: GFM, 14 hostile inputs, source text kept, 64 KiB),
+    `metadata-dock-r202` (12: keys, order, first line, badges, At a glance, `?note=` round trip,
+    the dashboard page end to end), R180 dataset-page test re-pointed at bar + dot + dock, R179
+    block test re-pointed at the new renderer.
+- [x] Check — gates below; visual gate on a fresh install loaded with real-volume metadata
 
 ## Check
 
-_(filled at the end of the round)_
+**Gates** (head of this round): builder **669 / 669** (636 + 33; one full run with nothing else
+running), `tsc` clean, `vite build` clean (chunk-size warning as before; the size delta of the two
+packages is not measured); contracts **55 / 55**; backend untouched (no backend file changed);
+md / plan / design lints 0; guard (no user names, no `backend/data`) empty.
+
+**Real-volume run (fresh install, from zero).** A clean data root, this branch's backend, the
+external dogfood's weekly export standardized from scratch, loaded by its own loader (8 datasets,
+40 queries, 5 dashboards / 51 widgets created on the empty install), then 186 metadata entries in
+five namespaces written by token. The week the dogfood had already reported was re-run on this
+install: **123 / 123 report cells identical** to the same week read on the rc.4 install
+(only timestamps differ) — no query result changed.
+
+**Visual gate** (`scratchpad/r202vis2/`, 1366 × 768 and 1920 × 1080, VI + EN, 800 × 900 narrow):
+badges, bar, At a glance (two columns when docked), dock Notes / Read / All notes, a GFM table in
+Read, the narrow drawer; no page errors. Rows of customer data were hidden before every dataset
+shot.
+
+Findings logged, not fixed here:
+
+- **F1 (pre-existing)** — at 1366 × 768 the dataset page's header strips (summary, coverage, bar)
+  leave almost no height for rows; with the dock open the strips wrap and the rows area closes.
+  Candidate: collapse the coverage strip by default on short viewports.
+- **F2 (pre-existing, pack-side)** — a combo widget over an ISO-week axis draws its bars sorted by
+  value (W37, W34, W39 …), so the axis reads out of order. The engine orders grouped rows since R201;
+  this is the widget's own sort in the dogfood's pack, not an MDD change.
+- **F3** — an entry whose body repeats its `title` as a heading reads twice; writers that target
+  ≥ rc.5 should drop the heading (the dogfood's writer does with its rc.5 flag).
+
+**Walk script** (owner, on the real-volume install; ~10 min):
+
+- W1 Lead funnel dashboard: the bar shows the count and the two most serious severities; At a
+  glance shows ≤ 3 cards, most serious first; Hide/Show is remembered after a reload.
+- W2 Click a widget's badge: the dock opens beside the grid (the grid drops a column, nothing is
+  covered); the URL carries `?note=`; copy the URL into a new tab — the same note opens.
+- W3 Read a note with a table; Back returns to the list it came from (All notes when opened from
+  the bar); Esc closes; focus returns to the badge.
+- W4 Dataset `crm_leads`: a dot on the columns with notes; click → the column's notes; the
+  data-quality note reads as a table.
+- W5 Switch to EN: every label translates; severity chips read Error / Decide / Warning / Info.
+- W6 Narrow the window below 992 px: the dock becomes a full-width drawer.
+- W7 A note widget with a table renders the table (R179 note widgets share the viewer).
+- W8 Paste `<b>x</b>` into a note widget's text: the builder refuses it before save, as before.
+
+- [ ] BA · code review · QA
 
 ## Act
 
-_(filled at the end of the round)_
+- **Rolling log**: F1 and F2 above go to the program's rolling log; F3 is a writer convention, noted
+  in `_shared/metadata.md` § Reading by layer by example.
+- **Prune check**: the hand-written block parser (R179) is gone — replaced, not kept beside the new
+  renderer; `markdownProblems` stays as the save-time rule.
+- **Promotion**: none yet — one round of evidence.
 
 ## Feeds into → Round_203
 

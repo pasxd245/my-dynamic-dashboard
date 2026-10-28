@@ -563,7 +563,9 @@ export function loadYamlExampleRows(yamlPath: string, exampleName: string): (str
 // ─── R180 metadata ──────────────────────────────────────────────────────
 // Read-only entries as the server stores them: one AI entry (with a
 // frontmatter block) on MOCK_DATASET and one on its `won_at` column; one
-// human entry on MOCK_DASHBOARD's widget. Every other noun reads as empty.
+// human entry on MOCK_DASHBOARD's widget. R202 — plus an AI note on the
+// dashboard (`warn`) and one on its widget (`decide`, a table) using the
+// reserved keys. Every other noun reads as empty.
 export const MOCK_METADATA: Record<string, MetadataRead> = {
   [`dataset/${MOCK_DATASET.id}`]: {
     entries: {
@@ -596,11 +598,33 @@ export const MOCK_METADATA: Record<string, MetadataRead> = {
     },
   },
   [`dashboard/${MOCK_DASHBOARD.id}`]: {
-    entries: {},
+    // R202 — a dashboard note and a widget note that use the reserved keys.
+    entries: {
+      overview: {
+        md: '---\ntitle: Week in one line\nsummary: Won amount fell for the second week.\nseverity: warn\nweek: 2026-W41\n---\n\nSee the stage widget.',
+        source: 'ai',
+        author: 'agent',
+        writtenAt: '2026-10-15T08:00:00Z',
+        definitionVersion: '7d2e3f1c9a0b',
+        stale: false,
+        anchor: { definitionVersion: '7d2e3f1c9a0b' },
+        state: 'current',
+      },
+    },
     current: { definitionVersion: '7d2e3f1c9a0b' },
     childrenCurrent: { wdg_4d7b91ce: { definitionVersion: '0b7d2e3f1c9a' } },
     children: {
       wdg_4d7b91ce: {
+        review: {
+          md: '---\ntitle: Stage mix to decide\nsummary: Negotiation holds most of the open amount.\nseverity: decide\nowner: sales lead\n---\n\n| Stage | Share |\n|---|---:|\n| Negotiation | 61% |\n| Proposal | 39% |\n',
+          source: 'ai',
+          author: 'agent',
+          writtenAt: '2026-10-15T08:00:00Z',
+          definitionVersion: '0b7d2e3f1c9a',
+          stale: false,
+          anchor: { definitionVersion: '0b7d2e3f1c9a' },
+          state: 'current',
+        },
         notes: {
           md: 'Won deals only — see the query filter.',
           source: 'human',

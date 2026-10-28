@@ -1436,7 +1436,39 @@
     "hide": "Ẩn",
     "definitionWarning": "Định nghĩa đã đổi sau khi ghi chú này được viết; nội dung có thể không còn đúng với những gì bạn thấy.",
     "assumed": "Viết theo giá trị đã lưu hoặc mặc định của tham số: {{names}}",
-    "beforePeriods": "Ghi chú này được viết trước khi có tham số kỳ."
+    "beforePeriods": "Ghi chú này được viết trước khi có tham số kỳ.",
+    "severity": {
+      "error": "Lỗi",
+      "decide": "Cần quyết",
+      "warn": "Cảnh báo",
+      "info": "Thông tin"
+    },
+    "kind": {
+      "dataset": "Dataset",
+      "column": "Cột",
+      "relationship": "Quan hệ",
+      "query": "Query",
+      "workflow": "Workflow",
+      "dashboard": "Dashboard",
+      "widget": "Widget"
+    },
+    "dock": {
+      "close": "Đóng",
+      "allNotes": "Tất cả ghi chú",
+      "notes": "Ghi chú",
+      "read": "Đọc",
+      "more_one": "+{{count}} trường nữa",
+      "more_other": "+{{count}} trường nữa"
+    },
+    "bar": {
+      "open": "Mở"
+    },
+    "glance": {
+      "title": "Đọc nhanh",
+      "hint": "các ghi chú quan trọng nhất của kỳ đang xem"
+    },
+    "columnTooltip_one": "Chú giải của {{column}} ({{count}} ghi chú)",
+    "columnTooltip_other": "Chú giải của {{column}} ({{count}} ghi chú)"
   },
   "history": {
     "button": "Lịch sử",

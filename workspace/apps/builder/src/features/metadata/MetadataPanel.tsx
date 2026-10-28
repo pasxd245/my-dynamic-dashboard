@@ -28,7 +28,7 @@ import type {
   MetadataState,
 } from './types';
 
-function when(iso: string, lang: string): string {
+export function when(iso: string, lang: string): string {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleString(lang, { dateStyle: 'medium', timeStyle: 'short' });
 }
@@ -49,7 +49,7 @@ function differing(
   return names.map((n) => `${labels?.[n] ?? n} ${String(a?.[n])}`).join(', ');
 }
 
-function stateTag(state: MetadataState, t: TFunction) {
+export function stateTag(state: MetadataState, t: TFunction) {
   if (state === 'refreshed')
     return (
       <Tag
@@ -109,6 +109,36 @@ export function MetadataEntryView({
   const collapsible = state === 'other_period' || state === 'other_definition';
   const [open, setOpen] = useState(!collapsible);
   const { pairs, body } = splitFrontmatter(entry.md);
+  const { summary, assumed, beforePeriods } = anchorNotes(entry, current, paramLabels, t);
+  return (
+    <EntryShell
+      namespace={namespace}
+      entry={entry}
+      state={state}
+      collapsible={collapsible}
+      open={open}
+      setOpen={setOpen}
+      summary={summary}
+      assumed={assumed}
+      beforePeriods={beforePeriods}
+      paramLabels={paramLabels}
+      pairs={pairs}
+      body={body}
+      when={when(entry.writtenAt, i18n.language)}
+    />
+  );
+}
+
+/** R197 — what an entry says about its own reading: "written for …" (another
+ *  period / an earlier definition), the parameters the writer left to their
+ *  saved value, or that it predates periods. R202 — shared with the dock. */
+export function anchorNotes(
+  entry: MetadataEntry,
+  current: MetadataAnchor | undefined,
+  paramLabels: Readonly<Record<string, string>> | undefined,
+  t: TFunction,
+): { summary: string | null; assumed: readonly string[]; beforePeriods: boolean } {
+  const state = entryState(entry);
   const anchor = entry.anchor;
   const summary =
     state === 'other_period'
@@ -121,6 +151,109 @@ export function MetadataEntryView({
         : null;
   const assumed = anchor?.assumedParams ?? [];
   const beforePeriods = !anchor?.params && current?.params !== undefined && Object.keys(current.params).length > 0;
+  return { summary, assumed, beforePeriods };
+}
+
+/** R197 — the definition warning and the assumed / before-periods lines. */
+export function AnchorLines({
+  state,
+  assumed,
+  beforePeriods,
+  paramLabels,
+}: Readonly<{
+  state: MetadataState;
+  assumed: readonly string[];
+  beforePeriods: boolean;
+  paramLabels?: Readonly<Record<string, string>>;
+}>) {
+  const { t } = useTranslation();
+  return (
+    <>
+      {state === 'other_definition' ? (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 8, fontSize: 12 }}
+          message={t('metadata.definitionWarning')}
+          data-component="MetadataDefinitionWarning"
+        />
+      ) : null}
+      {assumed.length > 0 ? (
+        <Typography.Text
+          type="secondary"
+          style={{ fontSize: 11, display: 'block', marginBottom: 6 }}
+          data-component="MetadataAssumed"
+        >
+          {t('metadata.assumed', { names: assumed.map((n) => paramLabels?.[n] ?? n).join(', ') })}
+        </Typography.Text>
+      ) : beforePeriods ? (
+        <Typography.Text
+          type="secondary"
+          style={{ fontSize: 11, display: 'block', marginBottom: 6 }}
+          data-component="MetadataBeforePeriods"
+        >
+          {t('metadata.beforePeriods')}
+        </Typography.Text>
+      ) : null}
+    </>
+  );
+}
+
+/** Pairs as a two-column table (a line that is not `key: value` has an empty key). */
+export function PairsTable({ pairs }: Readonly<{ pairs: readonly [string, string][] }>) {
+  if (pairs.length === 0) return null;
+  return (
+    <table data-component="MetadataFrontmatter" style={{ fontSize: 12, borderCollapse: 'collapse', marginBottom: 8 }}>
+      <tbody>
+        {pairs.map(([k, v], i) => (
+          <tr key={`${k}-${i}`}>
+            <td
+              style={{
+                padding: '2px 12px 2px 0',
+                color: 'var(--ant-color-text-secondary, #666)',
+                verticalAlign: 'top',
+              }}
+            >
+              {k}
+            </td>
+            <td style={{ padding: '2px 0' }}>{v}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function EntryShell({
+  namespace,
+  entry,
+  state,
+  collapsible,
+  open,
+  setOpen,
+  summary,
+  assumed,
+  beforePeriods,
+  paramLabels,
+  pairs,
+  body,
+  when: whenText,
+}: Readonly<{
+  namespace: string;
+  entry: MetadataEntry;
+  state: MetadataState;
+  collapsible: boolean;
+  open: boolean;
+  setOpen: (f: (o: boolean) => boolean) => void;
+  summary: string | null;
+  assumed: readonly string[];
+  beforePeriods: boolean;
+  paramLabels?: Readonly<Record<string, string>>;
+  pairs: [string, string][];
+  body: string;
+  when: string;
+}>) {
+  const { t } = useTranslation();
   return (
     <div
       data-component="MetadataEntry"
@@ -140,7 +273,7 @@ export function MetadataEntryView({
         ) : null}
         {stateTag(state, t)}
         <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-          {t('metadata.by', { author: entry.author, when: when(entry.writtenAt, i18n.language) })}
+          {t('metadata.by', { author: entry.author, when: whenText })}
         </Typography.Text>
       </div>
       {summary ? (
@@ -162,55 +295,8 @@ export function MetadataEntryView({
       ) : null}
       {open ? (
         <>
-          {state === 'other_definition' ? (
-            <Alert
-              type="warning"
-              showIcon
-              style={{ marginBottom: 8, fontSize: 12 }}
-              message={t('metadata.definitionWarning')}
-              data-component="MetadataDefinitionWarning"
-            />
-          ) : null}
-          {assumed.length > 0 ? (
-            <Typography.Text
-              type="secondary"
-              style={{ fontSize: 11, display: 'block', marginBottom: 6 }}
-              data-component="MetadataAssumed"
-            >
-              {t('metadata.assumed', { names: assumed.map((n) => paramLabels?.[n] ?? n).join(', ') })}
-            </Typography.Text>
-          ) : beforePeriods ? (
-            <Typography.Text
-              type="secondary"
-              style={{ fontSize: 11, display: 'block', marginBottom: 6 }}
-              data-component="MetadataBeforePeriods"
-            >
-              {t('metadata.beforePeriods')}
-            </Typography.Text>
-          ) : null}
-          {pairs.length > 0 ? (
-            <table
-              data-component="MetadataFrontmatter"
-              style={{ fontSize: 12, borderCollapse: 'collapse', marginBottom: 8 }}
-            >
-              <tbody>
-                {pairs.map(([k, v], i) => (
-                  <tr key={`${k}-${i}`}>
-                    <td
-                      style={{
-                        padding: '2px 12px 2px 0',
-                        color: 'var(--ant-color-text-secondary, #666)',
-                        verticalAlign: 'top',
-                      }}
-                    >
-                      {k}
-                    </td>
-                    <td style={{ padding: '2px 0' }}>{v}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : null}
+          <AnchorLines state={state} assumed={assumed} beforePeriods={beforePeriods} paramLabels={paramLabels} />
+          <PairsTable pairs={pairs} />
           <SafeMarkdown md={body} />
         </>
       ) : null}

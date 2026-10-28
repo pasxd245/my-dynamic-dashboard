@@ -9,7 +9,7 @@
 import { ArrowLeftOutlined, PartitionOutlined, PlayCircleOutlined, WarningOutlined } from '@ant-design/icons';
 import { PageCard, PageContainer, PageHeader } from '@mdd/ui';
 
-import { MetadataPanel } from '@/features/metadata/MetadataPanel';
+import { MetadataBar, MetadataDockRow, useMetadataDock } from '@/features/metadata/dock';
 import { Alert, App, Button, Skeleton, Tag, Typography } from 'antd';
 import i18n from 'i18next';
 import { useState } from 'react';
@@ -72,6 +72,8 @@ export function WorkflowDetailPage() {
   const [draftSources, setDraftSources] = useState<string[]>([]);
   const [draftSteps, setDraftSteps] = useState<Step[]>([]);
   const updateMutation = useUpdateWorkflowMutation();
+  // R180 / R202 — the workflow's notes, read in a dock beside its output.
+  const metaDock = useMetadataDock('workflow', workflow?.id);
 
   const startEdit = () => {
     if (!workflow) return;
@@ -334,67 +336,73 @@ export function WorkflowDetailPage() {
         actions={actions}
         onNavigate={(r) => navigate(r)}
       />
-      <PageCard variant="fill">
-        {editing ? (
-          <WorkflowForm
-            workspaceId={workflow.workspaceId}
-            name={draftName}
-            sources={draftSources}
-            steps={draftSteps}
-            onNameChange={setDraftName}
-            onSourcesChange={setDraftSources}
-            onStepsChange={setDraftSteps}
-            excludeWorkflowId={workflow.id}
-          />
-        ) : (
-          <>
-            <MetadataPanel kind="workflow" nounId={workflow.id} />
-            {summary}
-            <PublishedLine workflow={workflow} />
-            {staleAlert}
-            {materialized ? (
-              <PagedRowsView
-                columns={columns}
-                rows={rowsQuery.data?.rows}
-                loading={rowsQuery.isFetching}
-                total={total}
-                page={page}
-                pageSize={pageSize}
-                onPageChange={handlePageChange}
-                emptyState={
-                  <>
-                    <Typography.Title level={5} style={{ marginTop: 0 }}>
-                      {t('workflows.detail.zeroRowsTitle')}
-                    </Typography.Title>
-                    <Typography.Text type="secondary">{t('workflows.detail.zeroRowsHint')}</Typography.Text>
-                  </>
-                }
-              />
-            ) : (
-              <div data-component="WorkflowNeverRun" style={{ padding: '40px 24px', textAlign: 'center' }}>
-                <WarningOutlined
-                  style={{ fontSize: 36, color: 'var(--ant-color-warning, #faad14)', marginBottom: 12 }}
+      <MetadataDockRow
+        api={editing ? { ...metaDock, sel: null } : metaDock}
+        fill
+        cfg={{ kind: 'workflow', nounLabel: workflow.name }}
+      >
+        <PageCard variant="fill">
+          {editing ? (
+            <WorkflowForm
+              workspaceId={workflow.workspaceId}
+              name={draftName}
+              sources={draftSources}
+              steps={draftSteps}
+              onNameChange={setDraftName}
+              onSourcesChange={setDraftSources}
+              onStepsChange={setDraftSteps}
+              excludeWorkflowId={workflow.id}
+            />
+          ) : (
+            <>
+              <MetadataBar api={metaDock} />
+              {summary}
+              <PublishedLine workflow={workflow} />
+              {staleAlert}
+              {materialized ? (
+                <PagedRowsView
+                  columns={columns}
+                  rows={rowsQuery.data?.rows}
+                  loading={rowsQuery.isFetching}
+                  total={total}
+                  page={page}
+                  pageSize={pageSize}
+                  onPageChange={handlePageChange}
+                  emptyState={
+                    <>
+                      <Typography.Title level={5} style={{ marginTop: 0 }}>
+                        {t('workflows.detail.zeroRowsTitle')}
+                      </Typography.Title>
+                      <Typography.Text type="secondary">{t('workflows.detail.zeroRowsHint')}</Typography.Text>
+                    </>
+                  }
                 />
-                <Typography.Title level={5} style={{ marginTop: 0 }}>
-                  {t('workflows.detail.neverRunTitle')}
-                </Typography.Title>
-                <Typography.Text type="secondary">{t('workflows.detail.neverRunHint')}</Typography.Text>
-                <div style={{ marginTop: 20 }}>
-                  <Button
-                    type="primary"
-                    icon={<PlayCircleOutlined />}
-                    onClick={run}
-                    loading={runMutation.isPending}
-                    data-component="WorkflowNeverRunRun"
-                  >
-                    {t('workflows.detail.run')}
-                  </Button>
+              ) : (
+                <div data-component="WorkflowNeverRun" style={{ padding: '40px 24px', textAlign: 'center' }}>
+                  <WarningOutlined
+                    style={{ fontSize: 36, color: 'var(--ant-color-warning, #faad14)', marginBottom: 12 }}
+                  />
+                  <Typography.Title level={5} style={{ marginTop: 0 }}>
+                    {t('workflows.detail.neverRunTitle')}
+                  </Typography.Title>
+                  <Typography.Text type="secondary">{t('workflows.detail.neverRunHint')}</Typography.Text>
+                  <div style={{ marginTop: 20 }}>
+                    <Button
+                      type="primary"
+                      icon={<PlayCircleOutlined />}
+                      onClick={run}
+                      loading={runMutation.isPending}
+                      data-component="WorkflowNeverRunRun"
+                    >
+                      {t('workflows.detail.run')}
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            )}
-          </>
-        )}
-      </PageCard>
+              )}
+            </>
+          )}
+        </PageCard>
+      </MetadataDockRow>
       <DeleteConfirmModal
         resourceLabel="workflow"
         resourceName={workflow.name}
