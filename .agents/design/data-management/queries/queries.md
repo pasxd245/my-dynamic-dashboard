@@ -452,6 +452,17 @@ definition (`too_many_steps`). Every column reference is by **effective name at 
   (DuckDB `datediff`; 31 Aug → 1 Sep is one month); negative when `end` is earlier; both columns
   date/datetime (`diff_col_not_date`). This is how a report says "this month vs last month"
   relative to the data's own cut-off, with no hard-coded date.
+- **`conversion_window`** (R203) — **conversion within N days, read only where it can be read**.
+  Body `{start, end, days, observedName, convertedName}`; `start`/`end` date/datetime
+  (`diff_col_not_date`), `days` an integer 1–3660 (`window_days_out_of_range`), two new names
+  (`column_exists`; equal names → `duplicate_name`). Appends two **`integer`** columns. The
+  **as-of** is the latest value of `start` or `end` over the rows reaching the step (a window over
+  the whole relation — a `filter` before this step lowers it; safe, since it can only make rows
+  read younger). `observed` = 1 when `start + days ≤ as-of`, else 0; `converted` = 1 when observed
+  and `start ≤ end ≤ start + days`, else 0; both NULL when `start` is NULL. Compared as timestamps
+  (a date at midnight). A rate by start period is `sum(converted) ÷ sum(observed)`; the newest
+  periods' `sum(observed)` below their row count is the "not yet observable for the full window"
+  flag (item 4.5) — carried as data, so a table, a chart and an export all see it.
 - **`group_column`** — the **within-group column**: an aggregate over the group of rows this row
   belongs to. Body `{name, agg, col?, by[]}`; `agg`/`col` reuse the collapsing measure's vocabulary,
   dtype rules and output dtypes (validated by the same `_validate_measure`). `by` may be **empty**

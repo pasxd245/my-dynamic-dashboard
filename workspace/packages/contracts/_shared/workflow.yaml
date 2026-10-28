@@ -57,6 +57,7 @@ components:
               - $ref: "query.yaml#/components/schemas/CaseStep"
               - $ref: "query.yaml#/components/schemas/DateDiffStep"
               - $ref: "query.yaml#/components/schemas/ComputeStep"
+              - $ref: "query.yaml#/components/schemas/ConversionWindowStep"
             discriminator:
               propertyName: kind
               mapping:
@@ -73,6 +74,7 @@ components:
                 case: "query.yaml#/components/schemas/CaseStep"
                 date_diff: "query.yaml#/components/schemas/DateDiffStep"
                 compute: "query.yaml#/components/schemas/ComputeStep"
+                conversion_window: "query.yaml#/components/schemas/ConversionWindowStep"
 
     WorkflowRun:
       type: object

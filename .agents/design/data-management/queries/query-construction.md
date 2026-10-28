@@ -238,14 +238,14 @@ Data-Entry label-above convention), not an inline reading sentence — e.g. the 
 từng nhóm**, `steps.newColumn` **New column name** / VN **Tên cột mới**. A card still _reads_ as a
 sentence left-to-right; the labels make it navigable and screen-reader-addressable.
 
-**`[Add step ▾]` is grouped**, because a flat sixteen-entry list is a scan, not a choice. Three AntD
+**`[Add step ▾]` is grouped**, because a flat seventeen-entry list is a scan, not a choice. Three AntD
 `<OptGroup>`s with **text** headings (`STEP_MENU` in `steps.ts`):
 
-| Group | EN                   | VN                    | contains (in order)                                                                                                                                                                                 |
-| ----- | -------------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1     | **Summarise**        | **Tổng hợp**          | Group & aggregate                                                                                                                                                                                   |
-| 2     | **Add a column**     | **Thêm cột**          | Group value · Share of total · Running total · Rank in group · Previous period's value · Computed column · Conditional column (IF) · Clean text · Date bucket · Part of a date · Time between dates |
-| 3     | **Shape the result** | **Định hình kết quả** | Filter result · Top N · Sort · Select columns                                                                                                                                                       |
+| Group | EN                   | VN                    | contains (in order)                                                                                                                                                                                                           |
+| ----- | -------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | **Summarise**        | **Tổng hợp**          | Group & aggregate                                                                                                                                                                                                             |
+| 2     | **Add a column**     | **Thêm cột**          | Group value · Share of total · Running total · Rank in group · Previous period's value · Computed column · Conditional column (IF) · Clean text · Date bucket · Part of a date · Time between dates · Converted within N days |
+| 3     | **Shape the result** | **Định hình kết quả** | Filter result · Top N · Sort · Select columns                                                                                                                                                                                 |
 
 Group 2 leads with the within-group / ordered ops because they are what a user comes looking for;
 the mechanical members of the "append a column" family follow.
@@ -254,7 +254,7 @@ the mechanical members of the "append a column" family follow.
 column** / Cột tính toán · `case` **Conditional column (IF)** / Cột điều kiện (IF) · `compute`
 **Clean text** / Làm sạch chữ · `date_bucket` **Date bucket** / Gom theo thời gian · `date_part`
 **Part of a date** / Lấy một phần của ngày · `date_diff` **Time between dates** / Khoảng cách giữa
-hai ngày · `group_column` **Group value** / Giá trị theo nhóm · `filter` **Filter result** / Lọc kết
+hai ngày · `conversion_window` **Converted within N days** / Chuyển đổi trong N ngày (R203) · `group_column` **Group value** / Giá trị theo nhóm · `filter` **Filter result** / Lọc kết
 quả · `top_n` **Top N** · `sort` **Sort** / Sắp xếp · `select` **Select columns** / Chọn cột. The
 `window_column` cards are titled by their **op** (below) — the user never meets the kind name.
 
@@ -275,6 +275,17 @@ quả · `top_n` **Top N** · `sort` **Sort** / Sắp xếp · `select` **Select
 - **Date bucket / Part of a date / Time between dates** — date/datetime pickers only; `Part of a
 date` offers `year · quarter · month · ISO week · day of month · day of week (Mon=1)`; `Time
 between dates` reads `Count [unit] from [start] to [end]`.
+
+- **Converted within N days** (`conversion_window`, R203) — `Start date` · `Event date` (date/
+  datetime pickers only) · `Within (days)` (`InputNumber`, 1–3660, default 30) · `Observed column` ·
+  `Converted column` (defaults `observed_<N>d` / `converted_<N>d`; a default follows `days` until
+  the user types a name). Disabled with a reason when fewer than two date columns exist at that
+  position. The secondary line reads: _"A row counts once N days have passed since its start, up
+  to the latest date in these two columns. For a rate: sum Converted ÷ sum Observed per period — a
+  period whose Observed is below its row count is still filling up."_ VN: _"Một dòng chỉ được tính
+  khi đã qua đủ N ngày kể từ ngày bắt đầu, tính tới ngày mới nhất trong hai cột này. Tỷ lệ: tổng
+  Đã chuyển đổi ÷ tổng Đã đủ thời gian theo từng kỳ — kỳ nào Đã đủ thời gian còn nhỏ hơn số dòng là
+  kỳ chưa đủ tuổi."_
 
 #### The within-group column
 
@@ -573,7 +584,7 @@ through the ordinary edit path. `useQueryBuilder` is therefore edit-only.
 8. **The join warns before it multiplies** — "Join with related" shows the multiplication warning
    when the chosen relationship's self-check says the hop multiplies rows left → right (the saved
    query's direction, whichever dataset the modal was opened from) (R191).
-9. **Steps author in business words** — `[Add step ▾]` lists the sixteen entries in three text
+9. **Steps author in business words** — `[Add step ▾]` lists the seventeen entries in three text
    groups; no control reads "window", "partition", "frame", "compute", or a wire kind; an op whose
    columns don't exist at this position is disabled with a reason.
 10. **Clean text** — the "Clean text" card offers only string columns, defaults the output name to
@@ -586,6 +597,10 @@ through the ordinary edit path. `useQueryBuilder` is therefore edit-only.
     reads blank, and the card counts the gaps.
 13. **Reuse, not duplication** — the builder composes the predicate editors, the relationship
     `<Select>`s, `StepsEditor` and `<PagedRowsView>`; it re-implements no engine or page.
+14. **A young cohort is never a low rate** (R203) — on rows whose start is fewer than N days before
+    the latest date in the two columns, the preview shows `observed = 0` and `converted = 0`; a rate
+    built as sum Converted ÷ sum Observed per start month leaves the newest month blank or partial
+    (Observed below its row count), never a drop to near zero.
 
 ---
 

@@ -745,6 +745,49 @@ components:
           minLength: 1
           description: The appended output column's name (must not collide).
 
+    ConversionWindowStep:
+      type: object
+      description: |
+        R203 — a TRANSFORM STEP that APPENDS two `integer` columns reading a
+        conversion WITHIN `days` of `start`, only where it can be read yet. The
+        AS-OF is the latest value of `start` or `end` over the rows reaching the
+        step (the data's own cut-off; a `filter` before this step lowers it).
+        `observedName` = 1 when `start + days <= as-of`, else 0;
+        `convertedName` = 1 when observed AND `start <= end <= start + days`,
+        else 0; both NULL when `start` is NULL. Compared as timestamps (a date
+        at midnight). A rate by start period is sum(converted) / sum(observed);
+        a period whose sum(observed) is below its row count is not yet
+        observable for the full window (item 4.5). Both columns must be
+        `date`/`datetime` (`diff_col_not_date`); `days` 1..3660
+        (`window_days_out_of_range`); the two names are new (`column_exists`)
+        and differ (`duplicate_name`).
+      required: [kind, start, end, days, observedName, convertedName]
+      additionalProperties: false
+      properties:
+        kind:
+          const: conversion_window
+        start:
+          type: string
+          minLength: 1
+          description: The cohort-entry date column (effective name); date/datetime.
+        end:
+          type: string
+          minLength: 1
+          description: The event date column (effective name); date/datetime; NULL = not (yet) converted.
+        days:
+          type: integer
+          minimum: 1
+          maximum: 3660
+          description: The window length in days.
+        observedName:
+          type: string
+          minLength: 1
+          description: The appended 0/1 column — the row has been observable for the full window.
+        convertedName:
+          type: string
+          minLength: 1
+          description: The appended 0/1 column — observed and the event fell inside the window.
+
     CaseValue:
       type: object
       description: |
@@ -1087,7 +1130,8 @@ components:
             family (`window_column`: share of total / running total / rank / previous
             period's value); R175 the formula-free `case` (conditional column), the
             numeric `date_part` and the calendar `date_diff`; R184 `compute` (one
-            function from a closed catalog — `trim` first). At most 24 steps (`too_many_steps`; R175 raised
+            function from a closed catalog — `trim` first); R203 `conversion_window`
+            (conversion within N days, observable rows only). At most 24 steps (`too_many_steps`; R175 raised
             it from 8 — a real weekly funnel needs ~20). A query with
             steps exposes its POST-step columns as `resolvedColumns`.
             `kind`-discriminated union.
@@ -1106,6 +1150,7 @@ components:
               - $ref: '#/components/schemas/CaseStep'
               - $ref: '#/components/schemas/DateDiffStep'
               - $ref: '#/components/schemas/ComputeStep'
+              - $ref: '#/components/schemas/ConversionWindowStep'
             discriminator:
               propertyName: kind
               mapping:
@@ -1122,6 +1167,7 @@ components:
                 case: '#/components/schemas/CaseStep'
                 date_diff: '#/components/schemas/DateDiffStep'
                 compute: '#/components/schemas/ComputeStep'
+                conversion_window: '#/components/schemas/ConversionWindowStep'
 
     Query:
       type: object

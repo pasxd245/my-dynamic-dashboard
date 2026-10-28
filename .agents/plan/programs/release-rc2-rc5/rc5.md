@@ -50,3 +50,36 @@ layer**, **beside the data**:
 
 **Step 2 (not in rc.5 unless pulled):** a typed `{props, md, data}` entry; structured `data` drawn
 as a table with a raw-JSON toggle — opens when a writer has a real machine-read case.
+
+## 5.3 Conversion within N days — cohorts that cannot be read yet (pulls conditional 4.5)
+
+|       |                                                                                                                  |
+| ----- | ---------------------------------------------------------------------------------------------------------------- |
+| Track | 1                                                                                                                |
+| Flow  | **DCFBI** — one new step kind (contract widening, no route change); UI-bearing                                   |
+| Added | by the owner, 2026-10-28 ("a general, adaptive feature, not tied to one user"); pulls rc.4's conditional **4.5** |
+| Entry | 4.5's second condition — the first user still needs a workaround after rc.3 (rolling log, 2026-10-28)            |
+| Round | `Round_203`                                                                                                      |
+
+A rate by **start period** ("of the leads created in September, how many converted?") reads low for
+the newest periods because their rows have not had the full window to convert — the newest month
+always "drops". The external dogfood computes this outside the product today. Nothing in the step
+vocabulary can say "this row has been observable for N days": there is no as-of value to compare a
+start date with.
+
+- **Step `conversion_window`** (Add a column): `{start, end, days, observedName, convertedName}`
+  appends two `integer` columns. **As-of** = the latest date in `start` or `end` over the rows
+  reaching the step (the data's own cut-off, no hard-coded date). `observed` = 1 once
+  `start + days ≤ as-of`, else 0; `converted` = 1 when observed **and** `start ≤ end ≤ start + days`,
+  else 0; both NULL when `start` is NULL. A rate is `sum(converted) ÷ sum(observed)` per period — a
+  period whose `sum(observed)` is below its row count is still filling up (the flag 4.5 names).
+- **Builder:** one card in **Add a column** — _Converted within N days_ / VN _Chuyển đổi trong N
+  ngày_; date pickers only; days 1–3660; default names `observed_<N>d` / `converted_<N>d`; a line
+  that says how to read the rate.
+- **Gate:** backend + builder tests green; contracts green (both step unions widened); a saved
+  query's result on the real-volume install unchanged for every other query; the young-cohort case
+  reads 0 observed, not a low rate.
+
+_Not in this item:_ an as-of from a viewer parameter or a fixed date (opens when a user needs a
+cohort read "as of" a past date, not the data's cut-off); a chart-level badge on young periods
+(opens when a dashboard reader misreads a period whose `sum(observed)` < row count).
