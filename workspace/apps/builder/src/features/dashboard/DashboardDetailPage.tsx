@@ -611,6 +611,7 @@ export function DashboardDetailPage() {
         >
           <MetadataBar api={metaDock} />
           <AtAGlance
+            key={dash.id}
             dashboardId={dash.id}
             read={metaDock.read}
             childOrder={displayIds}

@@ -130,15 +130,22 @@ export function DatasetDetailPage() {
       window.clearTimeout(debounceRef.current);
     }
     debounceRef.current = window.setTimeout(() => {
-      const params = new URLSearchParams(searchParams);
-      const trimmed = next.trim();
-      if (trimmed.length === 0) {
-        params.delete('q');
-      } else {
-        params.set('q', trimmed);
-      }
-      params.delete('page'); // q-change resets to page 1
-      setSearchParams(params, { replace: true });
+      // R202 — from the URL as it is when the timer fires (a note opened in the
+      // meantime is kept), not as it was when the user typed.
+      setSearchParams(
+        (prev) => {
+          const params = new URLSearchParams(prev);
+          const trimmed = next.trim();
+          if (trimmed.length === 0) {
+            params.delete('q');
+          } else {
+            params.set('q', trimmed);
+          }
+          params.delete('page'); // q-change resets to page 1
+          return params;
+        },
+        { replace: true },
+      );
     }, DEBOUNCE_MS);
   };
 

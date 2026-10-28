@@ -68,12 +68,18 @@ describe('R202 viewer — the R179 invariant on hostile input', () => {
     ['angle autolink', '<javascript:alert(1)>'],
     ['html in a table cell', '| a |\n|---|\n| <b>x</b> |'],
     ['html in a list', '- <img src=x onerror=alert(1)>'],
+    // From the R202 review: footnotes, protocol-relative and entity-hidden schemes, a definition in a quote.
+    ['footnote', 'a[^1]\n\n[^1]: note'],
+    ['protocol-relative link', '[x](//evil.example)'],
+    ['entity scheme', '[x](&#106;avascript:alert(1))'],
+    ['reference in a quote', '[x][r]\n\n> [r]: javascript:alert(1)'],
   ];
 
   it.each(hostile)('%s: no element from it', (_name, text) => {
     const c = md(text);
     expect(c.querySelector('script, iframe, img, div[onclick], b')).toBeNull();
     for (const a of c.querySelectorAll('a')) expect(a.getAttribute('href') ?? '').toMatch(/^https?:\/\//);
+    expect(c.querySelector('h2, sup, section')).toBeNull();
   });
 
   it('shows the source text of what it refused', () => {

@@ -116,7 +116,7 @@ text, unsorted by what matters, with tables lost (the external dogfood's pilot s
 
 ## Check
 
-**Gates** (head of this round): builder **669 / 669** (636 + 33; one full run with nothing else
+**Gates** (head of this round): builder **674 / 674** (636 + 38; one full run with nothing else
 running), `tsc` clean, `vite build` clean (chunk-size warning as before; the size delta of the two
 packages is not measured); contracts **55 / 55**; backend untouched (no backend file changed);
 md / plan / design lints 0; guard (no user names, no `backend/data`) empty.
@@ -159,11 +159,22 @@ Findings logged, not fixed here:
 - W7 A note widget with a table renders the table (R179 note widgets share the viewer).
 - W8 Paste `<b>x</b>` into a note widget's text: the builder refuses it before save, as before.
 
-- [ ] BA · code review · QA
+- [x] Code review (one independent reviewer, 27 hostile inputs through the viewer): **P0 none**.
+  **P1** — a column note whose name holds a space broke once the page rewrote its URL
+  (`URLSearchParams` writes `+`): **fixed** (`readNoteRaw` reads `+` as a space; test). **P2** fixed:
+  footnotes produced `<a href="">` + a visible heading (now source text; `a` without an http(s)
+  target renders as text); the frontmatter key rule regressed `- item: x` and long ASCII keys
+  (ASCII branch restored, no list-marker start); "+N more" counted keyless lines; At a glance kept a
+  previous dashboard's collapse (keyed by dashboard); the dataset search debounce could drop `note`
+  (functional `setSearchParams`). **P2 logged, not fixed**: the save-time rule (`markdownProblems`
+  and the server's) misses a reference definition inside a quote or list (`> [r]: javascript:x`) and
+  disagrees with the renderer on duplicate definitions — rendering is safe in both (the definition is
+  dropped); the rule is shared with the server, so a fix is a backend change for a later round.
+- [ ] BA · QA (owner's call whether to run them for this round)
 
 ## Act
 
-- **Rolling log**: F1 and F2 above go to the program's rolling log; F3 is a writer convention, noted
+- **Rolling log**: F1, F2 and the save-time rule gap (review P2) go to the program's rolling log; F3 is a writer convention, noted
   in `_shared/metadata.md` § Reading by layer by example.
 - **Prune check**: the hand-written block parser (R179) is gone — replaced, not kept beside the new
   renderer; `markdownProblems` stays as the save-time rule.

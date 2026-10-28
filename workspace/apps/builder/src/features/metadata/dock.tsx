@@ -56,13 +56,14 @@ export function parseNote(v: string | null | undefined): NoteSel | null {
   return ns ? { scope: 'child', child, ns } : { scope: 'child', child };
 }
 
-function readNoteRaw(search: string): string | null {
+export function readNoteRaw(search: string): string | null {
   for (const part of search.replace(/^\?/, '').split('&')) {
     const eq = part.indexOf('=');
     const key = eq === -1 ? part : part.slice(0, eq);
     if (key !== NOTE_PARAM) continue;
     try {
-      return decodeURIComponent(eq === -1 ? '' : part.slice(eq + 1));
+      // `URLSearchParams` (a page's own writes) re-encodes a space as `+`.
+      return decodeURIComponent((eq === -1 ? '' : part.slice(eq + 1)).replace(/\+/g, ' '));
     } catch {
       return null;
     }
@@ -439,7 +440,7 @@ export function NoteCard({ item, onRead }: Readonly<{ item: ReadEntry; onRead: (
   const { t } = useTranslation();
   const line = item.summary ?? firstLine(item.body);
   const shown = item.pairs.filter(([k]) => k !== '').slice(0, MAX_CARD_PAIRS);
-  const more = item.pairs.length - shown.length;
+  const more = item.pairs.filter(([k]) => k !== '').length - shown.length;
   return (
     <div
       data-component="MetadataCard"

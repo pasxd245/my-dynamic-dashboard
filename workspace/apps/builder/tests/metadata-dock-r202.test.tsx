@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 import { AntdConfig } from '@mdd/ui';
 import { DashboardDetailPage } from '@/features/dashboard/DashboardDetailPage';
 import { badgeParts, glanceItems } from '@/features/metadata/badges';
-import { parseNote, serializeNote } from '@/features/metadata/dock';
+import { parseNote, readNoteRaw, serializeNote } from '@/features/metadata/dock';
 import { firstLine, readEntries, readEntry } from '@/features/metadata/reserved';
 import type { MetadataEntry, MetadataRead } from '@/features/metadata/types';
 import { MOCK_DASHBOARD, MOCK_WORKSPACE } from '@/mocks/fixtures';
@@ -56,6 +56,15 @@ describe('R202 reserved keys', () => {
     expect(r.pairs).toEqual([
       ['Dữ liệu đến', '18/10'],
       ['mức', 'lỗi'],
+    ]);
+  });
+
+  it('keeps R180 ASCII keys of any length and leaves list lines as text', () => {
+    const long = 'k'.repeat(45);
+    const r = readEntry('ns', entry(`---\n${long}: v\n- item: x\n---\n`));
+    expect(r.pairs).toEqual([
+      [long, 'v'],
+      ['', '- item: x'],
     ]);
   });
 
@@ -118,6 +127,9 @@ describe('R202 the note parameter', () => {
       expect(serializeNote(sel as NonNullable<typeof sel>)).toBe(v);
     }
     expect(parseNote(null)).toBeNull();
+    // A page's own `URLSearchParams` write re-encodes the space as `+` (R202 review P1).
+    expect(readNoteRaw(`?${new URLSearchParams({ note: '@Ngày tạo' }).toString()}`)).toBe('@Ngày tạo');
+    expect(readNoteRaw('?note=%40Ng%C3%A0y%20t%E1%BA%A1o&q=a')).toBe('@Ngày tạo');
     expect(parseNote('ns@')).toEqual({ scope: 'self', ns: 'ns' });
   });
 });

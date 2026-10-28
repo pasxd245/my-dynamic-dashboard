@@ -58,7 +58,8 @@ type MdNode = {
   position?: { start: { offset?: number }; end: { offset?: number } };
 };
 
-const UNSAFE_ALWAYS = new Set(['html', 'image', 'imageReference']);
+// Footnotes are outside the subset too: their links have no http(s) target.
+const UNSAFE_ALWAYS = new Set(['html', 'image', 'imageReference', 'footnoteReference', 'footnoteDefinition']);
 
 function sourceOf(node: MdNode, src: string): string {
   const a = node.position?.start.offset;
@@ -125,11 +126,15 @@ const COMPONENTS: Components = {
   h5: heading(5),
   h6: heading(5),
   p: ({ children }) => <p style={{ margin: '0 0 8px' }}>{children}</p>,
-  a: ({ href, children }) => (
-    <a href={href} target="_blank" rel="noopener noreferrer">
-      {children}
-    </a>
-  ),
+  // Belt and braces: a link left without an http(s) target is text, never `<a href="">`.
+  a: ({ href, children }) =>
+    href && HTTP.test(href) ? (
+      <a href={href} target="_blank" rel="noopener noreferrer">
+        {children}
+      </a>
+    ) : (
+      <span>{children}</span>
+    ),
   ul: ({ children, className }) => (
     <ul
       className={className}
