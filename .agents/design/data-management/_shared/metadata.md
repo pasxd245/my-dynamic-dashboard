@@ -12,7 +12,9 @@ with its token. Writes are **off** on a fresh install.
 
 **Status**: Accepted — shipped. Seven noun kinds, three routes, token-gated writes, a
 read-only `MetadataPanel` mounted on the dataset, query, workflow and dashboard detail pages
-and in the relationship check drawer.
+and in the relationship check drawer. **R202 (rc.5, item 5.2)**: read by layer — badges, a
+side-by-side dock, At a glance, reserved keys `title` / `summary` / `severity`, a GFM viewer
+(§ Reading by layer); the inline panel remains in the relationship drawer only.
 
 **Domain folder**: `data-management/_shared/` — the feature code lives in
 `apps/builder/src/features/metadata/` (a top-level feature, beside `dashboard/` and
@@ -127,6 +129,72 @@ A widget whose id has entries gets an `InfoCircleOutlined` text button in its he
 (`WidgetMetadataButton`, tooltip "Metadata on this widget", `data-count` = entry count). Click
 opens a `<Popover>` (max 420 × 360, scrolls) with the same `MetadataEntriesList`. No button
 when the widget has nothing written.
+
+_Superseded on dashboard, dataset, query and workflow pages by § Reading by layer (R202); the
+page-level panel above stays in the relationship check drawer only._
+
+### Reading by layer (R202, item 5.2)
+
+Owner's call (2026-10-23, confirmed 2026-10-28): metadata is read **by layer** and **beside the
+data it explains**. Four layers, each optional to the reader:
+
+1. **Badge** on the noun — what kind of note, how serious.
+2. **Notes** — one card per namespace: title, one-line summary, a few properties.
+3. **Read** — the full note (all pairs, the body), next to the numbers.
+4. _(Step 2, not built)_ structured data behind a "technical" toggle.
+
+**Reserved frontmatter keys** — the builder reads three keys and only these; every other key is
+an uninterpreted pair as before (the R180 rule, kept for them). The server does not validate them.
+
+| Key        | Valid value                              | Used for                                   | Invalid →          |
+| ---------- | ---------------------------------------- | ------------------------------------------ | ------------------ |
+| `title`    | 1–80 characters                          | card / Read heading (else the namespace)   | shown as a pair    |
+| `summary`  | 1–200 characters                         | the card's line, At a glance               | shown as a pair    |
+| `severity` | `info` \| `warn` \| `error` \| `decide` | chip, badge, order, At a glance filter     | shown as a pair    |
+
+A card without `summary` shows the body's first line (plain, ≤ 200 chars). Order everywhere:
+`error` → `decide` → `warn` → `info` → none, then namespace.
+
+```text
+┌ Dashboard ─────────────────────────────────────────────┐┌ Metadata · Widget ─────────── × ┐
+│ [Metadata 24 · ■2 error ■3 decide   Open]  ← bar       ││ Month vs same days last month   │
+│ ┌ At a glance ─────────────────────── Hide ┐           ││ 3 notes                         │
+│ │ [Decide] Title  summary…   [Warn] …      │ ≤ 3 cards ││ ┌ Insight     [Decide] [AI]  ┐  │
+│ └──────────────────────────────────────────┘           ││ │ one-line summary            │  │
+│ ┌ Widget A ── [Decide][Warn] +1 ⋯ ┐ ┌ Widget B ─ ⓘ ┐   ││ │ owner   …   due  …          │  │
+│ │  numbers                         │ │             │   ││ │                 [Read]      │  │
+│ └──────────────────────────────────┘ └─────────────┘   ││ └─────────────────────────────┘  │
+│                    the grid narrows; nothing covered   ││ ┌ How to read  [Info] …  ┐       │
+└────────────────────────────────────────────────────────┘└─────────────────────────────────┘
+```
+
+- **Badges (widget)** — up to two chips, one per distinct severity among `error`, `decide`, `warn`
+  (highest first), then `+N` = the entries not represented; no severity anywhere → the shipped
+  `InfoCircleOutlined` button with its count. The group is one button (`WidgetMetadataButton`,
+  `data-count`) that opens the dock on the widget. **Dots (dataset column header)** — one dot in
+  the colour of the column's highest severity (grey when none); click opens the dock on the column.
+- **Metadata bar** — one line on dashboard, dataset, query and workflow pages: "Metadata", the count
+  and up to two severity counts and **Open**. Nothing written → no bar.
+- **Dock** (`MetadataDock`) — beside the page content from the `lg` breakpoint (≥ 992 px), 400 px
+  wide, sticky, scrolls on its own; below `lg` a full-width `Drawer`. Never modal: the page stays
+  usable. Views: **Notes** (the noun's cards; on a dashboard opened from the bar: **All notes** —
+  the dashboard's own, then each widget with entries, under its title) and **Read** (back to
+  Notes, title + chips, the R197 banner — written-for summary, definition warning, assumed values
+  — all non-reserved pairs as a table, the body through `SafeMarkdown`, author · when, the
+  read-only hint). `Esc` or × closes. The URL carries the open note: `?note=<target>` where
+  target is `<namespace>` (the noun itself), `<namespace>@<childId>` (a widget / column) or
+  `*` (All notes); the parameter is written through the page's raw URL writer so no other
+  parameter is re-serialised (R199).
+- **At a glance** (dashboard) — entries of the dashboard and its widgets with `severity` ≥ `warn`
+  and `state` `current` or `refreshed`, ordered by severity then widget order, at most three;
+  each card: chip, title, summary, the widget's title; click → the dock's Read view. Collapsible;
+  the choice is remembered per viewer in this browser (`localStorage`, guarded). No qualifying
+  entry → no strip.
+- **Markdown viewer** — `SafeMarkdown` renders through `react-markdown` + `remark-gfm`: headings,
+  paragraphs, emphasis, strikethrough, inline + fenced code, nested lists, task lists, quotes,
+  rules, tables, http(s) links (new tab, `noopener`). A remark step turns raw HTML, images and
+  non-http(s) links back into their **source text** before rendering — the R179 invariant ("shown
+  as the text it is") is kept, and `markdownProblems` / the server rule are unchanged.
 
 ---
 

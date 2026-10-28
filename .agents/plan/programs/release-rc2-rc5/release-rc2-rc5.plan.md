@@ -61,7 +61,7 @@ contract delta, backend/builder files, migration, tests, acceptance walk — liv
 | [`rc2.md`](rc2.md)                     | items 2.0–2.6, 2.8 (as built) + rc.2 exit gate                |
 | [`rc3.md`](rc3.md)                     | items 3.1–3.8 + 2.7 (moved) + dependency order + rc.3 gates   |
 | [`rc4.md`](rc4.md)                     | items 4.1–4.4 (4.1 deferred), 4.8, conditional 4.5–4.7 + rc.4 exit gate |
-| [`rc5.md`](rc5.md)                     | conditional tags                                              |
+| [`rc5.md`](rc5.md)                     | conditional tags (5.1); metadata read by layer (5.2, R202)    |
 | [`claude-code.md`](claude-code.md)     | who does what, kickoff / per-gate / close prompts             |
 | [`walk-rc2-rc3a.md`](walk-rc2-rc3a.md) | one-sitting walk pack for R177–R189 (fake data, own worktree) |
 
@@ -183,11 +183,12 @@ copy of the real database (logged in `Round_187`).
 | 4.7 | _Conditional:_ default filters inherited from an official measure's definition                                                     | conditional | —     |
 | 4.8 | Definition pack: export a workspace's queries, dashboards and workflows by name; import into another workspace (same or another install), dry run first, whole pack or nothing — added by the owner 2026-10-19 | review      | R201  |
 
-### rc.5 — tags (conditional)
+### rc.5 — tags (conditional) and metadata read by layer
 
 | #   | Item                                                                                                                               | Status      | Round |
 | --- | ---------------------------------------------------------------------------------------------------------------------------------- | ----------- | ----- |
 | 5.1 | Tags on data representations, filterable across workspaces — opens only with logged evidence that naming conventions + search fail | conditional | —     |
+| 5.2 | Metadata read by layer: badges, a side-by-side reading dock, At a glance, a GFM markdown viewer, reserved keys `title` / `summary` / `severity` — added by the owner 2026-10-28 | in progress | R202  |
 
 Forecast (in rounds, from here): rc.2 — 0 code rounds (the release note is drafted; the rest of
 its gate is the owner's); rc.3 — 7 rounds, numbered R191–R197 (fix round, 3.6 ×2, 3.7 ×2, 3.2c, 3.8;

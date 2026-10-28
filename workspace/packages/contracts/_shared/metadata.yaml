@@ -20,6 +20,13 @@
 # time; `stale` is true when the noun has since changed — "may be out of
 # date".
 #
+# R202 (item 5.2) — RESERVED FRONTMATTER KEYS. The builder reads three
+# frontmatter keys and only these: `title` (1–80 chars), `summary` (1–200
+# chars) and `severity` (info | warn | error | decide) — to label, order and
+# badge entries. An invalid value is shown as an ordinary pair; every other key
+# stays uninterpreted. The server neither validates nor stores them apart:
+# they are part of `md`, so the wire shape is unchanged.
+#
 # R197 (item 3.8) — the TRIPLE ANCHOR. An entry also records the data
 # (`dataVersions` / `runId`) and the parameter values (`params`) the noun had
 # for the writer, stamped by the server. A read is made under the reader's
