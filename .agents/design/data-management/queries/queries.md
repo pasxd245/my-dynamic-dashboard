@@ -452,17 +452,30 @@ definition (`too_many_steps`). Every column reference is by **effective name at 
   (DuckDB `datediff`; 31 Aug → 1 Sep is one month); negative when `end` is earlier; both columns
   date/datetime (`diff_col_not_date`). This is how a report says "this month vs last month"
   relative to the data's own cut-off, with no hard-coded date.
-- **`conversion_window`** (R203) — **conversion within N days, read only where it can be read**.
-  Body `{start, end, days, observedName, convertedName}`; `start`/`end` date/datetime
-  (`diff_col_not_date`), `days` an integer 1–3660 (`window_days_out_of_range`), two new names
-  (`column_exists`; equal names → `duplicate_name`). Appends two **`integer`** columns. The
-  **as-of** is the latest value of `start` or `end` over the rows reaching the step (a window over
-  the whole relation — a `filter` before this step lowers it; safe, since it can only make rows
-  read younger). `observed` = 1 when `start + days ≤ as-of`, else 0; `converted` = 1 when observed
-  and `start ≤ end ≤ start + days`, else 0; both NULL when `start` is NULL. Compared as timestamps
-  (a date at midnight). A rate by start period is `sum(converted) ÷ sum(observed)`; the newest
-  periods' `sum(observed)` below their row count is the "not yet observable for the full window"
-  flag (item 4.5) — carried as data, so a table, a chart and an export all see it.
+
+**A recipe, not a kind — conversion within N days, read only where it can be read (R203).** A rate
+by start period ("of the rows that started in September, how many reached the event within 14
+days?") reads low for the newest periods when their rows have not had the full window. No new
+step kind is needed; five existing steps say it, and the builder inserts them as one recipe
+([query-construction.md § Within N days](query-construction.md#within-n-days-of-a-start-date--a-recipe-r203)):
+
+| #   | Step                                                    | Appends                                                                                    |
+| --- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| 1   | `group_column` `max(start)`, `by: []`                   | **as-of** — the latest non-NULL `start` reaching the step (never later than the cut-off)   |
+| 2   | `date_diff` `day` `start → as-of`                       | the row's age in days                                                                      |
+| 3   | `date_diff` `day` `start → end`                         | days from start to the event (NULL when no event)                                          |
+| 4   | `case` age ≥ N → 1, otherwise 0                         | **observed** — the row has had the full window                                             |
+| 5   | `case` observed = 1 ∧ 0 ≤ days-to-event ≤ N → 1, else 0 | **within** — observed and the event fell inside the window (a subset of observed, by rule) |
+
+Days are calendar days (`date_diff` counts day boundaries on the DATE). The as-of is the latest
+`start`, not the latest `end` — an `end` past the true cut-off (a typo, a due date) cannot move it;
+a `filter` before step 1 lowers it (the rows can only read younger). A NULL `start` reads
+observed 0. The rate is `sum(within) ÷ sum(observed)` per period (Group & aggregate, then Computed
+column; `÷0 → NULL`); a period whose `sum(observed)` is below its row count is **not yet observable
+for the full window** — item 4.5's flag, carried as data, so a table, a chart and an export all
+see it. A step kind of its own opens only if the recipe proves hard to keep right after insertion
+(trigger: a logged case of a user editing one of the five and breaking the rate).
+
 - **`group_column`** — the **within-group column**: an aggregate over the group of rows this row
   belongs to. Body `{name, agg, col?, by[]}`; `agg`/`col` reuse the collapsing measure's vocabulary,
   dtype rules and output dtypes (validated by the same `_validate_measure`). `by` may be **empty**

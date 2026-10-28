@@ -11,13 +11,14 @@
 
 import { ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { Alert, Button, Input, InputNumber, Radio, Select, Space, Switch, Typography } from 'antd';
-import { useContext, useId } from 'react';
+import { useContext, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { fittingParams } from '@/features/data-management/datasets/filters/FilterPopover';
 import { OPS_BY_DTYPE, type Operator } from '@/features/data-management/datasets/filters/types';
 import { isRef } from './params';
 import { QueryParamsContext } from './QueryParamsPanel';
+import { WithinDaysDialog } from './WithinDaysDialog';
 import type { Column } from '@/features/data-management/datasets/types';
 import {
   STEP_MENU,
@@ -30,6 +31,7 @@ import {
   groupColumnPool,
   isNumericCol,
   isOrderableCol,
+  isRecipeChoice,
   isTemporalCol,
   narrowedBy,
   nullCountOf,
@@ -38,6 +40,7 @@ import {
   windowColumnPool,
   windowOpAvailable,
   windowOrderPool,
+  withinDaysAvailable,
 } from './steps';
 import type {
   AggregateMeasure,
@@ -87,9 +90,13 @@ export function StepsEditor({ steps, columns, result, onChange }: StepsEditorPro
     [next[i], next[j]] = [next[j], next[i]];
     onChange(next);
   };
+  // R203 — a recipe entry opens a dialog; every other entry appends one card.
+  const [recipeOpen, setRecipeOpen] = useState(false);
   const add = (value: string) => {
     const choice = STEP_MENU.flatMap((g) => g.items).find((i) => i.value === value);
-    if (choice) onChange([...steps, blankStep(choice.kind, final, choice.op)]);
+    if (!choice) return;
+    if (isRecipeChoice(choice)) setRecipeOpen(true);
+    else onChange([...steps, blankStep(choice.kind, final, choice.op)]);
   };
 
   // R164 — a card is titled by its OPERATION, and for the window family the kind
@@ -185,17 +192,41 @@ export function StepsEditor({ steps, columns, result, onChange }: StepsEditorPro
         value={null}
         placeholder={t('queries.builder.steps.add')}
         style={{ width: 220 }}
+        // R203 — 18 entries in three groups: render them all (no virtual window), so
+        // the last group's entries and their disabled reasons exist for a screen
+        // reader and a test without scrolling first.
+        virtual={false}
         options={STEP_MENU.map((g) => ({
           label: t(`queries.builder.steps.group${g.group.charAt(0).toUpperCase()}${g.group.slice(1)}`),
-          options: g.items.map((item) => ({
-            label: item.op ? opLabel(t, item.op) : kindLabel(item.kind),
-            value: item.value,
-            // D4 — unofferable at the gesture, never an error at run.
-            disabled: item.op ? !windowOpAvailable(item.op, final) : false,
-            title: item.op && !windowOpAvailable(item.op, final) ? t('queries.builder.steps.noEligibleOp') : undefined,
-          })),
+          options: g.items.map((item) =>
+            isRecipeChoice(item)
+              ? {
+                  label: t('queries.builder.steps.withinDaysMenu'),
+                  value: item.value,
+                  // D4 — unofferable at the gesture: the recipe needs two date columns.
+                  disabled: !withinDaysAvailable(final),
+                  title: withinDaysAvailable(final) ? undefined : t('queries.builder.steps.withinDaysNeedsDates'),
+                }
+              : {
+                  label: item.op ? opLabel(t, item.op) : kindLabel(item.kind),
+                  value: item.value,
+                  // D4 — unofferable at the gesture, never an error at run.
+                  disabled: item.op ? !windowOpAvailable(item.op, final) : false,
+                  title:
+                    item.op && !windowOpAvailable(item.op, final) ? t('queries.builder.steps.noEligibleOp') : undefined,
+                },
+          ),
         }))}
         onChange={add}
+      />
+      <WithinDaysDialog
+        open={recipeOpen}
+        cols={final}
+        onCancel={() => setRecipeOpen(false)}
+        onAdd={(added) => {
+          setRecipeOpen(false);
+          onChange([...steps, ...added]);
+        }}
       />
     </div>
   );

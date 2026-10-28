@@ -238,14 +238,14 @@ Data-Entry label-above convention), not an inline reading sentence — e.g. the 
 từng nhóm**, `steps.newColumn` **New column name** / VN **Tên cột mới**. A card still _reads_ as a
 sentence left-to-right; the labels make it navigable and screen-reader-addressable.
 
-**`[Add step ▾]` is grouped**, because a flat seventeen-entry list is a scan, not a choice. Three AntD
+**`[Add step ▾]` is grouped**, because a flat sixteen-entry list is a scan, not a choice. Three AntD
 `<OptGroup>`s with **text** headings (`STEP_MENU` in `steps.ts`):
 
-| Group | EN                   | VN                    | contains (in order)                                                                                                                                                                                                           |
-| ----- | -------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1     | **Summarise**        | **Tổng hợp**          | Group & aggregate                                                                                                                                                                                                             |
-| 2     | **Add a column**     | **Thêm cột**          | Group value · Share of total · Running total · Rank in group · Previous period's value · Computed column · Conditional column (IF) · Clean text · Date bucket · Part of a date · Time between dates · Converted within N days |
-| 3     | **Shape the result** | **Định hình kết quả** | Filter result · Top N · Sort · Select columns                                                                                                                                                                                 |
+| Group | EN                   | VN                    | contains (in order)                                                                                                                                                                                                                  |
+| ----- | -------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1     | **Summarise**        | **Tổng hợp**          | Group & aggregate                                                                                                                                                                                                                    |
+| 2     | **Add a column**     | **Thêm cột**          | Group value · Share of total · Running total · Rank in group · Previous period's value · Computed column · Conditional column (IF) · Clean text · Date bucket · Part of a date · Time between dates · Within N days of a start date… |
+| 3     | **Shape the result** | **Định hình kết quả** | Filter result · Top N · Sort · Select columns                                                                                                                                                                                        |
 
 Group 2 leads with the within-group / ordered ops because they are what a user comes looking for;
 the mechanical members of the "append a column" family follow.
@@ -254,7 +254,7 @@ the mechanical members of the "append a column" family follow.
 column** / Cột tính toán · `case` **Conditional column (IF)** / Cột điều kiện (IF) · `compute`
 **Clean text** / Làm sạch chữ · `date_bucket` **Date bucket** / Gom theo thời gian · `date_part`
 **Part of a date** / Lấy một phần của ngày · `date_diff` **Time between dates** / Khoảng cách giữa
-hai ngày · `conversion_window` **Converted within N days** / Chuyển đổi trong N ngày (R203) · `group_column` **Group value** / Giá trị theo nhóm · `filter` **Filter result** / Lọc kết
+hai ngày · `group_column` **Group value** / Giá trị theo nhóm · `filter` **Filter result** / Lọc kết
 quả · `top_n` **Top N** · `sort` **Sort** / Sắp xếp · `select` **Select columns** / Chọn cột. The
 `window_column` cards are titled by their **op** (below) — the user never meets the kind name.
 
@@ -276,16 +276,40 @@ quả · `top_n` **Top N** · `sort` **Sort** / Sắp xếp · `select` **Select
 date` offers `year · quarter · month · ISO week · day of month · day of week (Mon=1)`; `Time
 between dates` reads `Count [unit] from [start] to [end]`.
 
-- **Converted within N days** (`conversion_window`, R203) — `Start date` · `Event date` (date/
-  datetime pickers only) · `Within (days)` (`InputNumber`, 1–3660, default 30) · `Observed column` ·
-  `Converted column` (defaults `observed_<N>d` / `converted_<N>d`; a default follows `days` until
-  the user types a name). Disabled with a reason when fewer than two date columns exist at that
-  position. The secondary line reads: _"A row counts once N days have passed since its start, up
-  to the latest date in these two columns. For a rate: sum Converted ÷ sum Observed per period — a
-  period whose Observed is below its row count is still filling up."_ VN: _"Một dòng chỉ được tính
-  khi đã qua đủ N ngày kể từ ngày bắt đầu, tính tới ngày mới nhất trong hai cột này. Tỷ lệ: tổng
-  Đã chuyển đổi ÷ tổng Đã đủ thời gian theo từng kỳ — kỳ nào Đã đủ thời gian còn nhỏ hơn số dòng là
-  kỳ chưa đủ tuổi."_
+#### Within N days of a start date — a recipe (R203)
+
+`Add a column` ends with **`Within N days of a start date…`** / VN **`Trong N ngày kể từ ngày bắt
+đầu…`** — the ellipsis because it opens a dialog instead of adding one card. It is disabled with a
+reason when fewer than two date/datetime columns exist at that position (`date_diff`'s rule).
+
+```text
+  ┌─ Within N days of a start date ───────────────────────────────┐
+  │  Start date            Event date            Within (days)     │
+  │  [ created ▾ ]         [ closed ▾ ]          [ 30 ]            │
+  │  Observed column       Within column                           │
+  │  [ observed_30d ]      [ within_30d ]                          │
+  │  ⓘ Adds 5 steps. A row counts once N days have passed since    │
+  │    its start (up to the latest start date). Rate per period:   │
+  │    sum Within ÷ sum Observed — a period whose Observed is      │
+  │    below its row count is still filling up.                    │
+  │                                         [ Cancel ] [ Add ]     │
+  └────────────────────────────────────────────────────────────────┘
+```
+
+Labels (EN / VN): `Start date` / **Ngày bắt đầu** · `Event date` / **Ngày sự kiện** · `Within
+(days)` / **Trong (ngày)** · `Observed column` / **Cột đủ thời gian** · `Within column` / **Cột
+trong hạn**. The help line in VN: _"Thêm 5 bước. Một dòng chỉ được tính khi đã qua đủ N ngày kể
+từ ngày bắt đầu (tính tới ngày bắt đầu mới nhất). Tỷ lệ theo kỳ: tổng Cột trong hạn ÷ tổng Cột đủ
+thời gian — kỳ nào Cột đủ thời gian còn nhỏ hơn số dòng là kỳ chưa đủ tuổi."_
+
+- `Within (days)` is an `InputNumber` 1–3660, default **30**; the two names default to
+  `observed_<N>d` / `within_<N>d` and follow `N` until the user types in them; helper columns are
+  `<start>_as_of`, `<start>_age_days`, `<start>_to_<end>_days`. Any name already present at that
+  position gets `_2`, `_3`, … — never a `column_exists` on insert.
+- `[Add]` appends the five steps of [queries.md § the recipe](queries.md#transform-steps-workflows--r120r141)
+  after the last card, in order; they are ordinary cards from then on (edit, move, delete).
+  `[Add]` is disabled while start = end or either name is blank or the two names are equal.
+- Nothing is saved until the query's `[Save]` — the dialog only edits the draft.
 
 #### The within-group column
 
@@ -584,8 +608,8 @@ through the ordinary edit path. `useQueryBuilder` is therefore edit-only.
 8. **The join warns before it multiplies** — "Join with related" shows the multiplication warning
    when the chosen relationship's self-check says the hop multiplies rows left → right (the saved
    query's direction, whichever dataset the modal was opened from) (R191).
-9. **Steps author in business words** — `[Add step ▾]` lists the seventeen entries in three text
-   groups; no control reads "window", "partition", "frame", "compute", or a wire kind; an op whose
+9. **Steps author in business words** — `[Add step ▾]` lists the sixteen entries (plus the R203
+   recipe) in three text groups; no control reads "window", "partition", "frame", "compute", or a wire kind; an op whose
    columns don't exist at this position is disabled with a reason.
 10. **Clean text** — the "Clean text" card offers only string columns, defaults the output name to
     `<col>_clean`, and the preview shows a new column with edge spaces (incl. U+00A0) removed and the
@@ -597,10 +621,11 @@ through the ordinary edit path. `useQueryBuilder` is therefore edit-only.
     reads blank, and the card counts the gaps.
 13. **Reuse, not duplication** — the builder composes the predicate editors, the relationship
     `<Select>`s, `StepsEditor` and `<PagedRowsView>`; it re-implements no engine or page.
-14. **A young cohort is never a low rate** (R203) — on rows whose start is fewer than N days before
-    the latest date in the two columns, the preview shows `observed = 0` and `converted = 0`; a rate
-    built as sum Converted ÷ sum Observed per start month leaves the newest month blank or partial
-    (Observed below its row count), never a drop to near zero.
+14. **A young cohort is never a low rate** (R203) — the `Within N days of a start date…` recipe adds
+    five ordinary steps; on rows whose start is fewer than N days before the latest start date the
+    preview shows observed 0 and within 0, and a rate built as sum Within ÷ sum Observed per start
+    month reads the newest month as partial (Observed below its row count), never as a drop toward
+    zero; a start or end column outside date/datetime is never offered.
 
 ---
 

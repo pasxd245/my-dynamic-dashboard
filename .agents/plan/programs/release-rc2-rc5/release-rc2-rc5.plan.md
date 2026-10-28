@@ -61,7 +61,7 @@ contract delta, backend/builder files, migration, tests, acceptance walk — liv
 | [`rc2.md`](rc2.md)                     | items 2.0–2.6, 2.8 (as built) + rc.2 exit gate                |
 | [`rc3.md`](rc3.md)                     | items 3.1–3.8 + 2.7 (moved) + dependency order + rc.3 gates   |
 | [`rc4.md`](rc4.md)                     | items 4.1–4.4 (4.1 deferred), 4.8, conditional 4.5–4.7 + rc.4 exit gate |
-| [`rc5.md`](rc5.md)                     | conditional tags (5.1); metadata read by layer (5.2, R202); conversion within N days (5.3, R203) |
+| [`rc5.md`](rc5.md)                     | conditional tags (5.1); metadata read by layer (5.2, R202); within N days recipe (5.3, R203) |
 | [`claude-code.md`](claude-code.md)     | who does what, kickoff / per-gate / close prompts             |
 | [`walk-rc2-rc3a.md`](walk-rc2-rc3a.md) | one-sitting walk pack for R177–R189 (fake data, own worktree) |
 
@@ -189,7 +189,7 @@ copy of the real database (logged in `Round_187`).
 | --- | ---------------------------------------------------------------------------------------------------------------------------------- | ----------- | ----- |
 | 5.1 | Tags on data representations, filterable across workspaces — opens only with logged evidence that naming conventions + search fail | conditional | —     |
 | 5.2 | Metadata read by layer: badges, a side-by-side reading dock, At a glance, a GFM markdown viewer, reserved keys `title` / `summary` / `severity` — added by the owner 2026-10-28 | in progress | R202  |
-| 5.3 | Conversion within N days (`conversion_window` step): a cohort not yet observable for the full window reads as unobserved, not as a low rate — pulls conditional 4.5; added by the owner 2026-10-28 | in progress | R203  |
+| 5.3 | Within N days of a start date — a builder recipe (five existing steps) so a cohort not yet observable for the full window reads as unobserved, not as a low rate; pulls conditional 4.5; added by the owner 2026-10-28 | in progress | R203  |
 
 Forecast (in rounds, from here): rc.2 — 0 code rounds (the release note is drafted; the rest of
 its gate is the owner's); rc.3 — 7 rounds, numbered R191–R197 (fix round, 3.6 ×2, 3.7 ×2, 3.2c, 3.8;
@@ -292,7 +292,7 @@ rc mode). The checklists live in the detail files; summary:
 | At 1366 × 768 the dataset page's header strips leave almost no height for rows; with R202's dock open the strips wrap and the rows area closes | layout | R202 (visual gate) | open — candidate: collapse the coverage strip by default on short viewports |
 | A combo widget over an ISO-week axis draws its bars sorted by value (W37, W34, W39 …), so the week axis reads out of order — the widget's sort, not the engine's order (fixed in R201) | dogfood pack | R202 (real-volume run) | open — pack-side: sort that widget by its week column; not an MDD change |
 | The save-time markdown rule (`markdownProblems` = `app/markdown_safe.py`) misses a reference definition inside a quote or list (`> [r]: javascript:x`) and disagrees with the renderer on duplicate definitions; rendering is safe (R202's remark step drops non-http(s) definitions) | correctness | R202 code review (P2) | open — a shared server/builder rule change for a later round |
-| **4.5 entry met (second condition):** the first user still needs a workaround after rc.3 — a weekly CEO page read "conversion rate fell" while contracts rose; the newest months read low because their leads had not had 14 days to convert. The dogfood computes a same-age rate (leads ≥ 14 days old, converted within 14 days) outside MDD from its own mart, because no step can compare a start date with the data's cut-off | product gap | external dogfood, 2026-10-28 | **opened** as rc.5 item 5.3 (R203, owner 2026-10-28) |
+| **4.5 entry met (second condition):** the first user still needs a workaround after rc.3 — a weekly page read "conversion rate fell" while closed deals rose; the newest months read low because their rows had not had the full window. The user rebuilt a same-age rate (fixed-day window, observable rows only) outside MDD. The five-step recipe existed (R175 `group_column` across everything + `date_diff` + `case`) but was not found | product gap | external dogfood, 2026-10-28 | **opened** as rc.5 item 5.3 (R203, owner 2026-10-28) — a builder recipe, no new step kind (BA at Contract exit) |
 
 ## Lifecycle
 

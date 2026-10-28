@@ -456,12 +456,123 @@ export function consumedByDerive(steps: readonly Step[], index: number, name: st
  *  a findability tax on a player who is looking for the words "running total". */
 export type StepChoice = Readonly<{ value: string; kind: Step['kind']; op?: WindowOp }>;
 
+/** R203 — a menu entry that inserts SEVERAL ordinary steps (a recipe) instead of
+ *  one card. It has no step kind of its own on purpose: the engine already says
+ *  it, and a kind is a one-way door for saved queries (BA, R203 Contract exit). */
+export type RecipeChoice = Readonly<{ value: string; recipe: 'within_days'; kind?: undefined; op?: undefined }>;
+
+export const isRecipeChoice = (c: StepChoice | RecipeChoice): c is RecipeChoice => 'recipe' in c;
+
+/** R203 — what the "Within N days of a start date" dialog collects. */
+export type WithinDaysSpec = Readonly<{
+  start: string;
+  end: string;
+  days: number;
+  observedName: string;
+  withinName: string;
+}>;
+
+export const WITHIN_DAYS_MIN = 1;
+export const WITHIN_DAYS_MAX = 3660;
+export const WITHIN_DAYS_DEFAULT = 30;
+
+/** R203 — the recipe needs a start and an event column, both temporal. */
+export const withinDaysAvailable = (cols: readonly Column[]): boolean => cols.filter(isTemporalCol).length >= 2;
+
+/** R203 — the dialog's opening state: the first two temporal columns, 30 days,
+ *  names that say what they hold. */
+export function withinDaysDefaults(cols: readonly Column[]): WithinDaysSpec {
+  const temporal = cols.filter(isTemporalCol);
+  const days = WITHIN_DAYS_DEFAULT;
+  return {
+    start: temporal[0]?.name ?? '',
+    end: temporal[1]?.name ?? '',
+    days,
+    observedName: `observed_${days}d`,
+    withinName: `within_${days}d`,
+  };
+}
+
+/** A name not in `taken`: `base`, else `base_2`, `base_3`, … — the recipe never
+ *  produces a `column_exists` on insert. Adds the chosen name to `taken`. */
+function freshName(base: string, taken: Set<string>): string {
+  let name = base;
+  for (let k = 2; taken.has(name); k += 1) name = `${base}_${k}`;
+  taken.add(name);
+  return name;
+}
+
+/** R203 — the five ordinary steps that read "within N days of a start date"
+ *  only where it can be read (`queries.md` § the recipe):
+ *
+ *   1. as-of = the latest non-NULL START across everything (`group_column` max,
+ *      `by: []`) — never later than the true cut-off, whatever the end column holds;
+ *   2. the row's age in calendar days (`date_diff` start → as-of);
+ *   3. days from start to the event (`date_diff` start → end; NULL = no event);
+ *   4. observed = 1 when age ≥ N, else 0 (`case`);
+ *   5. within = 1 when observed and 0 ≤ days-to-event ≤ N, else 0 (`case`) — a
+ *      subset of observed by rule, so `sum(within) ÷ sum(observed)` is a rate.
+ *
+ *  `cols` is the column space at the END of the chain (where the steps land);
+ *  every name is made fresh against it and against the recipe's own names. */
+export function withinDaysRecipe(spec: WithinDaysSpec, cols: readonly Column[]): Step[] {
+  const taken = new Set(cols.map((c) => c.name));
+  const asOf = freshName(`${spec.start}_as_of`, taken);
+  const age = freshName(`${spec.start}_age_days`, taken);
+  const lag = freshName(`${spec.start}_to_${spec.end}_days`, taken);
+  const observed = freshName(spec.observedName.trim(), taken);
+  const within = freshName(spec.withinName.trim(), taken);
+  const one = { kind: 'const', value: 1 } as const;
+  const zero = { kind: 'const', value: 0 } as const;
+  return [
+    { kind: 'group_column', name: asOf, agg: 'max', col: spec.start, by: [] },
+    { kind: 'date_diff', start: spec.start, end: asOf, unit: 'day', name: age },
+    { kind: 'date_diff', start: spec.start, end: spec.end, unit: 'day', name: lag },
+    {
+      kind: 'case',
+      name: observed,
+      branches: [{ when: [{ col: age, op: 'gte', val: spec.days }], then: one }],
+      otherwise: zero,
+    },
+    {
+      kind: 'case',
+      name: within,
+      branches: [
+        {
+          when: [
+            { col: observed, op: 'equals', val: 1 },
+            { col: lag, op: 'gte', val: 0 },
+            { col: lag, op: 'lte', val: spec.days },
+          ],
+          then: one,
+        },
+      ],
+      otherwise: zero,
+    },
+  ];
+}
+
+/** R203 — why `[Add]` is disabled, or null when the spec can be inserted. */
+export function withinDaysProblem(
+  spec: WithinDaysSpec,
+  cols: readonly Column[],
+): 'pickColumns' | 'sameColumn' | 'days' | 'names' | null {
+  const temporal = new Set(cols.filter(isTemporalCol).map((c) => c.name));
+  if (!temporal.has(spec.start) || !temporal.has(spec.end)) return 'pickColumns';
+  if (spec.start === spec.end) return 'sameColumn';
+  if (!Number.isInteger(spec.days) || spec.days < WITHIN_DAYS_MIN || spec.days > WITHIN_DAYS_MAX) return 'days';
+  const a = spec.observedName.trim();
+  const b = spec.withinName.trim();
+  if (!a || !b || a === b) return 'names';
+  return null;
+}
+
 /** R164 — `[Add step ▾]` in three groups. It was a FLAT list of 8; four new
  *  entries make 12, of which five append a column — a flat twelve is a scan, not
  *  a choice. Group 2 leads with the five within-group/ordered ops because they
  *  are what a player comes looking for; `derive` and `date_bucket` follow as the
  *  older, more mechanical members of the same append-a-column family. */
-export const STEP_MENU: readonly Readonly<{ group: string; items: readonly StepChoice[] }>[] = [
+export const STEP_MENU: readonly Readonly<{ group: string; items: readonly (StepChoice | RecipeChoice)[] }>[] = [
   { group: 'summarise', items: [{ value: 'aggregate', kind: 'aggregate' }] },
   {
     group: 'addColumn',
@@ -480,6 +591,8 @@ export const STEP_MENU: readonly Readonly<{ group: string; items: readonly StepC
       { value: 'date_bucket', kind: 'date_bucket' },
       { value: 'date_part', kind: 'date_part' },
       { value: 'date_diff', kind: 'date_diff' },
+      // R203 — a recipe (five ordinary steps through a dialog), last in the group.
+      { value: 'recipe:within_days', recipe: 'within_days' },
     ],
   },
   {

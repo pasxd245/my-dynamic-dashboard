@@ -1,8 +1,8 @@
-# Round 203: conversion within N days — cohorts that cannot be read yet (item 5.3, pulls 4.5)
+# Round 203: within N days of a start date — a builder recipe for cohorts that cannot be read yet (item 5.3, pulls 4.5)
 
 **Status**: In progress
-**Flow**: **DCFBI** — one new step kind widens both step unions (`_shared/query.yaml`,
-`_shared/workflow.yaml`); no route, no migration, no response shape outside the step union.
+**Flow**: **DCFBI** — builder-only after the Contract-exit review (see Do): a dialog that inserts five
+existing steps; no contract, route, engine or migration change.
 **Date started**: 2026-10-28
 **Date completed**: —
 
@@ -12,17 +12,24 @@
 Review). R202's `Feeds into →` names the typed metadata entry, which waits for a machine-read case;
 this round takes the next pulled item instead.
 
-A rate **by start period** — "of the leads created in September, how many converted?" — always
-reads low for the newest periods: their rows have not yet had the full window to convert. A reader
-sees "the rate fell" when nothing fell. The program parked this as conditional item **4.5**
+A rate **by start period** — "of the rows that started in September, how many reached the event
+within N days?" — reads low for the newest periods: their rows have not yet had the full window. A
+reader sees "the rate fell" when nothing fell. The program parked this as conditional item **4.5**
 ("cohort ratios flag cohorts not yet observable for the full window"). Its second entry condition
-is now in the rolling log: the first user still needs a workaround after rc.3 — the external
-dogfood's weekly page read "conversion fell" while contracts rose, and the dogfood now computes a
-same-age rate outside MDD, because **no step can compare a start date with the data's cut-off**
-(`date_diff` takes two columns; there is no as-of value in the relation).
+is now in the rolling log: the first user still needs a workaround after rc.3 — a weekly page read
+"conversion fell" while closed deals rose, and the user rebuilt a same-age rate outside MDD.
 
-The owner added it to rc.5 (2026-10-28) as a general, adaptive feature — not shaped for one user:
-any funnel has the same arithmetic (trial → paid within 30 days, ticket → resolved within 7 days,
+**What the gap is (corrected at Contract exit).** The first draft of this round said no step could
+compare a start date with the data's cut-off. BA showed otherwise: R175's `group_column` with an
+empty `by` gives a whole-table value — added for exactly "the data's cut-off compared on every row"
+— so `max(start)` across everything, two `date_diff` and two `case` steps already produce an
+**observed** and a **within** column (probe on a fixed table: 5 rows, 3 observed, 1 within). The
+engine is not missing anything; the user did not find the five steps, and assembling them right
+(age ≥ N, 0 ≤ days-to-event ≤ N, within ⊂ observed, as-of from the start column) is where people
+slip. A new step kind is a one-way door (saved queries would depend on it); a recipe is not.
+
+The owner added the item to rc.5 (2026-10-28) as a general, adaptive feature, not shaped for one
+user: any funnel has the arithmetic (trial → paid within 30 days, ticket → resolved within 7 days,
 invoice → paid within 45 days).
 
 _Track: 1 (product). Pulled by: rolling log 2026-10-28 (4.5 entry, second condition) + owner,
@@ -32,64 +39,79 @@ _Track: 1 (product). Pulled by: rolling log 2026-10-28 (4.5 entry, second condit
 
 **Expected outcome**:
 
-- **Step `conversion_window`** — body `{kind, start, end, days, observedName, convertedName}`;
-  `start`/`end` date or datetime (`diff_col_not_date`), `days` an integer 1–3660
-  (`window_days_out_of_range`), two new names that collide with nothing and not with each other
-  (`column_exists`, `duplicate_name`). Appends two `integer` columns:
-  - **as-of** = the latest value of `start` or `end` over the rows **reaching the step** — the data's
-    own cut-off, recomputed on every run, never a hard-coded date;
-  - `observed` = 1 when `start + days ≤ as-of`, 0 when not, NULL when `start` is NULL;
-  - `converted` = 1 when observed **and** `start ≤ end ≤ start + days`, else 0; NULL when `start`
-    is NULL. The numerator is a subset of the denominator by construction.
-- A rate per period is `sum(converted) ÷ sum(observed)` (Group & aggregate, then Computed column);
-  a period whose `sum(observed)` is below its row count is still filling up — the flag 4.5 asks
-  for, carried as data rather than as a chart decoration.
-- **Builder** — one card in **Add a column**, after _Time between dates_: _Converted within N days_
-  / VN _Chuyển đổi trong N ngày_. Labels above controls: Start date · Event date · Within (days) ·
-  Observed column · Converted column. Date/datetime columns only; `days` an `InputNumber` 1–3660;
-  defaults `observed_<N>d` / `converted_<N>d` (the default follows `days` until the user edits a
-  name). A secondary line reads how to use it. Disabled with a reason when fewer than two temporal
-  columns exist at that position (the `date_diff` rule).
-- **Mock** (MSW) computes the same two columns so builder tests preview real values.
-- **Tests** — backend: validation (each 422), the arithmetic on a fixed table (boundary day N
-  exactly, end before start, end after the window, NULL start, NULL end, datetime with time of
-  day), the as-of after an earlier `filter` step, the rate recipe end to end through
-  aggregate + derive, workflow parity (same step in a workflow), contract conformance. Builder:
-  the menu entry and its disabled reason, the card defaults and name-follow, column threading
-  (two integer columns appear for later steps), EN/VI labels.
+- **Recipe** (`queries.md` § the recipe) — five ordinary steps, in order:
+  1. `group_column` `{name: <start>_as_of, agg: max, col: start, by: []}` — the latest non-NULL
+     `start` (never later than the true cut-off: an `end` typo or a due date cannot move it);
+  2. `date_diff` `day` `start → <start>_as_of` → `<start>_age_days`;
+  3. `date_diff` `day` `start → end` → `<start>_to_<end>_days`;
+  4. `case` `<start>_age_days ≥ N → 1`, otherwise `0` → **observed** (default `observed_<N>d`);
+  5. `case` `observed = 1 ∧ days-to-event ≥ 0 ∧ days-to-event ≤ N → 1`, otherwise `0` → **within**
+     (default `within_<N>d`) — a subset of observed by rule.
+- **Builder** — `Add a column` ends with **Within N days of a start date…** / VN **Trong N ngày kể
+  từ ngày bắt đầu…**; a dialog with Start date · Event date (date/datetime only) · Within (days)
+  1–3660 (default 30) · Observed column · Within column (defaults follow N until typed); `[Add]`
+  appends the five steps after the last card; names that already exist get `_2`, `_3`, …; disabled
+  with a reason when fewer than two date columns exist at the end of the chain; `[Add]` disabled
+  while start = end, a name is blank, or the two names are equal. EN/VI labels per design.
+- **Tests** — backend: the recipe's numbers on a fixed table, including the boundary day N, an end
+  before the start, an end after the window, a NULL end, a NULL start, an `end` far in the future
+  (as-of unchanged), a `filter` before the recipe, and the rate through aggregate + derive;
+  builder: the menu entry and its disabled reason, the dialog defaults and name-follow, the five
+  steps appended with the right bodies, collision suffixes, EN/VI.
 
 **Falsified if** any of these happens:
 
-- a row whose `start` is fewer than `days` days before the as-of reads `observed = 1`;
-- a row reads `converted = 1` while `observed = 0`, or with `end` before `start` or after
-  `start + days`;
-- adding the step changes any other column's value or the row count;
-- any existing query or workflow result changes a cell (the real-volume install re-read);
-- the menu offers the step where fewer than two date columns exist, without a reason.
+- the recipe reads `observed = 1` for a row whose start is fewer than N calendar days before the
+  latest start;
+- `within = 1` on a row with `observed = 0`, an end before the start, or an end more than N days
+  after the start;
+- an `end` value later than every `start` changes any row's `observed`;
+- inserting the recipe changes any existing column's value or the row count, or produces a name
+  collision;
+- the menu offers the recipe where fewer than two date columns exist, without a reason.
 
 ## Risks / unknowns
 
-- **As-of after a narrowing filter** — a `filter` step before this one lowers the as-of to that
-  subset's latest date, so a quiet segment reads younger than the export. Safe direction (it never
-  reads a young row as observed); documented on the card and in `queries.md`. Counter: the line on
-  the card says "the latest date in these two columns".
-- **Two outputs from one step** — every append step so far adds one column. Kept: the pair is one
-  idea (denominator + numerator from one rule) and splitting it lets the two drift apart.
-- **Datetime vs date** — compared as timestamps, so a datetime start at 15:00 becomes observable at
-  15:00 on day N. A date column compares at midnight; the as-of keeps the column's own kind.
+- **As-of after a narrowing filter** — a `filter` before the recipe lowers the as-of to that
+  subset's latest start, so a quiet segment reads younger than the export. Safe direction (never a
+  young row read as observed); stated in the docs. The as-of is a visible column, so a reader can
+  see what it was.
+- **Calendar days vs timestamps** — `date_diff` counts day boundaries on the DATE; a datetime start
+  at 15:00 on day 0 is observable on day N whatever the hour. The I-phase match uses the same rule.
+- **Five editable cards** — a user can later edit one of the five and break the rate. Accepted; the
+  trigger for a step kind of its own is a logged case of exactly that.
 
 ## Do
 
 - [x] **D** — rc5.md item 5.3; program row + rolling-log entry (4.5 entry met); this round file;
-      design: `queries.md` § step semantics, `query-construction.md` (menu, card, acceptance
-      criterion)
-- [x] **C** — `ConversionWindowStep` in `_shared/query.yaml`; both unions widened (query + workflow)
-- [ ] **B** — model, planner, SQL; tests
-- [ ] **F** — types, `steps.ts` (menu, defaults, threading), `StepsEditor` card, i18n EN/VI, mock;
-      tests
-- [ ] **I** — real-volume install: the dogfood's same-age rate rebuilt as a query matches its
-      outside computation; every other query unchanged
-- [ ] Check — gates; code review; BA (second-user test); QA
+      design: `queries.md` § the recipe, `query-construction.md` § Within N days (dialog) + AC 14
+- [x] **C** — _the first draft added a `conversion_window` step kind; reverted at Contract exit
+      (BA-C1: the five-step recipe already exists; a step kind is a one-way door). No contract
+      change._
+- [x] Contract-exit BA (CHANGES, all folded): C1 premise corrected (Goal); C2 as-of = latest
+      **start** only; C3 I-phase match defined below; C4 VN for every label; C5 "latest non-NULL";
+      C6 neutral title ("Within N days of a start date"; the output is `within_<N>d`); C7 the
+      rolling log carries no user rule or threshold.
+- [x] **B** — `tests/test_within_days_recipe_r203.py` pins the recipe (4 tests: every row case
+      incl. boundary day 14, end before start, a 2099 end, NULL start; the rate through aggregate +
+      derive with ÷0 → NULL; a filter first lowers the as-of; no existing cell or row changes). No
+      app change.
+- [x] **F** — `steps.ts`: `RecipeChoice` in `STEP_MENU` (last in Add a column), `withinDaysRecipe`,
+      `withinDaysDefaults`, `withinDaysProblem`, `withinDaysAvailable`, fresh names (`_2`, `_3`);
+      `WithinDaysDialog.tsx` (labels above controls, names follow N until typed, the problem
+      shown and `[Add]` disabled); `StepsEditor`: the entry opens the dialog, disabled with a
+      reason under two date columns, the menu renders every option (`virtual={false}`, 18
+      entries); i18n EN/VI. `tests/within-days-r203.test.tsx` (10).
+- [x] **I** — real-volume install: the recipe on the dogfood's lead dataset, per creation month,
+      against the outside computation **with the same semantics** (calendar days, as-of = latest
+      creation date, N = 14): match = equal `observed` and `within` counts per month; any
+      difference listed with its cause. **Result:** a de-identified extract of the dogfood's lead
+      funnel (28,783 rows: a row number, created, closed, source — no customer field) loaded on
+      this branch's backend; the recipe + month bucket + aggregate gives **10 / 10 months equal**
+      to the outside computation (Jan–Oct 2026; e.g. Sep 3,973 / 3,973 / 129, Oct 2,715 / 587 / 17
+      — October partial, as it should read). 5 rows without a creation date fall outside every
+      month in both. The staged extract was deleted after the run.
+- [ ] Check — gates; code review; BA (after build); QA
 
 ## Check
 
