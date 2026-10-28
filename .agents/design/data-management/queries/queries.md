@@ -454,7 +454,7 @@ definition (`too_many_steps`). Every column reference is by **effective name at 
   relative to the data's own cut-off, with no hard-coded date.
 
 **A recipe, not a kind — conversion within N days, read only where it can be read (R203).** A rate
-by start period ("of the rows that started in September, how many reached the event within 14
+by start period ("of the rows that started in September, how many reached the event within 30
 days?") reads low for the newest periods when their rows have not had the full window. No new
 step kind is needed; five existing steps say it, and the builder inserts them as one recipe
 ([query-construction.md § Within N days](query-construction.md#within-n-days-of-a-start-date--a-recipe-r203)):

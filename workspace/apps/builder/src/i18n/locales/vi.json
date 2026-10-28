@@ -1082,12 +1082,14 @@
         "withinDaysObserved": "Cột đủ thời gian",
         "withinDaysWithin": "Cột trong hạn",
         "withinDaysAdd": "Thêm",
-        "withinDaysHelp": "Thêm 5 bước. Một dòng chỉ được tính khi đã qua đủ {{n}} ngày kể từ ngày bắt đầu (tính tới ngày bắt đầu mới nhất). Tỷ lệ theo kỳ: tổng Cột trong hạn ÷ tổng Cột đủ thời gian — kỳ nào Cột đủ thời gian còn nhỏ hơn số dòng là kỳ chưa đủ tuổi.",
         "withinDaysNeedsDates": "Cần hai cột ngày ở vị trí này",
         "withinDaysProblem_pickColumns": "Chọn ngày bắt đầu và ngày sự kiện.",
         "withinDaysProblem_sameColumn": "Ngày bắt đầu và ngày sự kiện phải là hai cột khác nhau.",
         "withinDaysProblem_days": "Số ngày phải là số nguyên từ 1 đến 3660.",
-        "withinDaysProblem_names": "Đặt tên khác nhau và không để trống cho hai cột mới."
+        "withinDaysProblem_names": "Đặt tên khác nhau và không để trống cho hai cột mới.",
+        "withinDaysHelp_one": "Thêm 5 bước. Một dòng chỉ được tính khi đã qua đủ {{count}} ngày kể từ ngày bắt đầu (tính tới ngày bắt đầu mới nhất). Tỷ lệ theo kỳ: tổng Cột trong hạn ÷ tổng Cột đủ thời gian — kỳ nào Cột đủ thời gian còn nhỏ hơn số dòng là kỳ chưa đủ tuổi.",
+        "withinDaysHelp_other": "Thêm 5 bước. Một dòng chỉ được tính khi đã qua đủ {{count}} ngày kể từ ngày bắt đầu (tính tới ngày bắt đầu mới nhất). Tỷ lệ theo kỳ: tổng Cột trong hạn ÷ tổng Cột đủ thời gian — kỳ nào Cột đủ thời gian còn nhỏ hơn số dòng là kỳ chưa đủ tuổi.",
+        "withinDaysWillAdd": "Sẽ thêm: {{names}}"
       },
       "buildActive": "{{count}} đang áp dụng",
       "baseSourceLabel": "Dựng trên",

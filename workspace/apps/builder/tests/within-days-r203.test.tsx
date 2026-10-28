@@ -161,6 +161,8 @@ describe('R203 the dialog (StepsEditor)', () => {
     openMenu();
     const option = await screen.findByTitle('Needs two date columns at this point');
     expect(option.closest('.ant-select-item-option')).toHaveClass('ant-select-item-option-disabled');
+    // QA-1 — the reason is visible text in the option, not only a hover title
+    expect(within(option).getByText('Needs two date columns at this point')).toBeInTheDocument();
   });
 
   it('opens from the menu, names follow N until typed, and Add appends the five steps', async () => {
@@ -178,6 +180,12 @@ describe('R203 the dialog (StepsEditor)', () => {
     await waitFor(() => expect(within(dialog).getByDisplayValue('observed_7d')).toBeInTheDocument());
     expect(within(dialog).getByDisplayValue('won_14d')).toBeInTheDocument(); // typed → stays
 
+    // CR-2 / BA-F4 — the final names are shown before [Add]
+    expect(
+      within(dialog).getByText(
+        /Will add: created_as_of, created_age_days, created_to_closed_days, observed_7d, won_14d/,
+      ),
+    ).toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole('button', { name: 'Add' }));
     await waitFor(() => expect(onChange).toHaveBeenCalled());
     const next = onChange.mock.calls.at(-1)?.[0] as Step[];
@@ -199,6 +207,18 @@ describe('R203 the dialog (StepsEditor)', () => {
     const dialog = await screen.findByRole('dialog');
     fireEvent.change(within(dialog).getByLabelText('Within column'), { target: { value: 'observed_30d' } });
     expect(await within(dialog).findByText('Give the two new columns different, non-empty names.')).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Add' })).toBeDisabled();
+  });
+
+  it('a cleared Days field is a problem, not the previous N kept quietly (CR-3); one day reads singular (QA-2)', async () => {
+    renderEditor([]);
+    openMenu();
+    fireEvent.click(await screen.findByText('Within N days of a start date…'));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.change(within(dialog).getByLabelText('Within (days)'), { target: { value: '1' } });
+    expect(await within(dialog).findByText(/once 1 day has passed/)).toBeInTheDocument();
+    fireEvent.change(within(dialog).getByLabelText('Within (days)'), { target: { value: '' } });
+    expect(await within(dialog).findByText('Days must be a whole number from 1 to 3660.')).toBeInTheDocument();
     expect(within(dialog).getByRole('button', { name: 'Add' })).toBeDisabled();
   });
 
@@ -239,7 +259,11 @@ describe('R203 the MSW preview', () => {
       expect(['0', '1']).toContain(row[wi]);
       if (row[wi] === '1') expect(row[oi]).toBe('1');
     }
-    // the newest rows (fewer than 14 days before the latest start) are never observed
+    // CR-1 — the mock's as-of is a real date (max over a date column), so BOTH outcomes appear:
+    // older rows observed, the newest (fewer than 14 days before the latest start) not
+    const ai = names.indexOf('created_at_as_of');
+    expect(res.rows.every((r) => r[ai] !== null)).toBe(true);
+    expect(res.rows.some((r) => r[oi] === '1')).toBe(true);
     expect(res.rows.some((r) => r[oi] === '0')).toBe(true);
   });
 });

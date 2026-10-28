@@ -192,16 +192,26 @@ export function StepsEditor({ steps, columns, result, onChange }: StepsEditorPro
         value={null}
         placeholder={t('queries.builder.steps.add')}
         style={{ width: 220 }}
-        // R203 — 18 entries in three groups: render them all (no virtual window), so
+        // R203 — 17 entries in three groups: render them all (no virtual window), so
         // the last group's entries and their disabled reasons exist for a screen
-        // reader and a test without scrolling first.
+        // reader and a test without scrolling first; the popup is as wide as its
+        // longest label, not the 220-px select (VI labels truncated — QA-3).
         virtual={false}
+        popupMatchSelectWidth={false}
         options={STEP_MENU.map((g) => ({
           label: t(`queries.builder.steps.group${g.group.charAt(0).toUpperCase()}${g.group.slice(1)}`),
           options: g.items.map((item) =>
             isRecipeChoice(item)
               ? {
-                  label: t('queries.builder.steps.withinDaysMenu'),
+                  // QA-1 — the reason is VISIBLE in the option, not only a hover title.
+                  label: withinDaysAvailable(final) ? (
+                    t('queries.builder.steps.withinDaysMenu')
+                  ) : (
+                    <span style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span>{t('queries.builder.steps.withinDaysMenu')}</span>
+                      <span style={{ fontSize: 11 }}>{t('queries.builder.steps.withinDaysNeedsDates')}</span>
+                    </span>
+                  ),
                   value: item.value,
                   // D4 — unofferable at the gesture: the recipe needs two date columns.
                   disabled: !withinDaysAvailable(final),

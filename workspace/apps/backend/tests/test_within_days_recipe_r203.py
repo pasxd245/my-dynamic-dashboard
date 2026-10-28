@@ -20,14 +20,14 @@ _CSV = (
     "2026-09-01 09:00:00,2026-09-05,A\n"  # age 29 → observed; 4 days → within
     "2026-09-02 10:00:00,2026-09-30,A\n"  # observed; 28 days → outside the window
     "2026-09-03 10:00:00,,B\n"  # observed; no event
-    "2026-09-16 23:00:00,2026-09-30,B\n"  # age exactly 14 (calendar) → observed; 14 days → within (boundary)
+    "2026-09-20 23:00:00,2026-09-30,B\n"  # age exactly 10 (calendar) → observed; 10 days → within (boundary)
     "2026-09-10 08:00:00,2026-09-09,A\n"  # observed; end BEFORE start → not within
-    "2026-09-20 10:00:00,2026-09-22,B\n"  # age 10 → NOT observed, so not within either
+    "2026-09-25 10:00:00,2026-09-27,B\n"  # age 5 → NOT observed, so not within either
     "2026-09-30 15:00:00,2099-01-01,A\n"  # the latest start; a far-future end must not move the as-of
     ",2026-09-10,A\n"  # no start → observed 0, within 0
 ).encode()
 
-_N = 14
+_N = 10
 
 
 def _dataset(client: TestClient) -> tuple[str, str]:
@@ -108,15 +108,15 @@ def test_recipe_reads_only_rows_that_can_be_read() -> None:
     with TestClient(app) as client:
         ws, ds = _dataset(client)
         rows = _by_start(_run(client, ws, ds, recipe()))
-        obs = {k: r["observed_14d"] for k, r in rows.items()}
-        within = {k: r["within_14d"] for k, r in rows.items()}
+        obs = {k: r["observed_10d"] for k, r in rows.items()}
+        within = {k: r["within_10d"] for k, r in rows.items()}
         assert obs == {
             "2026-09-01": "1",
             "2026-09-02": "1",
             "2026-09-03": "1",
-            "2026-09-16": "1",  # calendar day 14 exactly → observed
+            "2026-09-20": "1",  # calendar day 10 exactly → observed
             "2026-09-10": "1",
-            "2026-09-20": "0",  # 10 days old → not yet observable
+            "2026-09-25": "0",  # 5 days old → not yet observable
             "2026-09-30": "0",
             "": "0",  # no start
         }
@@ -124,14 +124,14 @@ def test_recipe_reads_only_rows_that_can_be_read() -> None:
             "2026-09-01": "1",
             "2026-09-02": "0",  # 28 days → outside
             "2026-09-03": "0",  # no event
-            "2026-09-16": "1",  # day 14 → inside (boundary)
+            "2026-09-20": "1",  # day 10 → inside (boundary)
             "2026-09-10": "0",  # end before start
-            "2026-09-20": "0",  # event inside the window, but the row is not observable yet
+            "2026-09-25": "0",  # event inside the window, but the row is not observable yet
             "2026-09-30": "0",
             "": "0",
         }
         # within ⊂ observed, row by row
-        assert all(not (r["within_14d"] == "1" and r["observed_14d"] == "0") for r in rows.values())
+        assert all(not (r["within_10d"] == "1" and r["observed_10d"] == "0") for r in rows.values())
         # the as-of is the latest START — the 2099 end does not move it
         assert {r["start_as_of"][:10] for r in rows.values()} == {"2026-09-30"}
 
@@ -147,16 +147,16 @@ def test_recipe_rate_per_period_through_aggregate_and_derive() -> None:
                 "dimensions": ["month"],
                 "measures": [
                     {"agg": "count"},
-                    {"agg": "sum", "col": "observed_14d"},
-                    {"agg": "sum", "col": "within_14d"},
+                    {"agg": "sum", "col": "observed_10d"},
+                    {"agg": "sum", "col": "within_10d"},
                 ],
             },
             {
                 "kind": "derive",
                 "name": "rate",
-                "left": "within_14d",
+                "left": "within_10d",
                 "op": "/",
-                "right": {"kind": "col", "col": "observed_14d"},
+                "right": {"kind": "col", "col": "observed_10d"},
             },
             {"kind": "sort", "keys": [{"col": "month"}]},
         ]
@@ -164,10 +164,10 @@ def test_recipe_rate_per_period_through_aggregate_and_derive() -> None:
         sept = next(r for r in rows if r["month"] == "2026-09-01")
         # 7 rows started in September; 5 observable; 2 within → 40 %, and observed < count flags the
         # month as not yet observable for the full window (item 4.5's flag, as data)
-        assert (sept["count"], sept["observed_14d"], sept["within_14d"]) == ("7", "5", "2")
+        assert (sept["count"], sept["observed_10d"], sept["within_10d"]) == ("7", "5", "2")
         assert float(sept["rate"]) == 0.4
         blank = next(r for r in rows if r["month"] in (None, ""))
-        assert blank["observed_14d"] == "0" and blank["rate"] in (None, "")  # ÷0 → NULL, never a 0 % "drop"
+        assert blank["observed_10d"] == "0" and blank["rate"] in (None, "")  # ÷0 → NULL, never a 0 % "drop"
 
 
 def test_a_filter_before_the_recipe_can_only_make_rows_younger() -> None:
@@ -175,13 +175,13 @@ def test_a_filter_before_the_recipe_can_only_make_rows_younger() -> None:
         ws, ds = _dataset(client)
         only_b = {"kind": "filter", "predicates": [{"col": "team", "op": "equals", "val": "B"}]}
         rows = _by_start(_run(client, ws, ds, [only_b, *recipe()]))
-        # team B's latest start is 2026-09-20 → as-of moves back; nothing reads observed that the
+        # team B's latest start is 2026-09-25 → as-of moves back; nothing reads observed that the
         # whole-table as-of would not also read observed
-        assert {r["start_as_of"][:10] for r in rows.values()} == {"2026-09-20"}
-        assert {k: r["observed_14d"] for k, r in rows.items()} == {
+        assert {r["start_as_of"][:10] for r in rows.values()} == {"2026-09-25"}
+        assert {k: r["observed_10d"] for k, r in rows.items()} == {
             "2026-09-03": "1",
-            "2026-09-16": "0",
-            "2026-09-20": "0",
+            "2026-09-20": "0",  # 5 days before team B's as-of (it was observed on the whole table)
+            "2026-09-25": "0",
         }
 
 

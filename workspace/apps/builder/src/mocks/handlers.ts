@@ -631,6 +631,14 @@ function groupColumnStepMock(step: Extract<Step, { kind: 'group_column' }>, tabl
     if (step.agg === 'count') return String(members.length);
     const cells = members.map((m) => m[ci] ?? null);
     if (step.agg === 'count_distinct') return String(new Set(cells.filter((c) => c !== null)).size);
+    const dtype = ci >= 0 ? table.columns[ci]?.dtype : undefined;
+    if ((step.agg === 'min' || step.agg === 'max') && (dtype === 'date' || dtype === 'datetime')) {
+      // R203 — a date's min/max is the earliest/latest DATE, not Number('2026-…') = NaN. The mock
+      // carries ISO strings (`YYYY-MM-DD[ HH:MM:SS]`), which sort as text in time order.
+      const dates = cells.filter((c): c is string => c !== null && c !== '').sort();
+      if (dates.length === 0) return null;
+      return step.agg === 'min' ? dates[0] : dates[dates.length - 1];
+    }
     const nums = cells.map(Number).filter((n) => Number.isFinite(n));
     if (step.agg === 'min' || step.agg === 'max') {
       // min/max stay honest NULL on an all-NULL group (backend parity).

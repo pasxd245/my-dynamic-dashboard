@@ -1,6 +1,6 @@
 # Round 203: within N days of a start date — a builder recipe for cohorts that cannot be read yet (item 5.3, pulls 4.5)
 
-**Status**: In progress
+**Status**: Review
 **Flow**: **DCFBI** — builder-only after the Contract-exit review (see Do): a dialog that inserts five
 existing steps; no contract, route, engine or migration change.
 **Date started**: 2026-10-28
@@ -100,27 +100,90 @@ _Track: 1 (product). Pulled by: rolling log 2026-10-28 (4.5 entry, second condit
       `withinDaysDefaults`, `withinDaysProblem`, `withinDaysAvailable`, fresh names (`_2`, `_3`);
       `WithinDaysDialog.tsx` (labels above controls, names follow N until typed, the problem
       shown and `[Add]` disabled); `StepsEditor`: the entry opens the dialog, disabled with a
-      reason under two date columns, the menu renders every option (`virtual={false}`, 18
+      reason under two date columns, the menu renders every option (`virtual={false}`, 17
       entries); i18n EN/VI. `tests/within-days-r203.test.tsx` (10).
 - [x] **I** — real-volume install: the recipe on the dogfood's lead dataset, per creation month,
       against the outside computation **with the same semantics** (calendar days, as-of = latest
-      creation date, N = 14): match = equal `observed` and `within` counts per month; any
-      difference listed with its cause. **Result:** a de-identified extract of the dogfood's lead
-      funnel (28,783 rows: a row number, created, closed, source — no customer field) loaded on
-      this branch's backend; the recipe + month bucket + aggregate gives **10 / 10 months equal**
-      to the outside computation (Jan–Oct 2026; e.g. Sep 3,973 / 3,973 / 129, Oct 2,715 / 587 / 17
-      — October partial, as it should read). 5 rows without a creation date fall outside every
-      month in both. The staged extract was deleted after the run.
-- [ ] Check — gates; code review; BA (after build); QA
+      start date, the user's own N): match = equal `observed` and `within` counts per month; any
+      difference listed with its cause. **Result:** a de-identified extract of the first user's funnel (a row number, two dates and a
+      group label — no customer field) loaded on this branch's backend; recipe + month bucket +
+      aggregate: **10 / 10 months equal** (row count, observed, within) to the outside computation;
+      the newest month reads partial in both. Rows with no start date fall outside every month in
+      both. The staged extract was deleted after the run.
+- [x] Check — gates; code review; BA (after build); QA (see Check)
 
 ## Check
 
-—
+**Gates** (head of this round): builder **685 / 685** (674 + 11). The last full run read
+684 / 685 — the i18n parity test caught a missing VI `withinDaysHelp_one`; added, and that file plus
+the round's re-run green; `tsc` clean, `vite build` clean (chunk-size warning as before); backend **802 / 802**
+(+ 4 recipe tests; no app file changed); contracts **55 / 55** (net contract diff empty — the
+Contract-exit revert left nothing behind); md / plan / design lints 0; guard (no user names, no
+`backend/data`) empty.
+
+**Real-volume run** — 10 / 10 months equal to the outside computation (Do › I).
+
+**Live probe + visual gate** (QA, real backend, mocks off, Playwright, 1366 × 768, light EN + VI;
+`tmp/r203vis/`): the dialog inserted the five steps; per-row observed/within read right on the
+boundary day, an end before the start, a same-day end, a NULL end, a NULL start and a far-future
+end (as-of unchanged); a second insertion suffixed `_2` throughout; Save → PUT 200 and the rows
+endpoint returned the same values; the one-date-column menu disabled the entry; no console or page
+errors.
+
+**Reviews**
+
+- Contract-exit BA — **CHANGES** (C1–C7), all folded before B (see Do); the step kind was withdrawn.
+- Code review — **PASS** (P0/P1 none). P2 fixed: CR-1 the MSW mock's date `max` returned NULL
+  (`Number('2026-…')` is NaN), so the mock preview read every row unobserved and the mock test
+  proved nothing — the mock now takes a date's min/max as the earliest/latest date and the test
+  asserts both outcomes; CR-2 a typed name could be suffixed silently — the dialog now shows
+  **Will add: …** with the final five names; CR-3 a cleared Days field kept the previous N — now
+  the `days` problem, `[Add]` disabled.
+- After-build BA — **CHANGES** (one P1). P1 fixed: BA-F1 the round file carried the first user's
+  threshold, row counts and column list — reduced to the parity statement (the firewall). P2 fixed:
+  BA-F2 the design example and the backend test used the first user's N — now 30 in the docs and
+  10 in the test; BA-F3 "18 entries" → 17; BA-F4 = CR-2. Walk script below (BA's).
+- QA — **PASS** (P0/P1 none). P2 fixed: QA-1 the disabled reason was only a hover `title` — now a
+  visible second line in the option; QA-2 EN "once 1 days" — plural keys (`_one` / `_other`);
+  QA-3 the Add-step popup truncated long labels (VI already did before) — the popup now sizes to
+  its longest label. Logged, not fixed: a recipe's own `*_as_of` columns are date columns, so a
+  second recipe's pickers offer them (harmless, may surprise); the auto-name input clips
+  `<start>_to_<end>_days` on the card (cosmetic, pre-existing width).
+
+**Walk script** (owner; fresh install, any CSV with two date columns, a few rows starting in the
+last two weeks; ~10 min):
+
+- W1 Upload; create a query; `[Add step ▾]` → Add a column: the last entry reads **Within N days of
+  a start date…**.
+- W2 Add a Select columns step keeping one date column: the entry is greyed with the visible line
+  "Needs two date columns at this point". Delete that step.
+- W3 Open the entry: Start / Event offer only date columns; Within (days) = 30; names
+  `observed_30d` / `within_30d`; the **Will add** line lists five names.
+- W4 Days 14 → both names follow; type a Within name, then Days 7 → only Observed follows. Clear
+  Days → the problem line, `[Add]` disabled.
+- W5 Event = Start → `[Add]` greyed with "Start date and event date must be different columns."
+- W6 `[Add]` → five ordinary cards after the last card; preview: rows newer than N days before the
+  latest start read Observed 0 and Within 0; Within never 1 where Observed is 0; row count unchanged.
+- W7 Date bucket (month) on the start column → Group & aggregate by month (count, sum Observed, sum
+  Within) → Computed column Within ÷ Observed: the newest month shows Observed below its count, not
+  a near-zero rate.
+- W8 Switch to VI: menu **Trong N ngày kể từ ngày bắt đầu…**; labels Ngày bắt đầu / Ngày sự kiện /
+  Trong (ngày) / Cột đủ thời gian / Cột trong hạn.
 
 ## Act
 
-—
+- **Rolling log**: the two QA observations (recipe columns offered to a second recipe; the clipped
+  auto-name input) go to the program's rolling log.
+- **Lesson (Track 2, for promotion review)**: a round premise ("no step can do X") is a claim about
+  the engine — check it against the vocabulary before the contract, not at BA. Here the BA caught
+  it at Contract exit and the one-way door (a new step kind) was avoided; the probe that settled it
+  took one test.
+- **Prune check**: no new step kind, no new endpoint; the recipe is reversible (remove the menu
+  entry and the dialog).
+- **Promotion**: none yet — one round of evidence.
 
 ## Feeds into → Round_204
 
-—
+- A step kind of its own for the recipe opens only on a logged case of a user editing one of the
+  five cards and breaking the rate (the trigger in `queries.md`).
+- rc.5's own exit (tag) remains the owner's call; 5.1 stays conditional.

@@ -1082,12 +1082,14 @@
         "withinDaysObserved": "Observed column",
         "withinDaysWithin": "Within column",
         "withinDaysAdd": "Add",
-        "withinDaysHelp": "Adds 5 steps. A row counts once {{n}} days have passed since its start (up to the latest start date). Rate per period: sum Within ÷ sum Observed — a period whose Observed is below its row count is still filling up.",
         "withinDaysNeedsDates": "Needs two date columns at this point",
         "withinDaysProblem_pickColumns": "Pick a start date and an event date.",
         "withinDaysProblem_sameColumn": "Start date and event date must be different columns.",
         "withinDaysProblem_days": "Days must be a whole number from 1 to 3660.",
-        "withinDaysProblem_names": "Give the two new columns different, non-empty names."
+        "withinDaysProblem_names": "Give the two new columns different, non-empty names.",
+        "withinDaysHelp_one": "Adds 5 steps. A row counts once {{count}} day has passed since its start (up to the latest start date). Rate per period: sum Within ÷ sum Observed — a period whose Observed is below its row count is still filling up.",
+        "withinDaysHelp_other": "Adds 5 steps. A row counts once {{count}} days have passed since its start (up to the latest start date). Rate per period: sum Within ÷ sum Observed — a period whose Observed is below its row count is still filling up.",
+        "withinDaysWillAdd": "Will add: {{names}}"
       },
       "buildActive": "{{count}} active",
       "baseSourceLabel": "Build on",

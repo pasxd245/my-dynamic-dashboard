@@ -62,15 +62,20 @@ export function WithinDaysDialog({ open, cols, onAdd, onCancel }: Props) {
   const temporal = cols.filter(isTemporalCol).map((c) => ({ label: c.name, value: c.name }));
   const problem = withinDaysProblem(spec, cols);
 
+  // A cleared field is "no N" (the `days` problem), never the previous N kept quietly.
   const setDays = (v: number | null) => {
-    const days = v ?? spec.days;
+    const days = v ?? Number.NaN;
+    const follow = Number.isFinite(days);
     setSpec((s) => ({
       ...s,
       days,
-      observedName: typed.observed ? s.observedName : `observed_${days}d`,
-      withinName: typed.within ? s.withinName : `within_${days}d`,
+      observedName: typed.observed || !follow ? s.observedName : `observed_${days}d`,
+      withinName: typed.within || !follow ? s.withinName : `within_${days}d`,
     }));
   };
+  // The FINAL names (a taken one gets `_2`, …) — shown before [Add], so a renamed
+  // column is never a surprise (R203 review: CR-2 / BA-F4).
+  const willAdd = problem === null ? withinDaysRecipe(spec, cols).map((s) => (s as { name: string }).name) : [];
 
   return (
     <Modal
@@ -112,7 +117,7 @@ export function WithinDaysDialog({ open, cols, onAdd, onCancel }: Props) {
               min={WITHIN_DAYS_MIN}
               max={WITHIN_DAYS_MAX}
               precision={0}
-              value={spec.days}
+              value={Number.isFinite(spec.days) ? spec.days : null}
               onChange={setDays}
             />
           </Field>
@@ -142,8 +147,13 @@ export function WithinDaysDialog({ open, cols, onAdd, onCancel }: Props) {
           </Field>
         </div>
         <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-          {t('queries.builder.steps.withinDaysHelp', { n: spec.days })}
+          {t('queries.builder.steps.withinDaysHelp', { count: Number.isFinite(spec.days) ? spec.days : 0 })}
         </Typography.Text>
+        {willAdd.length > 0 && (
+          <Typography.Text style={{ fontSize: 12 }} data-component="WithinDaysWillAdd">
+            {t('queries.builder.steps.withinDaysWillAdd', { names: willAdd.join(', ') })}
+          </Typography.Text>
+        )}
         {problem && (
           <Typography.Text type="warning" style={{ fontSize: 12 }} role="status">
             {t(`queries.builder.steps.withinDaysProblem_${problem}`)}
