@@ -18,7 +18,7 @@ import { ColumnsIcon, XCircleIcon } from '@phosphor-icons/react';
 import { PageCard, PageContainer, PageHeader } from '@mdd/ui';
 import { Alert, App, Button, Dropdown, Input, Skeleton, Tag, Tooltip, Typography } from 'antd';
 import i18n from 'i18next';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
@@ -235,11 +235,23 @@ export function DatasetDetailPage() {
   // R180 / R202 — the dataset's and its columns' notes, read by layer in a dock beside the table.
   const metaDock = useMetadataDock('dataset', dataset?.id);
   // R204 — the context sections fold so the table keeps its height on short screens (foldable.ts).
-  // An active advanced query is always shown: a filter that governs the rows is never hidden.
+  // An active advanced query is always shown: a filter that governs the rows is never hidden. Once
+  // shown for that reason it stays open for the visit, so clearing it (×, Esc, deleting the text)
+  // never pulls the field away from under the cursor (R54: focus stays for the next query).
   const [detailsOpen, toggleDetails] = useFoldable('details');
-  const [advancedOpenChoice, toggleAdvanced] = useFoldable('advancedQuery');
+  const [advancedOpenChoice, toggleAdvancedChoice] = useFoldable('advancedQuery');
   const advancedActive = advancedText.trim().length > 0;
-  const advancedOpen = advancedOpenChoice || advancedActive;
+  const [advancedPinned, setAdvancedPinned] = useState(false);
+  useEffect(() => {
+    if (advancedActive) setAdvancedPinned(true);
+  }, [advancedActive]);
+  const advancedOpen = advancedOpenChoice || advancedActive || advancedPinned;
+  const toggleAdvanced = () => {
+    if (advancedOpen && !advancedOpenChoice) setAdvancedPinned(false); // folding a pinned field
+    else toggleAdvancedChoice();
+  };
+  const detailsId = useId();
+  const advancedId = useId();
   const openSaveQuery = () => {
     createQueryMutation.reset();
     setSaveQueryOpen(true);
@@ -626,13 +638,15 @@ export function DatasetDetailPage() {
         <PageCard variant="fill">
           <div style={{ flex: '0 0 auto' }}>
             <FrozenCopyBand dataset={dataset} />
-            {detailsOpen ? (
-              <div data-component="DatasetDetailsSection">
-                <MetadataStrip dataset={dataset} workspaceName={workspaceName} />
-                {dataset.lineage ? <PublishedFrom lineage={dataset.lineage} /> : null}
-                <DateCoverageStrip columns={dataset.columns} />
-              </div>
-            ) : null}
+            <div id={detailsId} data-component="DatasetDetailsSection" hidden={!detailsOpen}>
+              {detailsOpen ? (
+                <>
+                  <MetadataStrip dataset={dataset} workspaceName={workspaceName} />
+                  {dataset.lineage ? <PublishedFrom lineage={dataset.lineage} /> : null}
+                  <DateCoverageStrip columns={dataset.columns} />
+                </>
+              ) : null}
+            </div>
             <MetadataBar api={metaDock} />
           </div>
 
@@ -702,6 +716,7 @@ export function DatasetDetailPage() {
                 type="text"
                 icon={detailsOpen ? <DownOutlined /> : <RightOutlined />}
                 aria-expanded={detailsOpen}
+                aria-controls={detailsId}
                 onClick={toggleDetails}
                 data-component="DatasetDetailsToggle"
               >
@@ -713,6 +728,7 @@ export function DatasetDetailPage() {
                   type="text"
                   icon={advancedOpen ? <DownOutlined /> : <RightOutlined />}
                   aria-expanded={advancedOpen}
+                  aria-controls={advancedId}
                   onClick={toggleAdvanced}
                   data-component="AdvancedQueryToggle"
                 >
@@ -733,16 +749,15 @@ export function DatasetDetailPage() {
             </div>
           </div>
 
-          {advancedOpen ? (
-            <div style={{ flex: '0 0 auto' }}>
-              <AdvancedQueryInput
-                columns={dataset.columns}
-                value={advancedText}
-                onApply={applyAdvanced}
-                onClear={clearAdvanced}
-              />
-            </div>
-          ) : null}
+          {/* Hidden, not unmounted: a folded field keeps a typed-but-unapplied draft (and its debounce). */}
+          <div id={advancedId} style={{ flex: '0 0 auto' }} hidden={!advancedOpen} data-component="AdvancedQuerySection">
+            <AdvancedQueryInput
+              columns={dataset.columns}
+              value={advancedText}
+              onApply={applyAdvanced}
+              onClear={clearAdvanced}
+            />
+          </div>
 
           <div style={{ flex: '0 0 auto' }}>
             <ActiveFilterChips

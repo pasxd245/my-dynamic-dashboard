@@ -500,13 +500,15 @@ viewport), the open sections took ~230 px and the table showed one or two
 rows (R202 visual gate; the first user's screen).
 
 - **Toggles** — two text buttons in the toolbar row, left of
-  `[Columns N/M]`: `▸ Details` / VN **Thông tin thêm** and `▸ Advanced
-query` / VN **Truy vấn nâng cao**; `▾` when open; `aria-expanded`.
-  No extra row: the toolbar already exists.
+  `[Columns N/M]`: `▸ Details` / VI **Thông tin thêm** and `▸ Advanced
+query` / VI **Truy vấn nâng cao**; `▾` when open; `aria-expanded` +
+  `aria-controls` (the section's wrapper keeps its id while folded). No
+  extra row: the toolbar already exists.
 - **Default** — open on a viewport at least `SHORT_VIEWPORT_PX` (760 CSS
   px) tall, folded below it (`matchMedia('(max-height: 759px)')`,
-  follows resizes). The subtitle already carries rows · columns · size ·
-  uploaded, so a folded Details hides no headline number.
+  follows resizes). The subtitle keeps rows · columns · size · uploaded;
+  Workspace, Data version, Format, the published-from link and coverage
+  are one click away.
 - **Remembered** — a click records the viewer's choice per section in
   `localStorage` (`mdd.datasetDetail.open.details|advancedQuery` = `1`
   / `0`); a recorded choice wins over the viewport default on every
@@ -515,7 +517,13 @@ query` / VN **Truy vấn nâng cao**; `▾` when open; `aria-expanded`.
   one-line Metadata bar (the dock's entry point), the row search, the
   active filter chips and an **active advanced query**: while `?aq=` is
   set the input shows whatever the choice, and its toggle is not offered
-  (a filter that governs the rows is never hidden).
+  (a filter that governs the rows is never hidden). Once shown for that
+  reason the field **stays open for the visit**: clearing the query (×,
+  Esc, deleting the text) keeps the field and its focus for the next
+  query (R54); the toggle comes back reading open and folds it.
+- **Draft kept** — a folded Advanced query is hidden, not unmounted: a
+  typed but unapplied query (an error, or inside the 300 ms debounce)
+  is still there when the section opens again.
 - **Out of scope** — the query and workflow pages (same pattern if a
   walk shows the need); a one-line digest of the folded strip.
 

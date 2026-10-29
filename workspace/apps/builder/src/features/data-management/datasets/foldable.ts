@@ -50,10 +50,16 @@ export function useShortViewport(): boolean {
       mql = undefined;
     }
     if (!mql) return undefined;
-    const on = () => setShort(mql.matches);
+    const list = mql;
+    const on = () => setShort(list.matches);
     on();
-    mql.addEventListener?.('change', on);
-    return () => mql.removeEventListener?.('change', on);
+    // Safari < 14 has only the deprecated addListener/removeListener.
+    if (typeof list.addEventListener === 'function') {
+      list.addEventListener('change', on);
+      return () => list.removeEventListener('change', on);
+    }
+    list.addListener?.(on);
+    return () => list.removeListener?.(on);
   }, []);
   return short;
 }

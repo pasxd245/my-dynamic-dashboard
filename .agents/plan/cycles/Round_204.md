@@ -1,6 +1,6 @@
 # Round 204: fold the dataset page's context on short screens (item 5.4)
 
-**Status**: In progress
+**Status**: Review
 **Flow**: **DCFBI** — builder-only: two toggles and a viewport default on the dataset page; no
 contract, route, engine or migration change.
 **Date started**: 2026-10-29
@@ -65,16 +65,60 @@ for rows") + owner, 2026-10-29 (first user's screen at 125 %)._
 - [x] **F** — `foldable.ts`; `DatasetDetailPage.tsx` toggles + conditional sections; i18n EN/VI;
       `tests/dataset-fold-r204.test.tsx` (6)
 - [x] **B** — none (builder-only)
-- [ ] **I** — visual gate (Playwright, mocks, 1366 × 768 and 1536 × 730, EN + VI, before/after)
-- [ ] Check — gates; code review; BA (after build); QA
+- [x] **I** — visual gate (Playwright, mocks, viewports 1366 × 650 and 1536 × 730 + tall 1536 × 940, EN + VI, before/after)
+- [x] Check — gates; code review; BA (after build); QA (see Check)
 
 ## Check
 
-_Filled at Check._
+**Gates** (head of this round): builder **695 / 695** (685 + 10); `tsc` clean; `vite build` clean
+(chunk-size warning as before); backend and contracts untouched (no file changed); md / plan / design
+lints 0; guard (no user names, no `backend/data`) empty.
+
+**Visual gate** (Playwright, mocks, `tmp/r204vis` not committed): rows of the fixture table fully in
+view — 1366 × 650 EN: **5** folded (1 with Details open); 1536 × 730 VI: **7** folded (before R204:
+**1**); 1536 × 940 EN: opens as before (6 rows; 8 with Details folded). Toggles, `aria-expanded`,
+persistence over reload and across datasets; VI toolbar stays one row at 1366; no console or page
+errors. Clear-while-folded probe: Esc on a deep-linked query keeps the field shown and focused,
+retyping `stage:lost` + Enter writes the new `?aq=`.
+
+**Reviews**
+
+- After-build BA — **PASS** (P2 only). Fixed: BA-F1 the design said a folded Details "hides no
+  headline number" — now names what is one click away; BA-F2 the gate viewport reads 1366 × 650 in
+  both files; BA-F3 clearing a query while folded is now defined (stays open for the visit); BA-F4
+  `aria-controls` (= CR-3), "VN" → "VI". Test gaps (blocked storage, resize) closed by F9–F10.
+- Code review — **CHANGES** (one P1), folded. CR-1 clearing an active query while folded unmounted
+  the field in the same commit that refocused it (focus to `<body>`, R54 broken) — the field now
+  stays open for the visit once shown for an active query (F7). P2 fixed: CR-2 folding unmounted a
+  typed-but-unapplied draft — the section is hidden, not unmounted (F8); CR-3 `aria-controls` with
+  ids kept while folded; CR-4 `addListener` fallback for Safari < 14; CR-5 resize and blocked
+  storage tests (F9, F10).
+- QA — **CHANGES** (one P1 = CR-1), folded; re-probed live after the fix (above). QA-2 (test for
+  clear while folded) = F7. QA-3 discoverability — by design, in Risks. Passed on the first probe:
+  759 → folded / 760 → open; a stored choice wins both ways; deep link with a stored `0` on a tall
+  screen; keyboard Tab / Enter / Space; storage blocked for the round's keys.
+
+**Walk script** (owner; ~5 min; BA's):
+
+- W1 Browser window about 1366 × 650 (or a 1080p screen at 125 %), storage cleared; open a dataset:
+  the toolbar shows `▸ Details` and `▸ Advanced query`, no strips, at least 5 table rows.
+- W2 `▸ Details` → strip, coverage (and published-from on a published dataset) appear, `▾`; reload:
+  still open; another dataset: open there too.
+- W3 Window taller than 760 px, storage cleared: both sections start open, as before R204.
+- W4 Short window: open Advanced query, apply `col:value`, try to fold it: the toggle is gone while
+  the query is active. Press Esc: the query clears, the field stays with the cursor in it; type a
+  new query + Enter; clear again and fold with the toggle.
+- W5 VI: **Thông tin thêm** and **Truy vấn nâng cao**.
+- W6 Keyboard only: Tab to each toggle, Enter / Space opens and folds.
 
 ## Act
 
-_Filled at Act._
+- **Rolling log**: the R202 row is opened as 5.4 (this round); nothing new logged.
+- **Lesson (Track 2, for promotion review)**: a visibility guard tied to _state_ ("an active query is
+  shown") must also hold through the _transition_ out of that state — the user is inside the field
+  when the state flips. Two reviewers found it independently from the code and the live probe.
+- **Prune check**: one hook file and two toggles; reversible (remove the toggles, render as before).
+- **Promotion**: none yet — one round of evidence.
 
 ## Feeds into → Round_205
 

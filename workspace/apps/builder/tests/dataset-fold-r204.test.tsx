@@ -5,7 +5,7 @@
 import { AntdConfig } from '@mdd/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { App } from 'antd';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import i18n from 'i18next';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -39,25 +39,47 @@ function renderApp(initialPath = PATH) {
   );
 }
 
-/** A viewport `height` px tall, as far as `matchMedia('(max-height: …)')` is concerned. */
+/**
+ * A viewport `height` px tall, as far as `matchMedia('(max-height: …)')` is concerned. Returns
+ * `resize(h)`: changes the height and fires `change` on every list handed out.
+ */
 function viewport(height: number) {
-  vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => {
+  let h = height;
+  const lists: { query: string; fns: Set<(e: { matches: boolean; media: string }) => void> }[] = [];
+  const matches = (query: string) => {
     const m = /max-height:\s*(\d+)px/.exec(query);
+    return m ? h <= Number(m[1]) : false;
+  };
+  vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => {
+    const entry = { query, fns: new Set<(e: { matches: boolean; media: string }) => void>() };
+    lists.push(entry);
     return {
-      matches: m ? height <= Number(m[1]) : false,
+      get matches() {
+        return matches(query);
+      },
       media: query,
       onchange: null,
-      addEventListener: () => {},
-      removeEventListener: () => {},
+      addEventListener: (_: string, fn: (e: { matches: boolean; media: string }) => void) => entry.fns.add(fn),
+      removeEventListener: (_: string, fn: (e: { matches: boolean; media: string }) => void) => entry.fns.delete(fn),
       addListener: () => {},
       removeListener: () => {},
       dispatchEvent: () => false,
-    } as MediaQueryList;
+    } as unknown as MediaQueryList;
   });
+  return (next: number) => {
+    h = next;
+    act(() => {
+      for (const l of lists) for (const fn of l.fns) fn({ matches: matches(l.query), media: l.query });
+    });
+  };
 }
 
 const strip = () => document.querySelector('[data-component="DatasetMetadataStrip"]');
-const advanced = () => document.querySelector('[data-component="AdvancedQueryInput"]');
+/** The advanced query input when it is shown; a folded one stays mounted (keeps a draft) but hidden. */
+const advanced = () => {
+  const el = document.querySelector('[data-component="AdvancedQueryInput"]');
+  return el && !el.closest('[hidden]') ? el : null;
+};
 const toggle = (name: 'DatasetDetailsToggle' | 'AdvancedQueryToggle') =>
   document.querySelector(`[data-component="${name}"]`) as HTMLButtonElement | null;
 
@@ -129,6 +151,60 @@ describe('R204 folding sections on the dataset page', () => {
     expect(advanced()).not.toBeNull();
     expect((screen.getByLabelText('Advanced query') as HTMLInputElement).value).toContain('won');
     expect(toggle('AdvancedQueryToggle')).toBeNull();
+  });
+
+  it('F7: clearing an active query while folded keeps the field shown and focused (R54)', async () => {
+    viewport(SHORT_VIEWPORT_PX - 40);
+    renderApp(`${PATH}?aq=${encodeURIComponent(JSON.stringify(WON))}`);
+    await screen.findByText('D-0001');
+    const input = screen.getByLabelText('Advanced query') as HTMLInputElement;
+    input.focus();
+    fireEvent.keyDown(input, { key: 'Escape' });
+    await waitFor(() => expect(input.value).toBe(''));
+    expect(advanced()).not.toBeNull();
+    expect(document.activeElement).toBe(input);
+    // The toggle is back (the query no longer governs the rows) and reads open; it folds the field.
+    expect(toggle('AdvancedQueryToggle')?.getAttribute('aria-expanded')).toBe('true');
+    fireEvent.click(toggle('AdvancedQueryToggle')!);
+    expect(advanced()).toBeNull();
+  });
+
+  it('F8: folding keeps a typed draft; opening shows it again', async () => {
+    viewport(SHORT_VIEWPORT_PX + 200);
+    renderApp();
+    await screen.findByText('D-0001');
+    const input = screen.getByLabelText('Advanced query') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'stage:' } }); // unparseable — never applied
+    fireEvent.click(toggle('AdvancedQueryToggle')!);
+    expect(advanced()).toBeNull();
+    fireEvent.click(toggle('AdvancedQueryToggle')!);
+    expect((screen.getByLabelText('Advanced query') as HTMLInputElement).value).toBe('stage:');
+  });
+
+  it('F9: with no recorded choice the default follows a resize across the threshold', async () => {
+    const resize = viewport(SHORT_VIEWPORT_PX + 200);
+    renderApp();
+    await screen.findByText('D-0001');
+    expect(strip()).not.toBeNull();
+    resize(SHORT_VIEWPORT_PX - 1);
+    expect(strip()).toBeNull();
+    resize(SHORT_VIEWPORT_PX);
+    expect(strip()).not.toBeNull();
+  });
+
+  it('F10: blocked storage — the page renders and the toggles work for the visit', async () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    viewport(SHORT_VIEWPORT_PX - 40);
+    renderApp();
+    await screen.findByText('D-0001');
+    expect(strip()).toBeNull();
+    fireEvent.click(toggle('DatasetDetailsToggle')!);
+    expect(strip()).not.toBeNull();
   });
 
   it('F6: labels in Vietnamese', async () => {
