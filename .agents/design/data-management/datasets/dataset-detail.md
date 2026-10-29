@@ -490,6 +490,37 @@ opens directly in the 404 state.
 
 ---
 
+## Folding sections (R204)
+
+The context above the table — **Details** (the metadata strip, the
+published-from line and the date-coverage strip) and the **Advanced
+query** input — folds, so the table keeps its height on short screens.
+At 1366 × 768, or 1920 × 1080 at 125 % scale (~620–740 CSS px of
+viewport), the open sections took ~230 px and the table showed one or two
+rows (R202 visual gate; the first user's screen).
+
+- **Toggles** — two text buttons in the toolbar row, left of
+  `[Columns N/M]`: `▸ Details` / VN **Thông tin thêm** and `▸ Advanced
+query` / VN **Truy vấn nâng cao**; `▾` when open; `aria-expanded`.
+  No extra row: the toolbar already exists.
+- **Default** — open on a viewport at least `SHORT_VIEWPORT_PX` (760 CSS
+  px) tall, folded below it (`matchMedia('(max-height: 759px)')`,
+  follows resizes). The subtitle already carries rows · columns · size ·
+  uploaded, so a folded Details hides no headline number.
+- **Remembered** — a click records the viewer's choice per section in
+  `localStorage` (`mdd.datasetDetail.open.details|advancedQuery` = `1`
+  / `0`); a recorded choice wins over the viewport default on every
+  dataset. Blocked storage → the choice lasts the visit.
+- **Never folded** — the frozen-copy band (a state, not context), the
+  one-line Metadata bar (the dock's entry point), the row search, the
+  active filter chips and an **active advanced query**: while `?aq=` is
+  set the input shows whatever the choice, and its toggle is not offered
+  (a filter that governs the rows is never hidden).
+- **Out of scope** — the query and workflow pages (same pattern if a
+  walk shows the need); a one-line digest of the folded strip.
+
+---
+
 ## Column visibility (R152)
 
 > The editing surface is the **Properties drawer** (schema view +
@@ -758,6 +789,12 @@ Dataset` (incl. `refreshedAt`, `dataVersion`, `coverage` on temporal
 10. **Cache keys** _(FE)_ — the rows query is keyed
     `['datasets', { id }, 'rows', { page, pageSize, q, filters, aq }]`;
     mutations reach it through the `['datasets']` prefix.
+11. **Folding sections (R204)** _(FE)_ — below 760 CSS px of viewport
+    height Details and Advanced query start folded and the table follows
+    the toolbar; at or above it both start open; each toggle opens and
+    folds its section and the choice is remembered over the viewport
+    default; an active `?aq=` keeps the input shown and hides its toggle;
+    EN / VI labels (`dataset-fold-r204.test.tsx`, F1–F6).
 
 ---
 

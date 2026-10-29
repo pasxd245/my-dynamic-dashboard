@@ -521,6 +521,7 @@
         "applied": "Column visibility updated.",
         "applyFailed": "Couldn't update column visibility."
       },
+      "details": "Details",
       "coverage": {
         "title": "Date coverage",
         "range": "{{min}} → {{max}}",

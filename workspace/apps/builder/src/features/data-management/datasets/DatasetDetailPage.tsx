@@ -12,6 +12,7 @@ import {
   MergeCellsOutlined,
   PlusOutlined,
   ReloadOutlined,
+  RightOutlined,
 } from '@ant-design/icons';
 import { ColumnsIcon, XCircleIcon } from '@phosphor-icons/react';
 import { PageCard, PageContainer, PageHeader } from '@mdd/ui';
@@ -45,6 +46,7 @@ import { useWorkflowQuery } from '@/features/data-management/workflows/hooks';
 import { DateCoverageStrip } from './DateCoverage';
 import { downloadDatasetExport } from './exportDataset';
 import { PropertiesDrawer } from './PropertiesDrawer';
+import { useFoldable } from './foldable';
 import { FrozenCopyBand, SaveCopyModal } from './SavedCopy';
 import { ActiveFilterChips, formatChipText } from './filters/ActiveFilterChips';
 import { FilterPopover } from './filters/FilterPopover';
@@ -232,6 +234,12 @@ export function DatasetDetailPage() {
   const createQueryMutation = useCreateQueryMutation();
   // R180 / R202 — the dataset's and its columns' notes, read by layer in a dock beside the table.
   const metaDock = useMetadataDock('dataset', dataset?.id);
+  // R204 — the context sections fold so the table keeps its height on short screens (foldable.ts).
+  // An active advanced query is always shown: a filter that governs the rows is never hidden.
+  const [detailsOpen, toggleDetails] = useFoldable('details');
+  const [advancedOpenChoice, toggleAdvanced] = useFoldable('advancedQuery');
+  const advancedActive = advancedText.trim().length > 0;
+  const advancedOpen = advancedOpenChoice || advancedActive;
   const openSaveQuery = () => {
     createQueryMutation.reset();
     setSaveQueryOpen(true);
@@ -618,9 +626,13 @@ export function DatasetDetailPage() {
         <PageCard variant="fill">
           <div style={{ flex: '0 0 auto' }}>
             <FrozenCopyBand dataset={dataset} />
-            <MetadataStrip dataset={dataset} workspaceName={workspaceName} />
-            {dataset.lineage ? <PublishedFrom lineage={dataset.lineage} /> : null}
-            <DateCoverageStrip columns={dataset.columns} />
+            {detailsOpen ? (
+              <div data-component="DatasetDetailsSection">
+                <MetadataStrip dataset={dataset} workspaceName={workspaceName} />
+                {dataset.lineage ? <PublishedFrom lineage={dataset.lineage} /> : null}
+                <DateCoverageStrip columns={dataset.columns} />
+              </div>
+            ) : null}
             <MetadataBar api={metaDock} />
           </div>
 
@@ -684,7 +696,29 @@ export function DatasetDetailPage() {
                 })}
               </Typography.Text>
             ) : null}
-            <div style={{ marginInlineStart: 'auto' }}>
+            <div style={{ marginInlineStart: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <Button
+                size="small"
+                type="text"
+                icon={detailsOpen ? <DownOutlined /> : <RightOutlined />}
+                aria-expanded={detailsOpen}
+                onClick={toggleDetails}
+                data-component="DatasetDetailsToggle"
+              >
+                {t('datasets.detail.details')}
+              </Button>
+              {advancedActive ? null : (
+                <Button
+                  size="small"
+                  type="text"
+                  icon={advancedOpen ? <DownOutlined /> : <RightOutlined />}
+                  aria-expanded={advancedOpen}
+                  onClick={toggleAdvanced}
+                  data-component="AdvancedQueryToggle"
+                >
+                  {t('datasets.advancedQuery.label')}
+                </Button>
+              )}
               <Button
                 size="small"
                 icon={<ColumnsIcon size={16} />}
@@ -699,14 +733,16 @@ export function DatasetDetailPage() {
             </div>
           </div>
 
-          <div style={{ flex: '0 0 auto' }}>
-            <AdvancedQueryInput
-              columns={dataset.columns}
-              value={advancedText}
-              onApply={applyAdvanced}
-              onClear={clearAdvanced}
-            />
-          </div>
+          {advancedOpen ? (
+            <div style={{ flex: '0 0 auto' }}>
+              <AdvancedQueryInput
+                columns={dataset.columns}
+                value={advancedText}
+                onApply={applyAdvanced}
+                onClear={clearAdvanced}
+              />
+            </div>
+          ) : null}
 
           <div style={{ flex: '0 0 auto' }}>
             <ActiveFilterChips

@@ -82,3 +82,24 @@ a one-way door; the recipe is not).
 _Not in this item:_ a step kind of its own (opens on a logged case of a user breaking the rate by
 editing one of the five); an as-of from a viewer parameter or a fixed date; a chart badge on young
 periods.
+
+## 5.4 Fold the dataset page's context on short screens
+
+|       |                                                                                                       |
+| ----- | ----------------------------------------------------------------------------------------------------- |
+| Track | 1                                                                                                     |
+| Flow  | **DCFBI** — builder-only: two toggles and a viewport default; no contract, route or engine change     |
+| Added | by the owner, 2026-10-29 (first user's screen: 1920 × 1080 at 125 %); closes the R202 rolling-log row |
+| Round | `Round_204`                                                                                           |
+
+On a short viewport the dataset page's context — the metadata strip, the date coverage, the advanced
+query — takes most of the height and the table shows one or two rows. The context folds:
+
+- **Builder:** `▸ Details` and `▸ Advanced query` toggles in the toolbar row; folded by default below
+  760 CSS px of viewport height, open above; the viewer's choice is remembered per browser; an active
+  advanced query is never hidden.
+- **Docs:** `dataset-detail.md` § Folding sections + AC 11.
+- **Gate:** builder tests green; visual gate at 1366 × 650 (a 1366 × 768 laptop's viewport) and 1536 × 730 (EN + VI): the table shows
+  at least five rows on a fixture dataset with Details and Advanced query folded.
+
+_Not in this item:_ the query and workflow pages; a one-line digest of the folded strip.

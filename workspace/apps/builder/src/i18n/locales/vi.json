@@ -521,6 +521,7 @@
         "applied": "Đã cập nhật hiển thị cột.",
         "applyFailed": "Không thể cập nhật hiển thị cột."
       },
+      "details": "Thông tin thêm",
       "coverage": {
         "title": "Độ phủ ngày",
         "range": "{{min}} → {{max}}",
