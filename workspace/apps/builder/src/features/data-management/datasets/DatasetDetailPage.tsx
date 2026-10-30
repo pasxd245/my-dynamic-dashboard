@@ -67,6 +67,12 @@ function clampPage(raw: string | null): number {
   return Number.isInteger(n) && n >= 1 ? n : 1;
 }
 
+/** R205 — a relative time inside a sentence starts lower case ("Uploaded just now"); standalone
+ *  values (the strip, the drawer) keep the capital. Locale-aware; times and numbers are unchanged. */
+function inline(text: string): string {
+  return text.charAt(0).toLocaleLowerCase(i18n.language) + text.slice(1);
+}
+
 function relativeTime(iso: string, t: ReturnType<typeof useTranslation>['t']): string {
   const then = new Date(iso).getTime();
   const now = Date.now();
@@ -251,6 +257,8 @@ export function DatasetDetailPage() {
     else toggleAdvancedChoice();
   };
   const detailsId = useId();
+  // R205 — the Metadata bar explains the header dots once any column has notes.
+  const columnNotes = Object.values(metaDock.read?.children ?? {}).some((e) => Object.keys(e ?? {}).length > 0);
   const advancedId = useId();
   const openSaveQuery = () => {
     createQueryMutation.reset();
@@ -491,7 +499,7 @@ export function DatasetDetailPage() {
       rows: dataset.rowCount.toLocaleString(i18n.language),
       cols: dataset.columnCount,
       size: formatBytes(dataset.sizeBytes),
-      uploaded: relativeTime(dataset.createdAt, t),
+      uploaded: inline(relativeTime(dataset.createdAt, t)),
     },
   );
 
@@ -626,7 +634,25 @@ export function DatasetDetailPage() {
       <PageHeader
         breadcrumb={BREADCRUMB}
         title={title}
-        subtitle={subtitle}
+        subtitle={
+          // R205 — the Details toggle ends the subtitle line, right above the section it opens.
+          <>
+            {subtitle}
+            {' · '}
+            <Button
+              size="small"
+              type="link"
+              icon={detailsOpen ? <DownOutlined /> : <RightOutlined />}
+              aria-expanded={detailsOpen}
+              aria-controls={detailsId}
+              onClick={toggleDetails}
+              data-component="DatasetDetailsToggle"
+              style={{ paddingInline: 0, height: 'auto' }}
+            >
+              {t('datasets.detail.details')}
+            </Button>
+          </>
+        }
         actions={actions}
         onNavigate={(r) => navigate(r)}
       />
@@ -647,7 +673,7 @@ export function DatasetDetailPage() {
                 </>
               ) : null}
             </div>
-            <MetadataBar api={metaDock} />
+            <MetadataBar api={metaDock} hint={columnNotes ? t('datasets.detail.columnNoteHint') : undefined} />
           </div>
 
           <div
@@ -711,17 +737,6 @@ export function DatasetDetailPage() {
               </Typography.Text>
             ) : null}
             <div style={{ marginInlineStart: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <Button
-                size="small"
-                type="text"
-                icon={detailsOpen ? <DownOutlined /> : <RightOutlined />}
-                aria-expanded={detailsOpen}
-                aria-controls={detailsId}
-                onClick={toggleDetails}
-                data-component="DatasetDetailsToggle"
-              >
-                {t('datasets.detail.details')}
-              </Button>
               {advancedActive ? null : (
                 <Button
                   size="small"
@@ -864,6 +879,11 @@ export function DatasetDetailPage() {
   );
 }
 
+type DatasetMetaKey = 'workspace' | 'rows' | 'cols' | 'size' | 'created' | 'dataVersion' | 'format';
+
+/** R205 — what the subtitle line already says; the inline strip leaves these out (the drawer keeps them). */
+const IN_SUBTITLE: ReadonlySet<DatasetMetaKey> = new Set(['rows', 'cols', 'size', 'created']);
+
 /** The dataset-level metadata fields — the single source shared by the
  *  always-visible MetadataStrip AND the Properties drawer's Dataset section
  *  (R153), so both format identically. */
@@ -871,13 +891,14 @@ function datasetMetaItems(
   dataset: Dataset,
   workspaceName: string | undefined,
   t: ReturnType<typeof useTranslation>['t'],
-): ReadonlyArray<{ label: string; value: string }> {
+): ReadonlyArray<{ key: DatasetMetaKey; label: string; value: string }> {
   return [
-    { label: t('datasets.detail.meta.workspace'), value: workspaceName ?? '—' },
-    { label: t('datasets.detail.meta.rows'), value: dataset.rowCount.toLocaleString(i18n.language) },
-    { label: t('datasets.detail.meta.cols'), value: String(dataset.columnCount) },
-    { label: t('datasets.detail.meta.size'), value: formatBytes(dataset.sizeBytes) },
+    { key: 'workspace', label: t('datasets.detail.meta.workspace'), value: workspaceName ?? '—' },
+    { key: 'rows', label: t('datasets.detail.meta.rows'), value: dataset.rowCount.toLocaleString(i18n.language) },
+    { key: 'cols', label: t('datasets.detail.meta.cols'), value: String(dataset.columnCount) },
+    { key: 'size', label: t('datasets.detail.meta.size'), value: formatBytes(dataset.sizeBytes) },
     {
+      key: 'created',
       label: t(
         dataset.savedFrom
           ? 'datasets.detail.meta.saved'
@@ -890,6 +911,7 @@ function datasetMetaItems(
     // R185 (W-4) — the server's stamp for the rows: which version, and when the
     // rows last changed (= uploaded until the first refresh).
     {
+      key: 'dataVersion',
       label: t('datasets.detail.meta.dataVersion'),
       value: t('datasets.detail.meta.dataVersionValue', {
         version: dataset.dataVersion,
@@ -897,6 +919,7 @@ function datasetMetaItems(
       }),
     },
     {
+      key: 'format',
       label: t('datasets.detail.meta.format'),
       value:
         dataset.sourceFormat === 'excel'
@@ -933,7 +956,7 @@ function PublishedFrom({ lineage }: Readonly<{ lineage: DatasetLineage }>) {
 
 function MetadataStrip({ dataset, workspaceName }: Readonly<{ dataset: Dataset; workspaceName: string | undefined }>) {
   const { t } = useTranslation();
-  const items = datasetMetaItems(dataset, workspaceName, t);
+  const items = datasetMetaItems(dataset, workspaceName, t).filter((i) => !IN_SUBTITLE.has(i.key));
   return (
     <div
       data-component="DatasetMetadataStrip"

@@ -606,8 +606,9 @@ export function severityCounts(read: readonly ReadEntry[]): [Severity, number][]
 }
 
 /** One line in place of R180's inline panel: count, the two most serious
- *  severities, Open (→ All notes). Nothing written → nothing. */
-export function MetadataBar({ api }: Readonly<{ api: MetadataDockApi }>) {
+ *  severities, Open (→ All notes). Nothing written → nothing. R205: an optional
+ *  `hint` line under it (the dataset page explains its column dots). */
+export function MetadataBar({ api, hint }: Readonly<{ api: MetadataDockApi; hint?: ReactNode }>) {
   const { t } = useTranslation();
   const all = useMemo(() => allRead(api.read), [api.read]);
   if (all.length === 0) return null;
@@ -637,6 +638,12 @@ export function MetadataBar({ api }: Readonly<{ api: MetadataDockApi }>) {
       >
         {isOpen ? t('metadata.dock.close') : t('metadata.bar.open')}
       </Button>
+      {hint ? (
+        // R205 — one secondary line under the bar, e.g. what the dataset page's column dots mean.
+        <Typography.Text type="secondary" style={{ flexBasis: '100%', fontSize: 12 }} data-component="MetadataBarHint">
+          {hint}
+        </Typography.Text>
+      ) : null}
     </div>
   );
 }
