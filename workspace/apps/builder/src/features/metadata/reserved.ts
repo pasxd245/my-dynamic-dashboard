@@ -86,3 +86,50 @@ export function topSeverity(read: readonly ReadEntry[]): Severity | undefined {
   for (const r of read) if (r.severity && severityRank(r.severity) < severityRank(best)) best = r.severity;
   return best;
 }
+
+// ─── R206 — one title rule for every surface ─────────────────────────────────
+
+/** Text compared marks and spacing aside, case-insensitive (the Read view's summary rule). */
+export function normText(x: string): string {
+  return x
+    .replace(/[*_`>#|-]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+const TITLE_FROM_TEXT_MAX = TITLE_MAX;
+
+function clip(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}
+
+/** What a note is called on a card, in Read, on a glance row and in a tooltip:
+ *  `title`, else the summary, else the body's first line — the namespace only when
+ *  the note has no text at all. */
+export function displayTitle(item: ReadEntry): string {
+  if (item.title) return item.title;
+  const text = item.summary ?? firstLine(item.body);
+  return text ? clip(text, TITLE_FROM_TEXT_MAX) : item.namespace;
+}
+
+/** The one line under the title (summary, else the body's first line), or nothing
+ *  when that line is what the title already says. */
+export function displayLine(item: ReadEntry): string | undefined {
+  const line = item.summary ?? firstLine(item.body);
+  if (!line) return undefined;
+  // The line became the title — print it again only when the title had to cut it short.
+  if (!item.title) return line.length > TITLE_FROM_TEXT_MAX ? line : undefined;
+  return line;
+}
+
+/** The body without a leading heading whose text is the title (R206: the Read view
+ *  does not print the title twice). Any other body is returned as it is. */
+export function withoutLeadingTitle(body: string, title: string): string {
+  const lines = body.split(/\r?\n/);
+  const i = lines.findIndex((l) => l.trim() !== '');
+  if (i === -1) return body;
+  const m = /^\s{0,3}#{1,6}\s+(.*?)\s*#*\s*$/.exec(lines[i] ?? '');
+  if (!m || normText(m[1] ?? '') !== normText(title)) return body;
+  return lines.slice(i + 1).join('\n');
+}

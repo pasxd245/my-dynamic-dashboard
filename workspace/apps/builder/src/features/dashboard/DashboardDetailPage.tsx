@@ -49,8 +49,8 @@ import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { NotFoundPage } from '@/components/NotFoundPage';
-import { AtAGlance, WidgetMetadataBadges } from '@/features/metadata/badges';
-import { MetadataBar, MetadataDockRow, useMetadataDock } from '@/features/metadata/dock';
+import { WidgetMetadataBadges } from '@/features/metadata/badges';
+import { MetadataBar, MetadataDockRow, dockBeside, useMetadataDock } from '@/features/metadata/dock';
 import { ApiErrorThrown } from '@/features/data-management/_shared/types';
 import { downloadWidgetExport } from './exportWidget';
 import type { MetadataEntries } from '@/features/metadata/types';
@@ -122,6 +122,10 @@ function newWidgetId(): string {
 /** One widget as a sortable grid cell. The drag activator is the HANDLE only
  *  (not the whole card), so the ⋯ menu and the interactive chart keep their
  *  clicks; the handle is keyboard-focusable (dnd-kit keyboard sensor). */
+// R206 — one empty list, so a widget without filters gets the same object every
+// render (its chart data memo keys on it).
+const NO_FILTERS: DashboardFilter[] = [];
+
 function SortableWidget({
   widget,
   gridCols,
@@ -298,10 +302,11 @@ export function DashboardDetailPage() {
   // R180 — one read serves the dashboard's own entries and every widget's;
   // R197 — under the viewer's values. R202 — and the dock's state (`?note=`).
   const metaDock = useMetadataDock('dashboard', dashboard?.id, viewer);
-  // R202 — the dock sits beside the grid from `lg`: the grid gives up one column
-  // while it is open, so widgets keep a readable width next to the note.
+  // R202 — the dock sits beside the grid: the grid gives up one column while it is
+  // open, so widgets keep a readable width next to the note. R206 — beside only from
+  // `xl`; below it the dock goes over the page and the grid keeps its columns.
   const gridCols: 1 | 2 | 3 =
-    metaDock.sel && screens.lg !== false && pageCols > 1 ? ((pageCols - 1) as 1 | 2) : pageCols;
+    metaDock.sel && dockBeside(screens) && pageCols > 1 ? ((pageCols - 1) as 1 | 2) : pageCols;
   const workspaceQueries = useQueriesQuery(workspaceId);
   const [controlsOpen, setControlsOpen] = useState(false);
   // What each widget's latest read used (by widget id; dropped when a read
@@ -337,7 +342,7 @@ export function DashboardDetailPage() {
   const [filtersByWidget, setFiltersByWidget] = useState<Record<string, DashboardFilter[]>>({});
   const [filterWidget, setFilterWidget] = useState<Widget | null>(null);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
-  const filtersFor = (id: string): DashboardFilter[] => filtersByWidget[id] ?? [];
+  const filtersFor = (id: string): DashboardFilter[] => filtersByWidget[id] ?? NO_FILTERS;
 
   // R199 (BA-C1) — an `f.` key naming no values control of this dashboard (a link
   // copied before the control was removed) is dropped from the URL on load; the
@@ -609,14 +614,11 @@ export function DashboardDetailPage() {
             childOrder: displayIds,
           }}
         >
-          <MetadataBar api={metaDock} />
-          <AtAGlance
+          {/* R206 — one Notes & insights block: the bar and its At a glance rows. */}
+          <MetadataBar
             key={dash.id}
-            dashboardId={dash.id}
-            read={metaDock.read}
-            childOrder={displayIds}
-            childLabel={widgetTitle}
-            onOpen={metaDock.open}
+            api={metaDock}
+            glance={{ dashboardId: dash.id, childOrder: displayIds, childLabel: widgetTitle }}
           />
 
           {ordered.length === 0 ? (

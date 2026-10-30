@@ -4,7 +4,7 @@
 // base bundle — and shares the same echarts chunk as HeatmapView.
 
 import * as echarts from 'echarts';
-import { useEffect, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
 
 const plainFmt = new Intl.NumberFormat();
 const compactFmt = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 });
@@ -13,7 +13,7 @@ const percentFmt = new Intl.NumberFormat(undefined, { style: 'percent', maximumF
 /** Render a scalar value as an ECharts gauge against `max` (the target).
  *  R116 — `compact` switches the number format (1.2K vs 1,234); R175 — `percent`
  *  reads the value (and target) as a 0..1 ratio. */
-export default function GaugeView({
+function GaugeView({
   value,
   max,
   label,
@@ -59,3 +59,6 @@ export default function GaugeView({
 
   return <div ref={ref} style={{ width: '100%', height: '100%' }} data-component="GaugeView" />;
 }
+
+// R206 — a note action re-renders the page, not this chart.
+export default memo(GaugeView);

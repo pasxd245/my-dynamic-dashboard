@@ -6,7 +6,7 @@
 
 import { WarningOutlined } from '@ant-design/icons';
 import { Spin, Table, Tooltip as AntTooltip, Statistic, Typography, theme } from 'antd';
-import { lazy, Suspense } from 'react';
+import { lazy, memo, Suspense, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Bar,
@@ -118,7 +118,7 @@ function ChartFigure({ label, children }: Readonly<{ label: string; children: Re
   );
 }
 
-function BarView({
+function BarViewImpl({
   data,
   valueName,
   palette,
@@ -158,7 +158,7 @@ function BarView({
   );
 }
 
-function MultiBarView({
+function MultiBarViewImpl({
   data,
   seriesKeys,
   palette,
@@ -187,7 +187,7 @@ function MultiBarView({
   );
 }
 
-function ScatterView({
+function ScatterViewImpl({
   data,
   xName,
   yName,
@@ -220,7 +220,7 @@ function ScatterView({
   );
 }
 
-function ComboView({
+function ComboViewImpl({
   data,
   name1,
   name2,
@@ -265,7 +265,7 @@ function ComboView({
   );
 }
 
-function LineView({
+function LineViewImpl({
   data,
   valueName,
   palette,
@@ -313,7 +313,7 @@ function LineView({
   );
 }
 
-function StatView({ value, label, fmt }: Readonly<{ value: number; label: string; fmt: Intl.NumberFormat }>) {
+function StatViewImpl({ value, label, fmt }: Readonly<{ value: number; label: string; fmt: Intl.NumberFormat }>) {
   return (
     <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', padding: 8 }}>
       <Statistic title={label} value={value} formatter={(v) => fmt.format(Number(v))} />
@@ -358,7 +358,7 @@ export function isRatioColumn(rows: readonly (readonly (string | null)[])[], ci:
  *  `TABLE_PAGE_ROWS × rows` (8 / 16 / 24). */
 export const TABLE_PAGE_ROWS = 8;
 
-function TableView({
+function TableViewImpl({
   columns,
   rows,
   percent = false,
@@ -442,7 +442,7 @@ export function formatTotal(v: number, dtype: string | undefined, percent: boole
   return ratioFmt.format(v);
 }
 
-function PieView({ data, palette }: Readonly<{ data: Datum[]; palette: string[] }>) {
+function PieViewImpl({ data, palette }: Readonly<{ data: Datum[]; palette: string[] }>) {
   const colored = data.map((d, i) => ({ ...d, fill: palette[i % palette.length] }));
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -472,6 +472,17 @@ function toWireFilters(filters: readonly DashboardFilter[]): AggregateFilter[] {
     values: f.values.map((v) => (v === BLANK_LABEL ? null : v)),
   }));
 }
+
+// R206 — every chart view is memoised: a re-render of the widget with the same data
+// (a note opened, the URL changed) does not re-render the chart.
+const BarView = memo(BarViewImpl);
+const MultiBarView = memo(MultiBarViewImpl);
+const ScatterView = memo(ScatterViewImpl);
+const ComboView = memo(ComboViewImpl);
+const LineView = memo(LineViewImpl);
+const StatView = memo(StatViewImpl);
+const TableView = memo(TableViewImpl);
+const PieView = memo(PieViewImpl);
 
 /** Roll a widget's data up to chart data per its config. Exported for the
  *  builder's live preview (same path as the rendered widget).
@@ -535,99 +546,123 @@ export function useWidgetChartData(
   const data = useWidgetData(widget.queryId, !aggregateEnabled, ctx, shared);
   const agg = useWidgetAggregate(widget.queryId, aggBody, aggregateEnabled);
 
-  const dimIdx = widget.dimensionCol ? findColIndex(data.columns, widget.dimensionCol) : -1;
-  const seriesIdx = widget.seriesCol ? findColIndex(data.columns, widget.seriesCol) : -1;
-  const measureIdx = widget.measureCol ? findColIndex(data.columns, widget.measureCol) : -1;
-  const measure2Idx = widget.measureCol2 ? findColIndex(data.columns, widget.measureCol2) : -1;
+  // R206 — the chart data is derived inside a memo keyed by the fetched results, the
+  // widget and its filters: a re-render with the same inputs (a note opened, the page's
+  // URL changed) hands every chart view the same objects, so a memoised view skips it.
+  // The parameter context reaches this only through the fetched results.
+  const derived = useMemo(() => {
+    const dimIdx = widget.dimensionCol ? findColIndex(data.columns, widget.dimensionCol) : -1;
+    const seriesIdx = widget.seriesCol ? findColIndex(data.columns, widget.seriesCol) : -1;
+    const measureIdx = widget.measureCol ? findColIndex(data.columns, widget.measureCol) : -1;
+    const measure2Idx = widget.measureCol2 ? findColIndex(data.columns, widget.measureCol2) : -1;
 
-  // R103 — client-side filter for the raw-row (non-aggregate) kinds; the
-  // aggregate kinds push filters server-side via `aggBody` instead.
-  const rows = applyFilters(data.rows, data.columns, filters);
+    // R103 — client-side filter for the raw-row (non-aggregate) kinds; the
+    // aggregate kinds push filters server-side via `aggBody` instead.
+    const rows = applyFilters(data.rows, data.columns, filters);
 
-  // gauge stays client-side (a scalar over raw rows); stat is overridden below.
-  let statValue: number | null = null;
-  if (widget.chartType === 'gauge') {
-    statValue = rows.length === 0 ? null : aggregateScalar(rows, measureIdx, aggKind);
-  }
-
-  // R111 — multi-series (grouped bar): a 2-D roll-up by dimension × series.
-  const multiSeries =
-    widget.chartType === 'bar' && dimIdx !== -1 && seriesIdx !== -1
-      ? aggregateByGroupSeries(rows, dimIdx, seriesIdx, measureIdx, aggKind)
-      : null;
-
-  // R112 — combo: two summed measures over the dimension (bar + line).
-  const comboData =
-    widget.chartType === 'combo' && dimIdx !== -1 && measureIdx !== -1 && measure2Idx !== -1
-      ? sumTwoMeasures(rows, dimIdx, measureIdx, measure2Idx, data.columns[dimIdx]?.dtype)
-      : null;
-
-  // R113 — scatter: raw (x, y) points, no aggregation.
-  const scatterData =
-    widget.chartType === 'scatter' && measureIdx !== -1 && measure2Idx !== -1
-      ? toScatterPoints(rows, measureIdx, measure2Idx)
-      : null;
-
-  // R114 — heatmap: a 2-D matrix (dimension × series → agg).
-  const matrixData =
-    widget.chartType === 'heatmap' && dimIdx !== -1 && seriesIdx !== -1
-      ? aggregateMatrix(rows, dimIdx, seriesIdx, measureIdx, aggKind)
-      : null;
-
-  // R117 — table: the raw (filtered) rows + columns, no transform.
-  const tableData = widget.chartType === 'table' ? { columns: data.columns, rows } : null;
-
-  // R119 — bar(no series)/pie/line/stat read the SERVER aggregate. A grouped
-  // result is `[dimension, measure]` rows → Datum (a null dim → `(blank)`),
-  // ordered like the client path (line → by dimension/dtype; bar/pie → desc).
-  // A scalar is one row; `null` only when the spec can't run (→ empty state).
-  let chartData: Datum[] = [];
-  if (aggregateEnabled) {
-    if (isScalar) {
-      statValue = agg.rows.length > 0 ? toNum(agg.rows[0][0]) : null;
-    } else {
-      const dimDtype = agg.columns[0]?.dtype ?? 'string';
-      const datums: Datum[] = agg.rows.map((r) => ({ label: labelOf(r[0]), value: toNum(r[1]) }));
-      chartData = widget.chartType === 'line' ? sortByDimension(datums, dimDtype) : sortDesc(datums);
-    }
-  } else if (directShaped) {
-    // R127 — the query already shaped the data: map its rows to chart data
-    // DIRECTLY (no re-aggregation). The measure is the named measureCol, else the
-    // shaped `count` column, else the last (measure) column.
-    const valueIdx = widget.measureCol
-      ? measureIdx
-      : findColIndex(data.columns, 'count') !== -1
-        ? findColIndex(data.columns, 'count')
-        : data.columns.length - 1;
-    if (isScalar) {
-      statValue = rows.length > 0 ? toNum(rows[0][valueIdx]) : null;
-    } else if (dimIdx !== -1) {
-      const dimDtype = data.columns[dimIdx]?.dtype ?? 'string';
-      const datums: Datum[] = rows.map((r) => ({ label: labelOf(r[dimIdx]), value: toNum(r[valueIdx]) }));
-      chartData = widget.chartType === 'line' ? sortByDimension(datums, dimDtype) : sortDesc(datums);
-    }
-  } else if (
-    usesAggregate &&
-    specValid &&
-    boundQuery.isSuccess &&
-    !measureNumericOk &&
-    measureIdx !== -1 &&
-    allCellsNumeric(rows, measureIdx)
-  ) {
-    // R191 — the measure is typed text, so the server `sum` was skipped
-    // (R151/F13). When every non-blank cell still reads as a number (digits
-    // stored as text), roll the raw rows up on the client — the fallback the
-    // comments above promised. When ANY cell is not a number ("1,200", "n/a"),
-    // no sum is honest: the card keeps its empty state rather than counting
-    // those cells as 0 (the server refuses the same sum, `measure_not_numeric`).
-    if (isScalar) {
+    // gauge stays client-side (a scalar over raw rows); stat is overridden below.
+    let statValue: number | null = null;
+    if (widget.chartType === 'gauge') {
       statValue = rows.length === 0 ? null : aggregateScalar(rows, measureIdx, aggKind);
-    } else if (dimIdx !== -1) {
-      const dimDtype = data.columns[dimIdx]?.dtype ?? 'string';
-      const datums = aggKind === 'count' ? countByGroup(rows, dimIdx) : sumByGroup(rows, dimIdx, measureIdx);
-      chartData = widget.chartType === 'line' ? sortByDimension(datums, dimDtype) : sortDesc(datums);
     }
-  }
+
+    // R111 — multi-series (grouped bar): a 2-D roll-up by dimension × series.
+    const multiSeries =
+      widget.chartType === 'bar' && dimIdx !== -1 && seriesIdx !== -1
+        ? aggregateByGroupSeries(rows, dimIdx, seriesIdx, measureIdx, aggKind)
+        : null;
+
+    // R112 — combo: two summed measures over the dimension (bar + line).
+    const comboData =
+      widget.chartType === 'combo' && dimIdx !== -1 && measureIdx !== -1 && measure2Idx !== -1
+        ? sumTwoMeasures(rows, dimIdx, measureIdx, measure2Idx, data.columns[dimIdx]?.dtype)
+        : null;
+
+    // R113 — scatter: raw (x, y) points, no aggregation.
+    const scatterData =
+      widget.chartType === 'scatter' && measureIdx !== -1 && measure2Idx !== -1
+        ? toScatterPoints(rows, measureIdx, measure2Idx)
+        : null;
+
+    // R114 — heatmap: a 2-D matrix (dimension × series → agg).
+    const matrixData =
+      widget.chartType === 'heatmap' && dimIdx !== -1 && seriesIdx !== -1
+        ? aggregateMatrix(rows, dimIdx, seriesIdx, measureIdx, aggKind)
+        : null;
+
+    // R117 — table: the raw (filtered) rows + columns, no transform.
+    const tableData = widget.chartType === 'table' ? { columns: data.columns, rows } : null;
+
+    // R119 — bar(no series)/pie/line/stat read the SERVER aggregate. A grouped
+    // result is `[dimension, measure]` rows → Datum (a null dim → `(blank)`),
+    // ordered like the client path (line → by dimension/dtype; bar/pie → desc).
+    // A scalar is one row; `null` only when the spec can't run (→ empty state).
+    let chartData: Datum[] = [];
+    if (aggregateEnabled) {
+      if (isScalar) {
+        statValue = agg.rows.length > 0 ? toNum(agg.rows[0][0]) : null;
+      } else {
+        const dimDtype = agg.columns[0]?.dtype ?? 'string';
+        const datums: Datum[] = agg.rows.map((r) => ({ label: labelOf(r[0]), value: toNum(r[1]) }));
+        chartData = widget.chartType === 'line' ? sortByDimension(datums, dimDtype) : sortDesc(datums);
+      }
+    } else if (directShaped) {
+      // R127 — the query already shaped the data: map its rows to chart data
+      // DIRECTLY (no re-aggregation). The measure is the named measureCol, else the
+      // shaped `count` column, else the last (measure) column.
+      const valueIdx = widget.measureCol
+        ? measureIdx
+        : findColIndex(data.columns, 'count') !== -1
+          ? findColIndex(data.columns, 'count')
+          : data.columns.length - 1;
+      if (isScalar) {
+        statValue = rows.length > 0 ? toNum(rows[0][valueIdx]) : null;
+      } else if (dimIdx !== -1) {
+        const dimDtype = data.columns[dimIdx]?.dtype ?? 'string';
+        const datums: Datum[] = rows.map((r) => ({ label: labelOf(r[dimIdx]), value: toNum(r[valueIdx]) }));
+        chartData = widget.chartType === 'line' ? sortByDimension(datums, dimDtype) : sortDesc(datums);
+      }
+    } else if (
+      usesAggregate &&
+      specValid &&
+      boundQuery.isSuccess &&
+      !measureNumericOk &&
+      measureIdx !== -1 &&
+      allCellsNumeric(rows, measureIdx)
+    ) {
+      // R191 — the measure is typed text, so the server `sum` was skipped
+      // (R151/F13). When every non-blank cell still reads as a number (digits
+      // stored as text), roll the raw rows up on the client — the fallback the
+      // comments above promised. When ANY cell is not a number ("1,200", "n/a"),
+      // no sum is honest: the card keeps its empty state rather than counting
+      // those cells as 0 (the server refuses the same sum, `measure_not_numeric`).
+      if (isScalar) {
+        statValue = rows.length === 0 ? null : aggregateScalar(rows, measureIdx, aggKind);
+      } else if (dimIdx !== -1) {
+        const dimDtype = data.columns[dimIdx]?.dtype ?? 'string';
+        const datums = aggKind === 'count' ? countByGroup(rows, dimIdx) : sumByGroup(rows, dimIdx, measureIdx);
+        chartData = widget.chartType === 'line' ? sortByDimension(datums, dimDtype) : sortDesc(datums);
+      }
+    }
+    return { statValue, multiSeries, comboData, scatterData, matrixData, tableData, chartData };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    widget,
+    data.rows,
+    data.columns,
+    agg.rows,
+    agg.columns,
+    filters,
+    aggKind,
+    isScalar,
+    aggregateEnabled,
+    directShaped,
+    usesAggregate,
+    specValid,
+    boundQuery.isSuccess,
+    measureNumericOk,
+  ]);
+  const { statValue, multiSeries, comboData, scatterData, matrixData, tableData, chartData } = derived;
 
   // R191 — a bound query that no longer exists (404) is its own state, not a
   // generic error: the card says "query unavailable".
@@ -743,7 +778,10 @@ function ChartWidgetView({ widget, extra, filters, badge }: WidgetViewProps) {
     { columns: totalsColumns(widget.totals), filters: [...toWireFilters(filters ?? []), ...shared], ...(ctx ?? {}) },
     totalsEnabled,
   );
-  const footerTotals = totalsEnabled ? computeTotals(widget.totals, totalsQ.sums) : undefined;
+  const footerTotals = useMemo(
+    () => (totalsEnabled ? computeTotals(widget.totals, totalsQ.sums) : undefined),
+    [totalsEnabled, widget.totals, totalsQ.sums],
+  );
 
   // R198 (D7) — the period runs past the data: say where the data ends (the
   // earliest `dataThrough` any resolved parameter reports). A note, not a block.

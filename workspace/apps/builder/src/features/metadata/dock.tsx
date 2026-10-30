@@ -10,9 +10,16 @@
 // Two views: Notes (one card per namespace) and Read (one entry in full). The
 // dock only reads — nothing in it edits an entry (R180).
 
-import { ArrowLeftOutlined, CloseOutlined, RobotOutlined } from '@ant-design/icons';
-import { Button, Drawer, Empty, Grid, Space, Tag, Typography } from 'antd';
-import type { ReactNode } from 'react';
+import {
+  ArrowLeftOutlined,
+  CloseOutlined,
+  DownOutlined,
+  RightOutlined,
+  RobotOutlined,
+  UpOutlined,
+} from '@ant-design/icons';
+import { Button, Drawer, Empty, Grid, Tag, Typography } from 'antd';
+import type { MouseEvent, ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -20,8 +27,18 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { SafeMarkdown } from '@/features/dashboard/SafeMarkdown';
 import { writeSearch } from '@/features/dashboard/sharedFilters';
 import { AnchorLines, PairsTable, anchorNotes, entryState, stateTag, when } from './MetadataPanel';
+import { GlanceRows, glanceItems, loadCollapsed, saveCollapsed } from './badges';
 import { useMetadataQuery } from './hooks';
-import { type ReadEntry, type Severity, firstLine, readEntries } from './reserved';
+import {
+  type ReadEntry,
+  type Severity,
+  TITLE_MAX,
+  displayLine,
+  displayTitle,
+  normText,
+  readEntries,
+  withoutLeadingTitle,
+} from './reserved';
 import { SeverityTag } from './severity';
 import type { MetadataAnchor, MetadataEntries, MetadataKind, MetadataParams, MetadataRead } from './types';
 
@@ -147,8 +164,9 @@ export function useMetadataDock(
 
 export const DOCK_WIDTH = 400;
 
-/** The page content and the dock, side by side from `lg`; below it the dock is
- *  a drawer and the content keeps the full width. `fill`: the row fills a
+/** The page content and the dock, side by side from `xl` (R206; was `lg`); below
+ *  it the dock goes OVER the page — a 400 px drawer from the right, a bottom sheet
+ *  below `md` — and the content keeps its width and grid. `fill`: the row fills a
  *  bounded page column (dataset, query, workflow pages) instead of growing. */
 export function MetadataDockRow({
   children,
@@ -157,7 +175,8 @@ export function MetadataDockRow({
   fill = false,
 }: Readonly<{ children: ReactNode; api: MetadataDockApi; cfg: DockConfig; fill?: boolean }>) {
   const screens = Grid.useBreakpoint();
-  const beside = screens.lg !== false;
+  const beside = dockBeside(screens);
+  const sheet = screens.md === false;
   const dock = api.sel ? (
     <MetadataDock cfg={cfg} read={api.read} sel={api.sel} fromAll={api.fromAll} onOpen={api.open} onClose={api.close} />
   ) : null;
@@ -187,7 +206,8 @@ export function MetadataDockRow({
             flex: `0 0 ${DOCK_WIDTH}px`,
             width: DOCK_WIDTH,
             ...(fill
-              ? { minHeight: 0, display: 'flex', flexDirection: 'column' }
+              ? // R206 — as tall as its content, up to the page column's height.
+                { alignSelf: 'flex-start', maxHeight: '100%', minHeight: 0, display: 'flex', flexDirection: 'column' }
               : {
                   position: 'sticky',
                   top: 16,
@@ -200,21 +220,39 @@ export function MetadataDockRow({
           {dock}
         </div>
       ) : null}
-      {dock && !beside ? <NarrowDock>{dock}</NarrowDock> : null}
+      {dock && !beside ? (
+        <OverDock sheet={sheet} onClose={api.close}>
+          {dock}
+        </OverDock>
+      ) : null}
     </div>
   );
 }
 
-/** Below `lg` the same dock content, in a drawer over the page. */
-function NarrowDock({ children }: Readonly<{ children: ReactNode }>) {
+/** R206 — where the dock goes for these breakpoints: beside the content from `xl`
+ *  (≥ 1200 px). Nothing known yet (first render, no `matchMedia`) → beside, as before. */
+export function dockBeside(screens: Readonly<Partial<Record<string, boolean>>>): boolean {
+  return screens.xl !== false;
+}
+
+/** Below `xl` the same dock content OVER the page (R206, design C): a 400 px drawer
+ *  from the right, or a bottom sheet below `md`. A light mask; a click on it closes,
+ *  as `Esc` and × do. The grid under it keeps its columns. */
+function OverDock({
+  children,
+  sheet,
+  onClose,
+}: Readonly<{ children: ReactNode; sheet: boolean; onClose: () => void }>) {
   return (
     <Drawer
       open
-      placement="right"
-      width="100%"
+      placement={sheet ? 'bottom' : 'right'}
+      size={sheet ? '85%' : DOCK_WIDTH}
       closable={false}
-      styles={{ body: { padding: 0 } }}
+      onClose={onClose}
+      styles={{ body: { padding: 0, display: 'flex', flexDirection: 'column' } }}
       data-component="MetadataDockDrawer"
+      data-placement={sheet ? 'bottom' : 'right'}
     >
       {children}
     </Drawer>
@@ -395,7 +433,7 @@ function NotesView({
               {g.childId ? g.label : `${t(`metadata.kind.${cfg.kind}`)} · ${g.label}`}
             </Typography.Text>
           ) : null}
-          <Space direction="vertical" size={8} style={{ width: '100%' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {g.read.map((r) => (
               <NoteCard
                 key={r.namespace}
@@ -409,7 +447,7 @@ function NotesView({
                 }
               />
             ))}
-          </Space>
+          </div>
         </section>
       ))}
       <Typography.Text type="secondary" style={{ fontSize: 11 }}>
@@ -437,15 +475,26 @@ function Chips({ item }: Readonly<{ item: ReadEntry }>) {
 }
 
 export function NoteCard({ item, onRead }: Readonly<{ item: ReadEntry; onRead: () => void }>) {
-  const { t } = useTranslation();
-  const line = item.summary ?? firstLine(item.body);
+  const { t, i18n } = useTranslation();
+  const title = displayTitle(item);
+  const line = displayLine(item);
   const shown = item.pairs.filter(([k]) => k !== '').slice(0, MAX_CARD_PAIRS);
   const more = item.pairs.filter(([k]) => k !== '').length - shown.length;
+  // R206 — a pointer click anywhere on the card opens it; the keyboard way in is the
+  // "View details" link-button. A click on a link or button inside, or one that ends a
+  // text selection, is left alone.
+  const onCardClick = (e: MouseEvent<HTMLDivElement>) => {
+    const target = e.target as Element | null;
+    if (target?.closest?.('a, button')) return;
+    if (typeof window !== 'undefined' && (window.getSelection?.()?.toString() ?? '') !== '') return;
+    onRead();
+  };
   return (
     <div
       data-component="MetadataCard"
       data-namespace={item.namespace}
       data-severity={item.severity ?? ''}
+      onClick={onCardClick}
       style={{
         border: '1px solid var(--ant-color-border-secondary, #f0f0f0)',
         borderRadius: 8,
@@ -453,11 +502,12 @@ export function NoteCard({ item, onRead }: Readonly<{ item: ReadEntry; onRead: (
         display: 'flex',
         flexDirection: 'column',
         gap: 6,
+        cursor: 'pointer',
       }}
     >
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
         <Typography.Text strong style={{ flex: '1 1 auto', minWidth: 0 }} data-component="MetadataCardTitle">
-          {item.title ?? item.namespace}
+          {title}
         </Typography.Text>
         <Chips item={item} />
       </div>
@@ -485,24 +535,26 @@ export function NoteCard({ item, onRead }: Readonly<{ item: ReadEntry; onRead: (
           ))}
         </dl>
       ) : null}
+      {more > 0 ? (
+        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+          {t('metadata.dock.more', { count: more })}
+        </Typography.Text>
+      ) : null}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <Button size="small" onClick={onRead} data-component="MetadataCardRead">
-          {t('metadata.dock.read')}
+        <Typography.Text type="secondary" style={{ fontSize: 12, minWidth: 0 }} data-component="MetadataCardBy">
+          {t('metadata.by', { author: item.entry.author, when: when(item.entry.writtenAt, i18n.language) })}
+        </Typography.Text>
+        <Button
+          type="link"
+          size="small"
+          onClick={onRead}
+          aria-label={t('metadata.card.detailsFor', { title })}
+          data-component="MetadataCardRead"
+          style={{ marginLeft: 'auto', paddingInline: 0 }}
+        >
+          {t('metadata.card.details')}
+          <RightOutlined />
         </Button>
-        {more > 0 ? (
-          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            {t('metadata.dock.more', { count: more })}
-          </Typography.Text>
-        ) : null}
-        {item.title ? (
-          <Typography.Text
-            type="secondary"
-            style={{ fontSize: 11, marginLeft: 'auto' }}
-            data-component="MetadataNamespace"
-          >
-            {item.namespace}
-          </Typography.Text>
-        ) : null}
       </div>
     </div>
   );
@@ -524,6 +576,11 @@ function ReadView({
   const { t, i18n } = useTranslation();
   const state = entryState(item.entry);
   const { summary, assumed, beforePeriods } = anchorNotes(item.entry, current, paramLabels, t);
+  const title = displayTitle(item);
+  // R206 — a body that opens with the title as a heading does not print it twice.
+  const body = withoutLeadingTitle(item.body, title);
+  // The summary under the heading — unless it became the heading (no title, short enough).
+  const lead = item.summary && (item.title || item.summary.length > TITLE_MAX) ? item.summary : undefined;
   return (
     <div data-component="MetadataRead" data-namespace={item.namespace}>
       <Button
@@ -537,10 +594,10 @@ function ReadView({
         {backLabel}
       </Button>
       <Typography.Title level={5} style={{ marginTop: 0, marginBottom: 6 }} data-component="MetadataReadTitle">
-        {item.title ?? item.namespace}
+        {title}
       </Typography.Title>
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-        {item.title ? (
+        {title !== item.namespace ? (
           <Tag style={{ marginInlineEnd: 0 }} data-component="MetadataNamespace">
             {item.namespace}
           </Tag>
@@ -557,13 +614,13 @@ function ReadView({
         </Typography.Text>
       ) : null}
       <AnchorLines state={state} assumed={assumed} beforePeriods={beforePeriods} paramLabels={paramLabels} />
-      {item.summary && !sameText(item.body, item.summary) ? (
+      {lead && !sameText(body, lead) ? (
         <Typography.Paragraph style={{ marginBottom: 8 }} data-component="MetadataReadSummary">
-          {item.summary}
+          {lead}
         </Typography.Paragraph>
       ) : null}
       <PairsTable pairs={item.pairs} />
-      <SafeMarkdown md={item.body} />
+      <SafeMarkdown md={body} />
       <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 8 }}>
         {t('metadata.by', { author: item.entry.author, when: when(item.entry.writtenAt, i18n.language) })}
       </Typography.Text>
@@ -577,14 +634,8 @@ function ReadView({
 /** True when the body already says the summary (whitespace and marks aside) —
  *  the Read view then does not print it twice. */
 function sameText(body: string, summary: string): boolean {
-  const norm = (x: string) =>
-    x
-      .replace(/[*_`>#|-]/g, '')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .toLowerCase();
-  const s = norm(summary).replace(/…$/, '');
-  return s.length > 0 && norm(body).includes(s);
+  const s = normText(summary).replace(/…$/, '');
+  return s.length > 0 && normText(body).includes(s);
 }
 
 // ─── the bar ───────────────────────────────────────────────────────────────
@@ -605,20 +656,40 @@ export function severityCounts(read: readonly ReadEntry[]): [Severity, number][]
     .map((s) => [s, counts.get(s) ?? 0]);
 }
 
-/** One line in place of R180's inline panel: count, the two most serious
- *  severities, Open (→ All notes). Nothing written → nothing. R205: an optional
- *  `hint` line under it (the dataset page explains its column dots). */
-export function MetadataBar({ api, hint }: Readonly<{ api: MetadataDockApi; hint?: ReactNode }>) {
+/** R206 — what a dashboard adds to the bar: its At a glance rows. */
+export type GlanceConfig = Readonly<{
+  dashboardId: string;
+  childOrder: readonly string[];
+  childLabel: (id: string) => string;
+}>;
+
+/** The Notes & insights bar (R202 → R206): label, counts, the two most serious
+ *  severities and a "View all" link to All notes — never a toggle; the dock's ×
+ *  or `Esc` closes. While All notes shows, the same element reads "Showing all
+ *  notes" (`aria-disabled`), so focus has somewhere to return on close. With
+ *  `glance` (a dashboard) the bar is one block holding the At a glance rows,
+ *  collapsible. Nothing written → nothing. R205: an optional `hint` line under it. */
+export function MetadataBar({
+  api,
+  hint,
+  glance,
+}: Readonly<{ api: MetadataDockApi; hint?: ReactNode; glance?: GlanceConfig }>) {
   const { t } = useTranslation();
   const all = useMemo(() => allRead(api.read), [api.read]);
+  const rows = useMemo(
+    () => (glance ? glanceItems(api.read, glance.childOrder, glance.childLabel) : []),
+    [glance, api.read],
+  );
+  const [collapsed, setCollapsed] = useState(() => (glance ? loadCollapsed(glance.dashboardId) : false));
   if (all.length === 0) return null;
   const ai = all.filter((r) => r.entry.source === 'ai').length;
-  const isOpen = api.sel?.scope === 'all';
-  return (
-    <div
-      data-component="MetadataBar"
-      style={{ flex: '0 0 auto', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 12 }}
-    >
+  const showingAll = api.sel?.scope === 'all';
+  const toggle = () => {
+    if (glance) saveCollapsed(glance.dashboardId, !collapsed);
+    setCollapsed(!collapsed);
+  };
+  const header = (
+    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
       <Typography.Text strong>{t('metadata.title')}</Typography.Text>
       <Typography.Text type="secondary" style={{ fontSize: 12 }}>
         {t('metadata.count', { count: all.length })}
@@ -630,20 +701,78 @@ export function MetadataBar({ api, hint }: Readonly<{ api: MetadataDockApi; hint
           <SeverityTag key={s} severity={s} count={n} />
         ))}
       <Button
+        type="link"
         size="small"
-        type={isOpen ? 'primary' : 'default'}
-        onClick={() => (isOpen ? api.close() : api.open({ scope: 'all' }))}
-        aria-pressed={isOpen}
+        onClick={() => {
+          if (!showingAll) api.open({ scope: 'all' });
+        }}
+        aria-disabled={showingAll}
         data-component="MetadataBarOpen"
+        data-showing={showingAll ? 'true' : 'false'}
+        style={{
+          paddingInline: 4,
+          ...(showingAll ? { color: 'var(--ant-color-text-secondary, #595959)', cursor: 'default' } : {}),
+        }}
       >
-        {isOpen ? t('metadata.dock.close') : t('metadata.bar.open')}
+        {showingAll ? (
+          t('metadata.bar.showing')
+        ) : (
+          <>
+            {t('metadata.bar.viewAll')}
+            <RightOutlined />
+          </>
+        )}
       </Button>
-      {hint ? (
-        // R205 — one secondary line under the bar, e.g. what the dataset page's column dots mean.
-        <Typography.Text type="secondary" style={{ flexBasis: '100%', fontSize: 12 }} data-component="MetadataBarHint">
-          {hint}
-        </Typography.Text>
+      {glance && rows.length > 0 ? (
+        <Button
+          type="text"
+          size="small"
+          onClick={toggle}
+          aria-expanded={!collapsed}
+          icon={collapsed ? <DownOutlined /> : <UpOutlined />}
+          data-component="MetadataBarCollapse"
+          style={{ marginLeft: 'auto' }}
+        >
+          {collapsed ? t('metadata.glance.expand') : t('metadata.glance.collapse')}
+        </Button>
       ) : null}
     </div>
+  );
+  const hintLine = hint ? (
+    // R205 — one secondary line under the bar, e.g. what the dataset page's column dots mean.
+    <Typography.Text
+      type="secondary"
+      style={{ display: 'block', fontSize: 12, marginTop: 4 }}
+      data-component="MetadataBarHint"
+    >
+      {hint}
+    </Typography.Text>
+  ) : null;
+  if (!glance)
+    return (
+      <div data-component="MetadataBar" style={{ flex: '0 0 auto', marginBottom: 12 }}>
+        {header}
+        {hintLine}
+      </div>
+    );
+  return (
+    <section
+      data-component="MetadataBar"
+      data-block="true"
+      data-collapsed={collapsed ? 'true' : 'false'}
+      aria-label={t('metadata.title')}
+      style={{
+        flex: '0 0 auto',
+        marginBottom: 16,
+        padding: '10px 14px',
+        border: '1px solid var(--ant-color-border-secondary, #f0f0f0)',
+        borderRadius: 8,
+        background: 'var(--ant-color-bg-container, #fff)',
+      }}
+    >
+      {header}
+      {!collapsed && rows.length > 0 ? <GlanceRows items={rows} sel={api.sel} onOpen={api.open} /> : null}
+      {hintLine}
+    </section>
   );
 }

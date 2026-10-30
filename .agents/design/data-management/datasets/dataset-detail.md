@@ -509,7 +509,7 @@ rows (R202 visual gate; the first user's screen).
   its field right below. `▾` when open; `aria-expanded` + `aria-controls`
   (the section's wrapper keeps its id while folded). No extra row. (R204
   put both in the toolbar; Details then opened two rows above its toggle,
-  under the Metadata bar.)
+  under the Notes & insights bar.)
 - **Default** — open on a viewport at least `SHORT_VIEWPORT_PX` (760 CSS
   px) tall, folded below it (`matchMedia('(max-height: 759px)')`,
   follows resizes). The subtitle keeps rows · columns · size · uploaded;
@@ -520,7 +520,7 @@ rows (R202 visual gate; the first user's screen).
   / `0`); a recorded choice wins over the viewport default on every
   dataset. Blocked storage → the choice lasts the visit.
 - **Never folded** — the frozen-copy band (a state, not context), the
-  one-line Metadata bar (the dock's entry point), the row search, the
+  one-line Notes & insights bar (the dock's entry point), the row search, the
   active filter chips and an **active advanced query**: while `?aq=` is
   set the input shows whatever the choice, and its toggle is not offered
   (a filter that governs the rows is never hidden). Once shown for that
@@ -820,7 +820,7 @@ Dataset` (incl. `refreshedAt`, `dataVersion`, `coverage` on temporal
     in the subtitle line (not the toolbar); the open strip shows Workspace,
     Data version and Format only, the Properties drawer all seven fields;
     the subtitle's relative time is lower case inline; with column notes
-    the Metadata bar shows the dot hint, without them — or with notes only
+    the Notes & insights bar shows the dot hint, without them — or with notes only
     on hidden columns, which draw no dot — no hint
     (`dataset-context-r205.test.tsx`, C1–C5).
 

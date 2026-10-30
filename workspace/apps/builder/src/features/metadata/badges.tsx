@@ -8,12 +8,20 @@
 
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { Button, Tooltip, Typography } from 'antd';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { entryState } from './MetadataPanel';
 import type { NoteSel } from './dock';
-import { type ReadEntry, type Severity, firstLine, readEntries, severityRank, topSeverity } from './reserved';
+import {
+  type ReadEntry,
+  type Severity,
+  displayLine,
+  displayTitle,
+  readEntries,
+  severityRank,
+  topSeverity,
+} from './reserved';
 import { SeverityTag, useSeverityDotColor } from './severity';
 import type { MetadataEntries, MetadataRead } from './types';
 
@@ -37,7 +45,7 @@ export function WidgetMetadataBadges({
   if (read.length === 0) return null;
   const { chips, rest } = badgeParts(read);
   const label = t('metadata.widgetTooltip');
-  const titles = read.map((r) => r.title ?? r.namespace).join(' · ');
+  const titles = read.map(displayTitle).join(' · ');
   if (chips.length === 0)
     return (
       <Tooltip title={`${label}: ${titles}`}>
@@ -91,7 +99,7 @@ export function ColumnNoteDot({
   if (read.length === 0) return null;
   const label = t('metadata.columnTooltip', { column, count: read.length });
   return (
-    <Tooltip title={`${label}: ${read.map((r) => r.title ?? r.namespace).join(' · ')}`}>
+    <Tooltip title={`${label}: ${read.map(displayTitle).join(' · ')}`}>
       <button
         type="button"
         aria-label={label}
@@ -156,7 +164,7 @@ export function glanceItems(
 
 const GLANCE_KEY = 'mdd.atAGlance.collapsed.';
 
-function loadCollapsed(id: string): boolean {
+export function loadCollapsed(id: string): boolean {
   try {
     return globalThis.localStorage?.getItem(GLANCE_KEY + id) === '1';
   } catch {
@@ -164,7 +172,7 @@ function loadCollapsed(id: string): boolean {
   }
 }
 
-function saveCollapsed(id: string, collapsed: boolean) {
+export function saveCollapsed(id: string, collapsed: boolean) {
   try {
     if (collapsed) globalThis.localStorage?.setItem(GLANCE_KEY + id, '1');
     else globalThis.localStorage?.removeItem(GLANCE_KEY + id);
@@ -173,61 +181,40 @@ function saveCollapsed(id: string, collapsed: boolean) {
   }
 }
 
-export function AtAGlance({
-  dashboardId,
-  read,
-  childOrder,
-  childLabel,
+/** Is this entry the one the dock is reading? */
+function isReading(sel: NoteSel | null, namespace: string, childId: string | undefined): boolean {
+  if (!sel || sel.scope === 'all' || sel.ns !== namespace) return false;
+  return childId ? sel.scope === 'child' && sel.child === childId : sel.scope === 'self';
+}
+
+/** R206 — At a glance as rows INSIDE the Notes & insights block (was its own strip):
+ *  each row one button — chip, title, the widget's name, a two-line summary and a
+ *  decorative "Details ›"; the row the dock is reading is marked. */
+export function GlanceRows({
+  items,
+  sel,
   onOpen,
-}: Readonly<{
-  dashboardId: string;
-  read: MetadataRead | undefined;
-  childOrder: readonly string[];
-  childLabel: (id: string) => string;
-  onOpen: (sel: NoteSel) => void;
-}>) {
+}: Readonly<{ items: readonly GlanceItem[]; sel: NoteSel | null; onOpen: (sel: NoteSel) => void }>) {
   const { t } = useTranslation();
-  const [collapsed, setCollapsed] = useState(() => loadCollapsed(dashboardId));
-  const items = useMemo(() => glanceItems(read, childOrder, childLabel), [read, childOrder, childLabel]);
-  if (items.length === 0) return null;
-  const toggle = () => {
-    saveCollapsed(dashboardId, !collapsed);
-    setCollapsed(!collapsed);
-  };
   return (
-    <section
+    <ul
       data-component="AtAGlance"
-      data-collapsed={collapsed ? 'true' : 'false'}
-      aria-label={t('metadata.glance.title')}
+      aria-label={t('metadata.glance.label')}
       style={{
-        marginBottom: 16,
-        padding: '10px 14px',
-        border: '1px solid var(--ant-color-border-secondary, #f0f0f0)',
-        borderRadius: 8,
-        background: 'var(--ant-color-bg-container, #fff)',
+        listStyle: 'none',
+        margin: '8px 0 0',
+        padding: 0,
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+        gap: 8,
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <Typography.Text strong>{t('metadata.glance.title')}</Typography.Text>
-        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-          {t('metadata.glance.hint')}
-        </Typography.Text>
-        <Button size="small" type="text" onClick={toggle} style={{ marginLeft: 'auto' }} aria-expanded={!collapsed}>
-          {collapsed ? t('metadata.show') : t('metadata.hide')}
-        </Button>
-      </div>
-      {collapsed ? null : (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: `repeat(auto-fit, minmax(220px, 1fr))`,
-            gap: 10,
-            marginTop: 8,
-          }}
-        >
-          {items.map(({ item, childId, childLabel: label }) => (
+      {items.map(({ item, childId, childLabel: label }) => {
+        const current = isReading(sel, item.namespace, childId);
+        const line = displayLine(item);
+        return (
+          <li key={`${childId ?? '.'}:${item.namespace}`} style={{ minWidth: 0 }}>
             <button
-              key={`${childId ?? '.'}:${item.namespace}`}
               type="button"
               onClick={() =>
                 onOpen(
@@ -236,14 +223,19 @@ export function AtAGlance({
                     : { scope: 'self', ns: item.namespace },
                 )
               }
+              aria-current={current ? 'true' : undefined}
               data-component="AtAGlanceItem"
               data-severity={item.severity}
               style={{
+                width: '100%',
+                height: '100%',
                 textAlign: 'left',
                 cursor: 'pointer',
-                border: '1px solid var(--ant-color-border-secondary, #f0f0f0)',
-                borderRadius: 8,
-                background: 'var(--ant-color-fill-quaternary, rgba(0,0,0,0.02))',
+                border: `1px solid ${current ? 'var(--ant-color-primary-border, #91caff)' : 'var(--ant-color-border-secondary, #f0f0f0)'}`,
+                borderRadius: 6,
+                background: current
+                  ? 'var(--ant-color-primary-bg, #e6f4ff)'
+                  : 'var(--ant-color-fill-quaternary, rgba(0,0,0,0.02))',
                 padding: '8px 10px',
                 display: 'flex',
                 flexDirection: 'column',
@@ -252,22 +244,40 @@ export function AtAGlance({
                 color: 'inherit',
               }}
             >
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
                 {item.severity ? <SeverityTag severity={item.severity} /> : null}
-                <Typography.Text strong ellipsis style={{ minWidth: 0 }}>
-                  {item.title ?? item.namespace}
+                <Typography.Text strong ellipsis style={{ flex: '1 1 auto', minWidth: 0 }}>
+                  {displayTitle(item)}
+                  {label ? (
+                    <Typography.Text type="secondary" style={{ fontWeight: 400 }}>
+                      {` · ${label}`}
+                    </Typography.Text>
+                  ) : null}
                 </Typography.Text>
+                <span
+                  aria-hidden="true"
+                  style={{ color: 'var(--ant-color-link, #1677ff)', fontSize: 12, whiteSpace: 'nowrap' }}
+                >
+                  {current ? null : `${t('metadata.glance.details')} ›`}
+                </span>
               </span>
-              <Typography.Text style={{ fontSize: 13 }}>{item.summary ?? firstLine(item.body)}</Typography.Text>
-              {label ? (
-                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                  {label}
-                </Typography.Text>
+              {line ? (
+                <span
+                  style={{
+                    fontSize: 13,
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {line}
+                </span>
               ) : null}
             </button>
-          ))}
-        </div>
-      )}
-    </section>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

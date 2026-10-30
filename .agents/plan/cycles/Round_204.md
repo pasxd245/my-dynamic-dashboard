@@ -1,10 +1,10 @@
 # Round 204: fold the dataset page's context on short screens (item 5.4)
 
-**Status**: Review
+**Status**: Complete (owner walk 2026-10-30, G6 passed)
 **Flow**: **DCFBI** — builder-only: two toggles and a viewport default on the dataset page; no
 contract, route, engine or migration change.
 **Date started**: 2026-10-29
-**Date completed**: —
+**Date completed**: 2026-10-30
 
 ## Goal
 

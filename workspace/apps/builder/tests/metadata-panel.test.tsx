@@ -7,7 +7,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App } from 'antd';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { AntdConfig } from '@mdd/ui';
 import { AppLayout } from '@/components/AppLayout';
@@ -15,6 +15,15 @@ import { DatasetDetailPage } from '@/features/data-management/datasets/DatasetDe
 import { splitFrontmatter } from '@/features/metadata/frontmatter';
 import { MetadataEntryView, MetadataPanel } from '@/features/metadata/MetadataPanel';
 import { MOCK_DATASET } from '@/mocks/fixtures';
+
+afterEach(() =>
+  (
+    window as unknown as { happyDOM: { setWindowSize: (s: { width: number; height: number }) => void } }
+  ).happyDOM.setWindowSize({
+    width: 1024,
+    height: 768,
+  }),
+);
 
 function withProviders(ui: React.ReactNode, path = '/') {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -100,6 +109,13 @@ describe('R180 MetadataPanel', () => {
   // R202 — the dataset page reads by layer: a one-line bar, a dot on the
   // column header, and the dock beside the table (All notes → Read).
   it('shows the dataset page bar, the column dot and the dock with both entries', async () => {
+    // R206 — the dock sits beside the table from 1200 px (happy-dom's window is 1024 by default).
+    (
+      window as unknown as { happyDOM: { setWindowSize: (s: { width: number; height: number }) => void } }
+    ).happyDOM.setWindowSize({
+      width: 1440,
+      height: 900,
+    });
     const { container } = withProviders(
       <AppLayout>
         <Routes>
@@ -113,7 +129,7 @@ describe('R180 MetadataPanel', () => {
       if (!el) throw new Error('no bar');
       return el as HTMLElement;
     });
-    expect(bar.textContent).toContain('2 entries');
+    expect(bar.textContent).toContain('2 notes'); // R206 — notes, not entries
     expect(bar.textContent).toContain('2 by AI');
     // The inline R180 panel is gone from the page.
     expect(container.querySelector('[data-component="MetadataPanel"]')).toBeNull();

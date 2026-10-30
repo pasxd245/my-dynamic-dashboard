@@ -5,7 +5,7 @@
 // chunk and only loads when a heatmap actually renders.
 
 import * as echarts from 'echarts';
-import { useEffect, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
 
 import type { Matrix } from './aggregate';
 
@@ -14,7 +14,7 @@ const numberFmt = new Intl.NumberFormat();
 /** Render a 2-D matrix as an ECharts heatmap. Self-contained: inits on a div
  *  ref, re-renders on data/palette change, resizes with its container, and
  *  disposes on unmount. */
-export default function HeatmapView({ matrix, palette }: Readonly<{ matrix: Matrix; palette: string[] }>) {
+function HeatmapView({ matrix, palette }: Readonly<{ matrix: Matrix; palette: string[] }>) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -49,3 +49,6 @@ export default function HeatmapView({ matrix, palette }: Readonly<{ matrix: Matr
 
   return <div ref={ref} style={{ width: '100%', height: '100%' }} data-component="HeatmapView" />;
 }
+
+// R206 — a note action re-renders the page, not this chart.
+export default memo(HeatmapView);

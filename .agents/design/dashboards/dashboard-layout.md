@@ -138,7 +138,7 @@ Live dashboards over your data — each widget re-runs a saved query.
 ```text
 Home ▸ Dashboards ▸ Sales demo ▸ Weekly report                          [+ Add widget]
 Weekly report
-▸ Metadata  3 entries · 1 by AI                          (only when something is written)
+Notes & insights  3 notes · 1 by AI   [Warn 1]   View all ›   (only when something is written; R206)
      column 1                    column 2                    column 3
 ┌─────────────────────────┐ ┌─────────────────────────┐ ┌─────────────────────────┐
 │ ① Calls by agent ⋮⋮ ⓘ ⏷ ⋯│ │ ② CR2 trend      ⋮⋮ ⏷ ⋯ │ │ ③ This week (note) ⋮⋮ ⋯ │
@@ -160,10 +160,10 @@ Weekly report
 - **Breadcrumb** mirrors the nav: `Home › Dashboards › ‹Workspace› › ‹name›`; only Home links
   (Dashboards and the workspace are nav groupings with no page).
 - **Header action**: `Add widget` opens the builder ([widgets.md](widgets.md)).
-- **Metadata panel** (`MetadataPanel kind="dashboard"`): a collapsible, read-only list of the
-  dashboard's own entries and, grouped under each widget's title (`childLabel`), every widget's
-  entries. Renders nothing while loading or when no entry exists. Shape, badges and the write
-  API are owned by [metadata.md](../data-management/_shared/metadata.md).
+- **Notes & insights block** (R202 → R206; replaced R180's inline panel): the bar line, the most
+  serious current notes as rows, and the reading pane — beside the grid from 1200 px (the grid gives
+  up a column), over it below. Read-only. Shape, badges, placement and the write API are owned by
+  [metadata.md](../data-management/_shared/metadata.md) § Reading by layer.
 - **Empty dashboard**: a card with `dashboard.noWidgets` and an `Add your first widget` button.
 - **Unknown slug** (deleted, stale or mistyped link): the global `NotFoundPage`, not a
   dashboard-flavoured page.
@@ -224,8 +224,8 @@ to the title (tooltip: first `DASHBOARD_MAX_ROWS` = 10 000 of N rows); see
 
 1. **Drag handle** (`HolderOutlined`, `cursor: move`) — only when the dashboard has ≥ 2 widgets.
    The handle is the only drag activator, so the chart and menus keep their clicks.
-2. **Metadata** (`InfoCircleOutlined`) — only when the widget has ≥ 1 metadata entry; a click
-   popover renders the same read-only `MetadataEntriesList` (max 420 × 360, scrolls). The
+2. **Notes** — only when the widget has ≥ 1 entry: severity chips (`+N`) or the ⓘ button
+   (`WidgetMetadataButton`); a click opens the reading pane on the widget (R202; was a popover). The
    entries come from the dashboard's single metadata read (`children[widget.id]`).
 3. **Export** (`DownloadOutlined`) — `table` widgets only; a menu with
    `Download as Excel (.xlsx)` and `Download as CSV` ([widgets.md § Export](widgets.md#export)).
@@ -354,8 +354,8 @@ to see the same widgets re-run on the new upload.
 9. **Filter drawer** _(FE)_ — offers the widget's non-numeric columns and their distinct values;
    the filter icon is filled while a filter has values; filters reset on reload; notes have no
    filter button.
-10. **Metadata** _(FE)_ — the page panel and the widget ⓘ popover appear only when entries exist
-    and offer nothing to edit.
+10. **Metadata** _(FE)_ — the Notes & insights block and the widget's chips / ⓘ appear only when
+    entries exist and offer nothing to edit (R206; was the page panel and a popover).
 11. **Contract** _(pytest)_ — create `201`, list newest-first, get / put `404` on an unknown id,
     a widget bound to another workspace's query is `422`, and an absent optional widget field is
     not backfilled on read.

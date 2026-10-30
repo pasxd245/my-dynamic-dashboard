@@ -1,11 +1,11 @@
 # Round 205: the dataset page's context controls sit beside what they open (item 5.5)
 
-**Status**: Review
+**Status**: Complete (owner walk 2026-10-30, G6 passed)
 **Flow**: **DCFBI** — builder-only: a toggle moves to the subtitle line, the Details strip drops
 repeated fields, the Metadata bar gains an optional hint line, one inline time form; no contract,
 route, engine or migration change.
 **Date started**: 2026-10-30
-**Date completed**: —
+**Date completed**: 2026-10-30
 
 ## Goal
 

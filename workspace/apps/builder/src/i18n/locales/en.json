@@ -1431,9 +1431,9 @@
     }
   },
   "metadata": {
-    "title": "Metadata",
-    "count_one": "{{count}} entry",
-    "count_other": "{{count}} entries",
+    "title": "Notes & insights",
+    "count_one": "{{count}} note",
+    "count_other": "{{count}} notes",
     "aiCount_one": "{{count}} by AI",
     "aiCount_other": "{{count}} by AI",
     "ai": "AI",
@@ -1441,7 +1441,7 @@
     "by": "{{author}} · {{when}}",
     "empty": "Nothing written here yet.",
     "readOnlyHint": "Read-only — written through the API; the author changes it by writing again.",
-    "widgetTooltip": "Metadata on this widget",
+    "widgetTooltip": "Notes on this widget",
     "state": {
       "refreshed": "Data refreshed since this was written",
       "otherPeriod": "Another period",
@@ -1474,19 +1474,25 @@
       "close": "Close",
       "allNotes": "All notes",
       "notes": "Notes",
-      "read": "Read",
       "more_one": "+{{count}} more field",
       "more_other": "+{{count}} more fields"
     },
     "bar": {
-      "open": "Open"
+      "viewAll": "View all",
+      "showing": "Showing all notes"
     },
     "glance": {
-      "title": "At a glance",
-      "hint": "the most serious current notes"
+      "label": "Most serious notes",
+      "details": "Details",
+      "collapse": "Collapse",
+      "expand": "Expand"
     },
-    "columnTooltip_one": "Metadata on {{column}} ({{count}} note)",
-    "columnTooltip_other": "Metadata on {{column}} ({{count}} notes)"
+    "columnTooltip_one": "Notes on {{column}} ({{count}} note)",
+    "columnTooltip_other": "Notes on {{column}} ({{count}} notes)",
+    "card": {
+      "details": "View details",
+      "detailsFor": "View details: {{title}}"
+    }
   },
   "history": {
     "button": "History",

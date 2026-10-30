@@ -127,3 +127,31 @@ R204's review against the accepted design found four small gaps on the dataset p
   stays one row and the table still shows at least five rows.
 
 _Not in this item:_ the query and workflow pages; a severity legend with coloured samples.
+
+## 5.6 Notes and insights: one block, a link not a toggle, cards you click, charts that stay still
+
+|       |                                                                                                            |
+| ----- | ---------------------------------------------------------------------------------------------------------- |
+| Track | 1                                                                                                          |
+| Flow  | **DCFBI** — builder-only: the metadata bar and block, cards, Read view, dock placement, widget render path |
+| Added | by the owner, 2026-10-30, after reading the first install's real notes; design A + C responsive chosen     |
+| Round | `Round_206`                                                                                                |
+
+Using 5.2's reading surface on real notes (211 entries by an agent), the owner logged: "Open" with no
+object and a toggle that repeats the dock's ×; the bar and At a glance saying the same thing twice;
+cards reachable only through a small button, showing the namespace id; and lag (every open, read and
+close re-rendered every chart):
+
+- **Builder:** the bar reads "Notes & insights" with a "View all N ›" link (no toggle; × / `Esc`
+  close); on a dashboard the bar is one block holding the ≤ 3 serious notes (At a glance merged,
+  collapsible); a card opens on click and has a "View details ›" link, no namespace, a title from the
+  summary when there is none; the Read view does not repeat a leading heading equal to the title; the
+  dock sits beside the data from 1200 px, over it (right drawer, bottom sheet below 768 px) under that;
+  chart views are memoised so a note never re-renders a chart.
+- **Docs:** `metadata.md` § Reading by layer + AC 11.
+- **Gate:** builder tests green; QA probe on a 7-widget dashboard (production build, CPU × 4): read
+  ≤ 250 ms, open / close ≤ 600 ms, zero chart renders per note action; visual gate at 1440 × 810,
+  1024 × 768 and 390 × 844 (EN + VI).
+
+_Not in this item:_ previous / next between notes in the Read view; the query and workflow pages'
+own layout; the launcher that runs the builder in dev mode (an install's script, outside this repo).

@@ -8,6 +8,7 @@
 // replacing the paged-at-100 loop.
 
 import { theme } from 'antd';
+import { useMemo } from 'react';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { dashboardsApi } from '@/api/dashboardsApi';
@@ -310,7 +311,11 @@ export function useChartPalette(): string[] {
     token.volcano,
     token.colorInfo,
   ];
-  return [...new Set(hues.filter((h): h is string => typeof h === 'string' && h.length > 0))];
+  const key = hues.join('|');
+  // R206 — the same list object while the theme's colours are the same, so a
+  // memoised chart view is not re-rendered by a new palette array.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  return useMemo(() => [...new Set(hues.filter((h): h is string => typeof h === 'string' && h.length > 0))], [key]);
 }
 
 // ─── R101 — dashboard CRUD (persisted noun, real API) ────────────────

@@ -146,29 +146,37 @@ data it explains**. Four layers, each optional to the reader:
 **Reserved frontmatter keys** — the builder reads three keys and only these; every other key is
 an uninterpreted pair as before (the R180 rule, kept for them). The server does not validate them.
 
-| Key        | Valid value                              | Used for                                   | Invalid →          |
-| ---------- | ---------------------------------------- | ------------------------------------------ | ------------------ |
-| `title`    | 1–80 characters                          | card / Read heading (else the namespace)   | shown as a pair    |
-| `summary`  | 1–200 characters                         | the card's line, At a glance               | shown as a pair    |
-| `severity` | `info` \| `warn` \| `error` \| `decide` | chip, badge, order, At a glance filter     | shown as a pair    |
+| Key        | Valid value                             | Used for                                      | Invalid →       |
+| ---------- | --------------------------------------- | --------------------------------------------- | --------------- |
+| `title`    | 1–80 characters                         | card / Read heading (else the summary — R206) | shown as a pair |
+| `summary`  | 1–200 characters                        | the card's line, At a glance                  | shown as a pair |
+| `severity` | `info` \| `warn` \| `error` \| `decide` | chip, badge, order, At a glance filter        | shown as a pair |
 
 A frontmatter **key** may be written in any script and hold inner spaces (`Dữ liệu đến: 18/10`),
 ≤ 40 characters (R202; R180 accepted ASCII keys only and showed others with an empty key).
 A card without `summary` shows the body's first line (plain, ≤ 200 chars; a table row reads as
-its cells joined by `·`). The Read view does not repeat a `summary` the body already says. Order everywhere:
+its cells joined by `·`). The Read view does not repeat a `summary` the body already says.
+**Title fallback (R206):** `title`, else the `summary`, else the body's first line; the namespace only
+when the note has no text; a line used as the title is not printed again under it. One rule
+(`displayTitle` / `displayLine`) serves cards, Read, glance rows and the widget / column tooltips.
+Heading and title are compared like the summary rule: marks and spacing aside, case-insensitive. The Read
+view does not render a **leading heading whose text equals the title** (the rest of the body is
+unchanged). Order everywhere:
 `error` → `decide` → `warn` → `info` → none, then namespace.
 
 ```text
-┌ Dashboard ─────────────────────────────────────────────┐┌ Metadata · Widget ─────────── × ┐
-│ [Metadata 24 · ■2 error ■3 decide   Open]  ← bar       ││ Month vs same days last month   │
-│ ┌ At a glance ─────────────────────── Hide ┐           ││ 3 notes                         │
-│ │ [Decide] Title  summary…   [Warn] …      │ ≤ 3 cards ││ ┌ Insight     [Decide] [AI]  ┐  │
-│ └──────────────────────────────────────────┘           ││ │ one-line summary            │  │
-│ ┌ Widget A ── [Decide][Warn] +1 ⋯ ┐ ┌ Widget B ─ ⓘ ┐   ││ │ owner   …   due  …          │  │
-│ │  numbers                         │ │             │   ││ │                 [Read]      │  │
-│ └──────────────────────────────────┘ └─────────────┘   ││ └─────────────────────────────┘  │
-│                    the grid narrows; nothing covered   ││ ┌ How to read  [Info] …  ┐       │
-└────────────────────────────────────────────────────────┘└─────────────────────────────────┘
+┌ Dashboard (≥ 1200 px: the pane beside) ──────────────────┐┌ Notes & insights · Dashboard ─ × ┐
+│ ┌ Notes & insights 11 notes · 11 by AI [Decide 1][Warn 1]││ ‹ All notes (11)                 │
+│ │                 Showing all notes          ⌃ Collapse ┐ ││ Sign-ups fell in region North    │
+│ │ [Decide] Title — summary…               (being read)  │ ││ [Decide] [AI] agent · 28/10      │
+│ │ [Warn]   Title · Widget B — summary…      Details ›   │ ││ body, tables…                    │
+│ └────────────────────────────────────────────────────────┘ ││                                  │
+│ ┌ Widget A ─ [Decide][Warn] +1 ⋯ ┐ ┌ Widget B ─ ⓘ ┐       ││                                  │
+│ └──────────────────────────────────┘ └─────────────┘       ││                                  │
+│                      the grid narrows; nothing covered     │└──────────────────────────────────┘
+└─────────────────────────────────────────────────────────────┘
+768–1199 px: the same pane as a 400 px drawer over the page (the grid keeps its columns);
+< 768 px: a bottom sheet (85 % of the height).
 ```
 
 - **Badges (widget)** — up to two chips, one per distinct severity among `error`, `decide`, `warn`
@@ -176,16 +184,34 @@ its cells joined by `·`). The Read view does not repeat a `summary` the body al
   `InfoCircleOutlined` button with its count. The group is one button (`WidgetMetadataButton`,
   `data-count`) that opens the dock on the widget. **Dots (dataset column header)** — one dot in
   the colour of the column's highest severity (grey when none); click opens the dock on the column.
-- **Metadata bar** — one line on dashboard, dataset, query and workflow pages: "Metadata", the count
-  and up to two severity counts and **Open**. Nothing written → no bar.
+- **Notes & insights bar** (R206; was "Metadata … Open") — one line on dataset, query and workflow
+  pages: "Notes & insights" / "Ghi chú & nhận định", the count ("11 notes" / "11 ghi chú"), the AI
+  count, up to two severity counts and a **"View all ›" link** (`MetadataBarOpen`) that opens All
+  notes. While All notes is showing, the same element reads "Showing all notes" / "Đang xem tất cả ghi
+  chú" and is `aria-disabled` (one element, so focus returns to it when the dock closes); while one note
+  is being read the link reads "View all ›" again and goes to All notes. The bar never closes the dock
+  (no toggle): × or `Esc` does. Nothing written → no bar. The renamed label also heads the dock and the
+  relationship drawer's panel. **On a dashboard** the bar is one
+  bordered block (`aria-label` = the label): the header line, then the At a glance rows (below), with
+  **Collapse / Expand** in the header — shown only when there is at least one row.
   On the dataset page, when at least one **column** has entries, a second secondary-text line under
   the bar explains the header dots (R205): "Dots on column headers mark notes; the colour shows
   severity. Click a dot to read." / VI "Dấu chấm trên tiêu đề cột cho biết cột có ghi chú, màu thể
   hiện mức độ; bấm vào dấu chấm để đọc." Only columns on screen count (a hidden column draws no dot).
   The bar takes it as an optional `hint`; other pages pass none.
-- **Dock** (`MetadataDock`) — beside the page content from the `lg` breakpoint (≥ 992 px), 400 px
-  wide, sticky, scrolls on its own; below `lg` a full-width `Drawer`. Never modal: the page stays
-  usable. Views: **Notes** (the noun's cards; on a dashboard opened from the bar: **All notes** —
+- **Dock** (`MetadataDock`) — beside the page content from the **`xl`** breakpoint (≥ 1200 px; R206,
+  was `lg`), 400 px wide, sticky, scrolls on its own, as tall as its content up to the page height;
+  from `md` to `xl` a 400 px `Drawer` **over** the page from the right; below `md` a bottom sheet (85 %
+  of the viewport height). Over the page means the grid never re-flows on a small screen (R206, owner's
+  design C). Over the page the drawer / sheet has a light mask; a click on the mask closes it (the
+  usual drawer gesture, not a page control); beside it there is no mask and the page stays usable. In
+  all three placements focus moves to the dock's heading on open, `Esc` closes and focus returns to the
+  control that opened it. **Cards** (Notes view): severity and AI chips, title,
+  the summary line, up to three pairs, a footer "author · when" and **"View details ›"**
+  (`MetadataCardRead`, `aria-label` "View details: <title>"); a pointer click anywhere on the card
+  opens it, except a click on a link inside it or one that ends a text selection; no namespace id on the
+  card.
+  Views: **Notes** (the noun's cards; on a dashboard opened from the bar: **All notes** —
   the dashboard's own, then each widget with entries, under its title) and **Read** (back to
   Notes, title + chips, the R197 banner — written-for summary, definition warning, assumed values
   — all non-reserved pairs as a table, the body through `SafeMarkdown`, author · when, the
@@ -195,9 +221,17 @@ its cells joined by `·`). The Read view does not repeat a `summary` the body al
   parameter is re-serialised (R199).
 - **At a glance** (dashboard) — entries of the dashboard and its widgets with `severity` ≥ `warn`
   and `state` `current` or `refreshed`, ordered by severity then widget order, at most three;
-  each card: chip, title, summary, the widget's title; click → the dock's Read view. Collapsible;
-  the choice is remembered per viewer in this browser (`localStorage`, guarded). No qualifying
-  entry → no strip.
+  **rows inside the bar's block** (R206; was a separate strip): each row is one `button`
+  (`AtAGlanceItem`) — chip, title, the widget's title, a two-line summary, "Details ›" (decorative,
+  `aria-hidden`); the list is labelled "Most serious notes" / "Ghi chú quan trọng nhất"; the row being
+  read is marked (`aria-current`); click → the dock's Read view. Collapsible from the block's header; the choice is remembered per viewer in this browser
+  (`localStorage` `mdd.atAGlance.collapsed.<id>`, guarded). No qualifying entry → the header line only.
+- **Charts stay still** (R206) — a note action (open, read, back, close) changes the URL's `note`
+  only; it re-renders no chart view: the widget's derived chart data is memoised on its fetched
+  results, the widget and its filters (the parameter context reaches it only through the fetched
+  results), and every chart view — the eight recharts views and the lazy heatmap and gauge — is
+  `React.memo`. Only a width change (the
+  pane opening beside the grid) re-lays a chart out.
 - **Markdown viewer** — `SafeMarkdown` renders through `react-markdown` + `remark-gfm`: headings,
   paragraphs, emphasis, strikethrough, inline + fenced code, nested lists, task lists, quotes,
   rules, tables, http(s) links (new tab, `noopener`). A remark step turns raw HTML, images and
@@ -341,13 +375,13 @@ needs one request. A child whose column / widget no longer exists is skipped.
 
 ### Where it is mounted
 
-| Host (R202)                                    | Read                                         | Layer 1 (badges)                         | Bar + dock                                                         |
-| ---------------------------------------------- | -------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------ |
-| `DashboardDetailPage`                          | `useMetadataDock('dashboard', id, viewer)`   | `WidgetMetadataBadges` in a widget header | bar + **At a glance** above the grid; dock beside it (grid − 1 col) |
-| `DatasetDetailPage`                            | `useMetadataDock('dataset', id)`             | `ColumnNoteDot` in a column header        | bar in the header strip; dock beside the card (`fill`)             |
-| `QueryDetailPage` (read view)                  | `useMetadataDock('query', id, urlParams)`    | —                                        | bar; dock beside the card; closed while editing                    |
-| `WorkflowDetailPage` (read view)               | `useMetadataDock('workflow', id)`            | —                                        | bar; dock beside the card; closed while editing                    |
-| `RelationshipCheckDrawer` (below the result)   | `MetadataPanel kind="relationship"`          | —                                        | the R180 inline panel (the drawer is already a side panel)         |
+| Host (R202)                                  | Read                                       | Layer 1 (badges)                          | Bar + dock                                                                                                                       |
+| -------------------------------------------- | ------------------------------------------ | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `DashboardDetailPage`                        | `useMetadataDock('dashboard', id, viewer)` | `WidgetMetadataBadges` in a widget header | the **Notes & insights** block (bar + glance rows) above the grid; dock beside it ≥ 1200 px (grid − 1 col), over it below (R206) |
+| `DatasetDetailPage`                          | `useMetadataDock('dataset', id)`           | `ColumnNoteDot` in a column header        | bar in the header strip; dock beside the card (`fill`)                                                                           |
+| `QueryDetailPage` (read view)                | `useMetadataDock('query', id, urlParams)`  | —                                         | bar; dock beside the card; closed while editing                                                                                  |
+| `WorkflowDetailPage` (read view)             | `useMetadataDock('workflow', id)`          | —                                         | bar; dock beside the card; closed while editing                                                                                  |
+| `RelationshipCheckDrawer` (below the result) | `MetadataPanel kind="relationship"`        | —                                         | the R180 inline panel (the drawer is already a side panel)                                                                       |
 
 `column` and `widget` are never read directly by the builder; they arrive as children of
 their parent.
@@ -374,7 +408,7 @@ their parent.
 ### The triple anchor (R197, item 3.8)
 
 - **Stamped at write** by the server: `anchor {definitionVersion, dataVersions?, queryVersions?,
-  runId?, params?, assumedParams?}` — the noun's definition, the data behind it (a dataset /
+runId?, params?, assumedParams?}` — the noun's definition, the data behind it (a dataset /
   column: its own version; a relationship: both ends; a query: its plan's; a widget: its query's;
   a dashboard: all its widgets'), the queries behind a widget or dashboard, a workflow's current
   run, and the parameter values (a query / widget: as it reads; a dashboard: its controls as the
@@ -449,6 +483,12 @@ namespace_cap`.
 10. **Mounted where the nouns live** _(FE)_ — dataset, query, workflow, dashboard detail and
     the relationship check drawer; a dashboard widget with entries shows the info button and
     popover.
+11. **One block, a link, cards, still charts** _(FE, R206)_ — the bar's "View all N" opens All notes
+    and is replaced by "Showing on the right" while it shows, with no control that closes the dock;
+    a dashboard's glance rows live in the bar's block; a card opens on click and via "View details",
+    without the namespace id, titled by its summary when it has no title; the Read view drops a
+    leading heading equal to the title; the dock is beside at ≥ 1200 px, a right drawer at 768–1199 px,
+    a bottom sheet below; a note action re-renders no chart view.
 
 ---
 

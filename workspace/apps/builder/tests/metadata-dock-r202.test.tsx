@@ -8,7 +8,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App } from 'antd';
 import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { AntdConfig } from '@mdd/ui';
 import { DashboardDetailPage } from '@/features/dashboard/DashboardDetailPage';
@@ -173,7 +173,19 @@ async function find(sel: string): Promise<HTMLElement> {
   });
 }
 
+/** R206 — happy-dom evaluates media queries against its window size (1024 by default). */
+function setWindowWidth(width: number) {
+  (
+    window as unknown as { happyDOM: { setWindowSize: (s: { width: number; height: number }) => void } }
+  ).happyDOM.setWindowSize({
+    width,
+    height: 900,
+  });
+}
+
 describe('R202 the dashboard page', () => {
+  afterEach(() => setWindowWidth(1024));
+
   it('badges the widget, lifts At a glance, and has no inline panel', async () => {
     page();
     const badge = await find('[data-component="WidgetMetadataButton"]');
@@ -187,10 +199,12 @@ describe('R202 the dashboard page', () => {
       [...glance.querySelectorAll('[data-component="AtAGlanceItem"]')].map((b) => b.getAttribute('data-severity')),
     ).toEqual(['decide', 'warn']);
     expect(document.querySelector('[data-component="MetadataPanel"]')).toBeNull();
-    expect((await find('[data-component="MetadataBar"]')).textContent).toContain('3 entries');
+    expect((await find('[data-component="MetadataBar"]')).textContent).toContain('3 notes'); // R206 — notes, not entries
   });
 
   it('opens the dock beside the grid: Notes → Read → back → Esc', async () => {
+    // R206 — the dock sits beside the grid from 1200 px (was 992 px): a wide window.
+    setWindowWidth(1440);
     page();
     const cols = () =>
       Number(
@@ -212,10 +226,11 @@ describe('R202 the dashboard page', () => {
     expect(cards[0]?.querySelector('[data-component="MetadataCardSummary"]')?.textContent).toBe(
       'Negotiation holds most of the open amount.',
     );
-    // The human note has no summary: its first line stands in.
-    expect(cards[1]?.querySelector('[data-component="MetadataCardSummary"]')?.textContent).toBe(
+    // The human note has no title and no summary: its first line is its title (R206), said once.
+    expect(cards[1]?.querySelector('[data-component="MetadataCardTitle"]')?.textContent).toBe(
       'Won deals only — see the query filter.',
     );
+    expect(cards[1]?.querySelector('[data-component="MetadataCardSummary"]')).toBeNull();
     fireEvent.click(cards[0]?.querySelector('[data-component="MetadataCardRead"]') as HTMLElement);
     await waitFor(() => expect(dock.getAttribute('data-view')).toBe('read'));
     expect(screen.getByTestId('where').textContent).toBe('?note=review%40wdg_4d7b91ce');

@@ -129,7 +129,7 @@ describe('R205 dataset page context beside its control', () => {
     );
     renderApp();
     await screen.findByText('D-0001');
-    await screen.findByText('Metadata');
+    await screen.findByText('Notes & insights'); // R206 — the bar's label (was "Metadata")
     expect(q('MetadataBarHint')).toBeNull();
   });
 
@@ -145,7 +145,7 @@ describe('R205 dataset page context beside its control', () => {
     );
     renderApp();
     await screen.findByText('D-0001');
-    await screen.findByText('Metadata');
+    await screen.findByText('Notes & insights'); // R206 — the bar's label (was "Metadata")
     expect(q('MetadataBarHint')).toBeNull();
   });
 });

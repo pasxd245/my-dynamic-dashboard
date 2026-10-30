@@ -1431,9 +1431,9 @@
     }
   },
   "metadata": {
-    "title": "Chú giải",
-    "count_one": "{{count}} mục",
-    "count_other": "{{count}} mục",
+    "title": "Ghi chú & nhận định",
+    "count_one": "{{count}} ghi chú",
+    "count_other": "{{count}} ghi chú",
     "aiCount_one": "{{count}} do AI",
     "aiCount_other": "{{count}} do AI",
     "ai": "AI",
@@ -1441,7 +1441,7 @@
     "by": "{{author}} · {{when}}",
     "empty": "Chưa có gì được ghi.",
     "readOnlyHint": "Chỉ xem — ghi qua API; người ghi muốn sửa thì ghi lại.",
-    "widgetTooltip": "Chú giải của widget này",
+    "widgetTooltip": "Ghi chú của widget này",
     "state": {
       "refreshed": "Dữ liệu đã làm mới từ khi viết",
       "otherPeriod": "Kỳ khác",
@@ -1474,19 +1474,25 @@
       "close": "Đóng",
       "allNotes": "Tất cả ghi chú",
       "notes": "Ghi chú",
-      "read": "Đọc",
       "more_one": "+{{count}} trường nữa",
       "more_other": "+{{count}} trường nữa"
     },
     "bar": {
-      "open": "Mở"
+      "viewAll": "Xem tất cả",
+      "showing": "Đang xem tất cả ghi chú"
     },
     "glance": {
-      "title": "Đọc nhanh",
-      "hint": "các ghi chú quan trọng nhất của kỳ đang xem"
+      "label": "Ghi chú quan trọng nhất",
+      "details": "Chi tiết",
+      "collapse": "Thu gọn",
+      "expand": "Mở rộng"
     },
-    "columnTooltip_one": "Chú giải của {{column}} ({{count}} ghi chú)",
-    "columnTooltip_other": "Chú giải của {{column}} ({{count}} ghi chú)"
+    "columnTooltip_one": "Ghi chú của {{column}} ({{count}} ghi chú)",
+    "columnTooltip_other": "Ghi chú của {{column}} ({{count}} ghi chú)",
+    "card": {
+      "details": "Xem chi tiết",
+      "detailsFor": "Xem chi tiết: {{title}}"
+    }
   },
   "history": {
     "button": "Lịch sử",
