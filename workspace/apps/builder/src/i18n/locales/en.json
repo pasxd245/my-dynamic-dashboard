@@ -522,7 +522,7 @@
         "applyFailed": "Couldn't update column visibility."
       },
       "details": "Details",
-      "columnNoteHint": "Dots on column headers mark notes — colour = severity; click a dot to read.",
+      "columnNoteHint": "Dots on column headers mark notes; the colour shows severity. Click a dot to read.",
       "coverage": {
         "title": "Date coverage",
         "range": "{{min}} → {{max}}",

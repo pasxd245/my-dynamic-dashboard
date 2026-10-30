@@ -179,9 +179,10 @@ Home ▸ Data Management ▸ Datasets ▸ q1_pipeline_Deals  [+ Save filters as 
   the wizard in refresh mode, see
   [datasets.md § Refresh affordance](datasets.md#refresh-affordance-r145)),
   **Rename**, **Delete** (danger).
-- **Metadata strip** (`MetadataStrip`): a grid of label/value pairs from
-  the shared `datasetMetaItems` helper — Workspace · Rows · Cols ·
-  Size · Uploaded (`createdAt`, relative) · **Data version**
+- **Metadata strip** (`MetadataStrip`, inside Details — R204 folds it):
+  a grid of label/value pairs from the shared `datasetMetaItems` helper,
+  minus what the subtitle already says (R205: Rows · Cols · Size ·
+  Uploaded are in the subtitle) — Workspace · **Data version**
   (`v<dataVersion> · <relative refreshedAt>`, i.e. "which rows, and when
   they last changed" — equal to Uploaded until the first refresh) ·
   Format. Labels are small uppercase secondary text; values bold.
@@ -606,8 +607,9 @@ Actions ▾ → Properties      opens →   ┊ Properties                     �
 
 - **Dataset section** — the dataset-level facts from the same
   `datasetMetaItems` helper as the inline `MetadataStrip`, so the two
-  never diverge. **Intentionally repeated** — the always-visible strip is
-  the glance; the drawer is the full panel opened deliberately (standard
+  never diverge. The drawer is the **full list** (all seven fields); the
+  strip is the filtered glance (R205: without the subtitle's fields,
+  `IN_SUBTITLE`) — the drawer is the panel opened deliberately (standard
   for a Properties surface). Zero backend (all on the `Dataset`).
 - **Columns section — one row per column** (incl. hidden): a checkbox
   labelled with the column name, the coverage text under the name for a
@@ -767,10 +769,9 @@ cover, page through its rows, and search for a row by substring.
 
 1. **Header + metadata strip** _(FE component)_ — the populated state
    renders the source icon, name and format tag in the title, the
-   rows · columns · size · uploaded subtitle, and a strip with Workspace
-   / Rows / Cols / Size / Uploaded / Data version / Format from
-   `useDatasetQuery(id)`; Data version reads `v<dataVersion> ·
-<relative refreshedAt>`.
+   rows · columns · size · uploaded subtitle, and (when Details is open)
+   a strip with the fields of AC 12 from `useDatasetQuery(id)`; Data
+   version reads `v<dataVersion> · <relative refreshedAt>`.
 2. **Date coverage** _(FE component)_ — a dataset with `coverage` on ≥1
    column renders the coverage strip with one item per such column
    (`min → max`, `· N% blank` when > 0, `all blank` when no min/max,
@@ -819,8 +820,9 @@ Dataset` (incl. `refreshedAt`, `dataVersion`, `coverage` on temporal
     in the subtitle line (not the toolbar); the open strip shows Workspace,
     Data version and Format only, the Properties drawer all seven fields;
     the subtitle's relative time is lower case inline; with column notes
-    the Metadata bar shows the dot hint, without them no hint
-    (`dataset-context-r205.test.tsx`).
+    the Metadata bar shows the dot hint, without them — or with notes only
+    on hidden columns, which draw no dot — no hint
+    (`dataset-context-r205.test.tsx`, C1–C5).
 
 ---
 

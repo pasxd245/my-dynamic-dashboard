@@ -522,7 +522,7 @@
         "applyFailed": "Không thể cập nhật hiển thị cột."
       },
       "details": "Thông tin thêm",
-      "columnNoteHint": "Chấm trên tiêu đề cột: cột có ghi chú — màu theo mức; bấm chấm để đọc.",
+      "columnNoteHint": "Dấu chấm trên tiêu đề cột cho biết cột có ghi chú, màu thể hiện mức độ; bấm vào dấu chấm để đọc.",
       "coverage": {
         "title": "Độ phủ ngày",
         "range": "{{min}} → {{max}}",

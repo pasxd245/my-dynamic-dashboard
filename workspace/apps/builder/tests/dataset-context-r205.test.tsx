@@ -96,7 +96,7 @@ describe('R205 dataset page context beside its control', () => {
     const strip = q('DatasetMetadataStrip')!;
     for (const label of ['Workspace', 'Data version', 'Format'])
       expect(within(strip).getByText(label)).toBeInTheDocument();
-    for (const label of ['Rows', 'Columns', 'Size', 'Uploaded']) expect(within(strip).queryByText(label)).toBeNull();
+    for (const label of ['Rows', 'Cols', 'Size', 'Uploaded']) expect(within(strip).queryByText(label)).toBeNull();
   });
 
   it('C3: the subtitle reads the relative time inline (lower case), EN and VI', async () => {
@@ -126,6 +126,22 @@ describe('R205 dataset page context beside its control', () => {
     const own = MOCK_METADATA[`dataset/${MOCK_DATASET.id}`]!;
     server.use(
       http.get('*/metadata/:kind/:id', () => HttpResponse.json({ entries: own.entries, current: own.current })),
+    );
+    renderApp();
+    await screen.findByText('D-0001');
+    await screen.findByText('Metadata');
+    expect(q('MetadataBarHint')).toBeNull();
+  });
+
+  it('C5: a note only on a hidden column draws no dot, so no hint', async () => {
+    // the fixture's column note is on won_at; hide that column
+    server.use(
+      http.get('*/datasets/:id', () =>
+        HttpResponse.json({
+          ...MOCK_DATASET,
+          columns: MOCK_DATASET.columns.map((c) => (c.name === 'won_at' ? { ...c, hidden: true } : c)),
+        }),
+      ),
     );
     renderApp();
     await screen.findByText('D-0001');

@@ -41,6 +41,7 @@ import {
   useSetColumnVisibilityMutation,
 } from './hooks';
 import { ColumnNoteDot } from '@/features/metadata/badges';
+import { readEntries } from '@/features/metadata/reserved';
 import { MetadataBar, MetadataDockRow, useMetadataDock } from '@/features/metadata/dock';
 import { useWorkflowQuery } from '@/features/data-management/workflows/hooks';
 import { DateCoverageStrip } from './DateCoverage';
@@ -257,8 +258,11 @@ export function DatasetDetailPage() {
     else toggleAdvancedChoice();
   };
   const detailsId = useId();
-  // R205 — the Metadata bar explains the header dots once any column has notes.
-  const columnNotes = Object.values(metaDock.read?.children ?? {}).some((e) => Object.keys(e ?? {}).length > 0);
+  // R205 — the Metadata bar explains the header dots once a column ON SCREEN carries one (a note on a
+  // hidden or dropped column draws no dot, so it gets no hint).
+  const columnNotes = (dataset?.columns ?? []).some(
+    (c) => (showAllColumns || !c.hidden) && readEntries(metaDock.read?.children?.[c.name]).length > 0,
+  );
   const advancedId = useId();
   const openSaveQuery = () => {
     createQueryMutation.reset();
@@ -885,8 +889,8 @@ type DatasetMetaKey = 'workspace' | 'rows' | 'cols' | 'size' | 'created' | 'data
 const IN_SUBTITLE: ReadonlySet<DatasetMetaKey> = new Set(['rows', 'cols', 'size', 'created']);
 
 /** The dataset-level metadata fields — the single source shared by the
- *  always-visible MetadataStrip AND the Properties drawer's Dataset section
- *  (R153), so both format identically. */
+ *  Details strip (R204 folds it; R205 filters out IN_SUBTITLE) AND the
+ *  Properties drawer's Dataset section (R153, all seven), so both format identically. */
 function datasetMetaItems(
   dataset: Dataset,
   workspaceName: string | undefined,

@@ -1,6 +1,6 @@
 # Round 205: the dataset page's context controls sit beside what they open (item 5.5)
 
-**Status**: In progress
+**Status**: Review
 **Flow**: **DCFBI** — builder-only: a toggle moves to the subtitle line, the Details strip drops
 repeated fields, the Metadata bar gains an optional hint line, one inline time form; no contract,
 route, engine or migration change.
@@ -75,17 +75,74 @@ design, live build at 1536 × 730 with the dock open)._
 - [x] **F** — `DatasetDetailPage.tsx` (subtitle toggle, keyed meta items, strip filter, `inline()`,
       hint); `dock.tsx` `MetadataBar` `hint`; i18n EN/VI; `tests/dataset-context-r205.test.tsx` (4)
 - [x] **B** — none (builder-only)
-- [ ] **I** — visual gate (Playwright, real backend, 1536 × 730 + 1366 × 650 + 1920 × 1000, EN + VI,
-      dock closed and open)
-- [ ] Check — gates; code review; BA (after build); QA
+- [x] **I** — visual gate (Playwright, real backend, synthetic data, 1536 × 730 + 1366 × 650 +
+      1920 × 1000, EN + VI, dock closed and open) — see Check
+- [x] Check — gates; code review; BA (after build); QA (see Check)
 
 ## Check
 
-_(filled at the gate)_
+**Gates** (head of this round): builder **700 / 700** (699 at the feat commit + C5); `tsc` clean;
+md / plan / design lints 0; prettier clean on the round's files; backend and contracts untouched (no
+file changed); guard (no user names, no `backend/data`) empty.
+
+**Visual gate + live probe** (QA; real backend, synthetic data, Playwright; light EN + VI, same
+numbers): rows of the table fully in view —
+
+| Viewport / state        | With the dot hint | Without (dataset-only note) | Toolbar one row | Details |
+| ----------------------- | ----------------- | --------------------------- | --------------- | ------- |
+| 1536 × 730, dock closed | 6                 | 7                           | yes             | folded  |
+| 1536 × 730, dock open   | **6**             | 7                           | yes             | folded  |
+| 1366 × 650, dock closed | 4                 | 5                           | yes             | folded  |
+| 1366 × 650, dock open   | 2                 | 3                           | no (wraps)      | folded  |
+| 1920 × 1000, dock open  | 7                 | 8                           | yes             | open    |
+
+Before this round the toolbar wrapped at 1536 × 730 with the dock open (R204 review). The subtitle
+stays one line everywhere; the pager stays in view; no page errors. The hint costs one row (27 px).
+Probed live: toggle in the subtitle (aria, Tab / Enter / Space, focus kept, remembered over reload);
+strip = Workspace / Data version / Format, drawer = all seven; "Uploaded just now" / "Tải lên vừa
+xong" with the strip's "Vừa xong" capitalised; hint with a column note, none with dataset-only notes,
+none when the noted column is hidden (back with Show all); a query page with notes: no hint.
+
+**Reviews**
+
+- Code review — **PASS** (P2 only). Fixed: CR-2 C2 asserted the absent label "Columns" (the strip's is
+  "Cols") — now "Cols"; CR-3 the hint counted notes on hidden or dropped columns, which draw no dot —
+  only columns on screen count now (C5). Not changed: CR-1 (the drawer's seven fields are asserted in
+  `column-visibility.test.tsx`, the BA confirmed); CR-4 the format reads in the title tag and in the
+  strip — kept by design (the strip's Format names the sheet), owner may revisit.
+- After-build BA — **CHANGES** (one P1), folded. BA-F1 the docs still described a seven-field strip
+  (§ Layout, § Properties panel "intentionally repeated", AC 1) and rc5.md pointed at the wrong
+  sections — all four rewritten. P2 fixed: BA-F2 VI and EN hint wording; BA-F3 = CR-2; BA-F4 = CR-3.
+  BA-F5 (should the hint fold on short screens?) measured by QA: one row, ≥ 5 rows kept at 1536 × 730
+  with the dock open — left as is.
+- QA — **PASS** (P2 only, logged): QA-1 at 1366 × 650 with the dock open the toolbar still wraps (2
+  rows of table); QA-2 antd `Space direction` deprecation warning in `dock.tsx` / `StepsEditor.tsx`
+  (pre-existing); QA-3 the hint cannot occur on other pages by construction (none passes `hint`).
+
+**Walk script** (owner; ~5 min; BA's, a dataset with at least one column note):
+
+- W1 At 1536 × 730: the subtitle ends "· Uploaded … · ▸ Details" (a fresh upload reads "just now",
+  lower case); the toolbar is Search · Matched · `▸ Advanced query` · `[Columns N/M]` on one row.
+- W2 `▸ Details` in the subtitle → `▾`, the section opens right under the header: the strip shows
+  WORKSPACE · DATA VERSION · FORMAT, then the date coverage.
+- W3 Fold, reload: stays folded; open, reload: stays open.
+- W4 Under the Metadata bar the grey line explains the dots; click a header dot: the dock opens on
+  that column.
+- W5 Actions ▾ → Properties: the Dataset section lists all seven fields.
+- W6 Metadata → Open: the toolbar stays one row and the table shows at least five rows.
+- W7 VI: "… · Tải lên vừa xong · ▸ Thông tin thêm"; the hint line reads naturally.
+- W8 Hide the noted column (Columns): the dot and the hint go; a dataset with only a dataset-level
+  note shows no hint.
 
 ## Act
 
-_(filled at close)_
+- **Rolling log**: QA-1 (1366 × 650 with the dock open: the toolbar wraps, two table rows) and QA-2
+  (antd `Space direction` deprecation) go to the program's rolling log.
+- **Lesson (Track 2, for promotion review)**: a "nothing said twice" change has to sweep every doc
+  that lists the fields (layout bullet, the other surface's note, the first AC), not only the section
+  the round opened — the BA found three stale passages the round's own AC contradicted.
+- **Prune check**: no new component or hook; the hint is one optional prop; reversible.
+- **Promotion**: none yet — one round of evidence.
 
 ## Feeds into → Round_206
 

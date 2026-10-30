@@ -121,7 +121,8 @@ R204's review against the accepted design found four small gaps on the dataset p
   drawer keeps the full list; on the dataset page the Metadata bar adds one hint line when any column
   has notes ("Dots on column headers mark notes — colour = severity; click a dot to read"); the
   subtitle's relative time reads inline ("Uploaded just now", not "Uploaded Just now").
-- **Docs:** `dataset-detail.md` § Folding sections + AC 11, § Header; `metadata.md` § Metadata bar.
+- **Docs:** `dataset-detail.md` § Layout (strip), § Folding sections, § Properties panel, AC 1 + AC 12;
+  `metadata.md` § Metadata bar.
 - **Gate:** builder tests green; visual gate at 1536 × 730 with the dock open (EN + VI): the toolbar
   stays one row and the table still shows at least five rows.
 
