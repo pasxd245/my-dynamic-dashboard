@@ -232,6 +232,16 @@ describe('R206 N4 the Read view does not print the title twice', () => {
     expect(withoutLeadingTitle('Week in one line\n\nNo heading.', 'Week in one line')).toBe(
       'Week in one line\n\nNo heading.',
     );
+    // A closed ATX heading and a setext heading (CR-2).
+    expect(withoutLeadingTitle('## Week in one line ##\n\nThe rest.', 'Week in one line')).toBe('\nThe rest.');
+    expect(withoutLeadingTitle('Week in one line\n===\n\nThe rest.', 'Week in one line')).toBe('\nThe rest.');
+    // A title taken from the body's first prose line is not repeated as the body's opening (BA-F4).
+    expect(withoutLeadingTitle('Won deals only.\n\nMore.', 'Won deals only.', true)).toBe('\nMore.');
+    const closed = readEntry('ns', {
+      ...MOCK_METADATA[DASH_KEY]!.entries.overview,
+      md: '## Sales fell ##\n\nx',
+    } as MetadataEntry);
+    expect(displayTitle(closed)).toBe('Sales fell');
   });
 
   it('in the dock', async () => {
@@ -294,6 +304,73 @@ describe('R206 N5 charts stay still on a note action', () => {
   });
 });
 
+describe('R206 N5b every chart kind stays still, with warm and cold caches', () => {
+  it('a series bar, a combo, a line, a pie, a stat and a table re-render no chart view on a note action', async () => {
+    const q = MOCK_DASHBOARD.definition.widgets[0]!.queryId;
+    const w = (id: string, extra: Record<string, unknown>) => ({
+      id,
+      queryId: q,
+      title: id,
+      span: 1,
+      agg: 'sum',
+      ...extra,
+    });
+    const many = {
+      ...MOCK_DASHBOARD,
+      definition: {
+        widgets: [
+          ...MOCK_DASHBOARD.definition.widgets,
+          w('wdg_00000001', { chartType: 'bar', dimensionCol: 'stage', seriesCol: 'deal_id', measureCol: 'amount' }),
+          w('wdg_00000002', {
+            chartType: 'combo',
+            dimensionCol: 'stage',
+            measureCol: 'amount',
+            measureCol2: 'probability',
+          }),
+          w('wdg_00000003', { chartType: 'line', dimensionCol: 'stage', measureCol: 'amount' }),
+          w('wdg_00000004', { chartType: 'pie', dimensionCol: 'stage', measureCol: 'amount' }),
+          w('wdg_00000005', { chartType: 'table', dimensionCol: 'stage', measureCol: 'amount' }),
+        ],
+      },
+    };
+    server.use(
+      http.get('*/workspaces/:id/dashboards', () => HttpResponse.json([many])),
+      http.get('*/dashboards/:id', () => HttpResponse.json(many)),
+    );
+    page();
+    await find('[data-component="AtAGlance"]');
+    await waitFor(() => expect(charts.renders).toBeGreaterThanOrEqual(5));
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 400));
+    });
+    const before = charts.renders;
+    fireEvent.click(await find('[data-component="MetadataBarOpen"]'));
+    await find('[data-component="MetadataDock"]');
+    fireEvent.click(document.querySelector('[data-component="MetadataCardRead"]') as HTMLElement);
+    await find('[data-component="MetadataDock"][data-view="read"]');
+    fireEvent.click(document.querySelector('[data-component="MetadataDockClose"]') as HTMLElement);
+    await waitFor(() => expect(document.querySelector('[data-component="MetadataDock"]')).toBeNull());
+    expect(charts.renders).toBe(before);
+  });
+
+  it('the chart data holds with the bound query already cached and no filters passed (CR-1)', async () => {
+    const widget = MOCK_DASHBOARD.definition.widgets[0]!;
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+    );
+    const first = renderHook(() => useWidgetChartData(widget), { wrapper });
+    await waitFor(() => expect(first.result.current.chartData.length).toBeGreaterThan(0));
+    first.unmount();
+    // Warm cache: a second mount reads everything from the cache on its first render.
+    const { result, rerender } = renderHook(() => useWidgetChartData(widget), { wrapper });
+    await waitFor(() => expect(result.current.chartData.length).toBeGreaterThan(0));
+    const data = result.current.chartData;
+    rerender();
+    expect(result.current.chartData).toBe(data);
+  });
+});
+
 describe('R206 N6 the dock beside the data from 1200 px, over it below', () => {
   const cols = () =>
     Number(
@@ -327,6 +404,8 @@ describe('R206 N6 the dock beside the data from 1200 px, over it below', () => {
       fireEvent.click(link);
       await find('[data-component="MetadataDock"]');
       expect(document.querySelector('[data-component="MetadataDockRow"]')?.getAttribute('data-docked')).toBe('false');
+      // Focus moves into the dock (its heading) on open.
+      await waitFor(() => expect(document.activeElement?.closest('[data-component="MetadataDock"]')).not.toBeNull());
       await waitFor(() =>
         expect(document.querySelector('[data-placement]')?.getAttribute('data-placement')).toBe(placement),
       );

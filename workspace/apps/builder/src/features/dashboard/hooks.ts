@@ -160,8 +160,8 @@ export function useWidgetData(
     enabled: enabled && typeof queryId === 'string' && queryId.length > 0,
   });
   return {
-    columns: q.data?.columns ?? [],
-    rows: q.data?.rows ?? [],
+    columns: q.data?.columns ?? NO_COLUMNS,
+    rows: q.data?.rows ?? NO_ROWS,
     total: q.data?.total ?? 0,
     capped: q.data?.capped ?? false,
     isLoading: q.isLoading,
@@ -217,8 +217,8 @@ export function useWidgetAggregate(
     enabled: enabled && typeof queryId === 'string' && queryId.length > 0,
   });
   return {
-    columns: q.data?.columns ?? [],
-    rows: q.data?.rows ?? [],
+    columns: q.data?.columns ?? NO_COLUMNS,
+    rows: q.data?.rows ?? NO_ROWS,
     total: q.data?.total ?? 0,
     isLoading: q.isLoading,
     isError: q.isError,
@@ -295,6 +295,11 @@ export function useColumnValues(queryId: string | undefined, column: string | un
  *  give four distinct hues (`colorInfo` equals `colorPrimary` in the default
  *  theme), so a 6-status or 15-reason series repeated colours; the AntD preset
  *  hues extend it to twelve, de-duplicated so a custom theme never repeats. */
+// R206 — a read that has not run hands back the SAME empty lists every render, so
+// the widget's chart-data memo (keyed on them) holds and its chart views stay still.
+const NO_COLUMNS: never[] = [];
+const NO_ROWS: never[] = [];
+
 export function useChartPalette(): string[] {
   const { token } = theme.useToken();
   const hues = [

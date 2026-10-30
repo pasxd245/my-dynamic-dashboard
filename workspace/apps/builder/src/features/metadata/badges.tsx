@@ -198,6 +198,7 @@ export function GlanceRows({
   const { t } = useTranslation();
   return (
     <ul
+      role="list"
       data-component="AtAGlance"
       aria-label={t('metadata.glance.label')}
       style={{

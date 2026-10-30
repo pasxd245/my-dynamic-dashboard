@@ -55,6 +55,8 @@ export function readEntry(namespace: string, entry: MetadataEntry): ReadEntry {
 export function firstLine(body: string): string {
   for (const raw of body.split(/\r?\n/)) {
     const line = raw
+      // R206 — a closed ATX heading (`## Title ##`) loses its closing marks too.
+      .replace(/^(\s{0,3}#{1,6}\s+.*?)\s+#+\s*$/, '$1')
       .replace(/^\s{0,3}(#{1,6}\s+|>\s?|[-*+]\s+(\[[ xX]\]\s+)?|\d+[.)]\s+)/, '')
       .replace(/[*_~`]/g, '')
       .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
@@ -123,13 +125,20 @@ export function displayLine(item: ReadEntry): string | undefined {
   return line;
 }
 
-/** The body without a leading heading whose text is the title (R206: the Read view
- *  does not print the title twice). Any other body is returned as it is. */
-export function withoutLeadingTitle(body: string, title: string): string {
+/** The body without its opening when that opening is the title (R206: the Read view
+ *  does not print the title twice): a leading ATX heading (`## Title`, `## Title ##`) or
+ *  setext heading (`Title` + `===`) whose text is the title; and, when the title was taken
+ *  from the body itself (`fromBody`: no title, no summary), the first prose line. Any other
+ *  body is returned as it is. */
+export function withoutLeadingTitle(body: string, title: string, fromBody = false): string {
   const lines = body.split(/\r?\n/);
   const i = lines.findIndex((l) => l.trim() !== '');
   if (i === -1) return body;
-  const m = /^\s{0,3}#{1,6}\s+(.*?)\s*#*\s*$/.exec(lines[i] ?? '');
-  if (!m || normText(m[1] ?? '') !== normText(title)) return body;
-  return lines.slice(i + 1).join('\n');
+  const first = lines[i] ?? '';
+  const same = (x: string) => normText(x) === normText(title);
+  const atx = /^\s{0,3}#{1,6}\s+(.*?)(?:\s+#+)?\s*$/.exec(first);
+  if (atx) return same(atx[1] ?? '') ? lines.slice(i + 1).join('\n') : body;
+  if (/^\s{0,3}(=+|-+)\s*$/.test(lines[i + 1] ?? '') && same(first)) return lines.slice(i + 2).join('\n');
+  if (fromBody && same(firstLine(first))) return lines.slice(i + 1).join('\n');
+  return body;
 }

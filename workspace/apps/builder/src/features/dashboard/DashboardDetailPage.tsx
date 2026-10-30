@@ -44,7 +44,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { PageContainer, PageHeader } from '@mdd/ui';
 import { App, Button, Card, Dropdown, Empty, Grid, Space, Spin, Tooltip, theme } from 'antd';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
@@ -119,13 +119,13 @@ function newWidgetId(): string {
   return `wdg_${crypto.randomUUID().slice(0, 8)}`;
 }
 
-/** One widget as a sortable grid cell. The drag activator is the HANDLE only
- *  (not the whole card), so the ⋯ menu and the interactive chart keep their
- *  clicks; the handle is keyboard-focusable (dnd-kit keyboard sensor). */
 // R206 — one empty list, so a widget without filters gets the same object every
 // render (its chart data memo keys on it).
 const NO_FILTERS: DashboardFilter[] = [];
 
+/** One widget as a sortable grid cell. The drag activator is the HANDLE only
+ *  (not the whole card), so the ⋯ menu and the interactive chart keep their
+ *  clicks; the handle is keyboard-focusable (dnd-kit keyboard sensor). */
 function SortableWidget({
   widget,
   gridCols,
@@ -354,6 +354,23 @@ export function DashboardDetailPage() {
 
   // R199 — the widgets' result columns (D5 reach of a values control; its options' source).
   const columnsByQuery = useColumnsOfQueries((dashboard?.widgets ?? []).flatMap((w) => (w.queryId ? [w.queryId] : [])));
+
+  // R206 — the block's glance config, the same object while its inputs are (its rows
+  // memo keys on it). Computed before the early returns, from the loaded dashboard.
+  const glanceOrder = orderIds.filter((id) => dashboard?.widgets.some((w) => w.id === id)).join(',');
+  const glanceTitles = (dashboard?.widgets ?? []).map((w) => `${w.id}=${w.title}`).join('\n');
+  const glance = useMemo(
+    () =>
+      dashboard
+        ? {
+            dashboardId: dashboard.id,
+            childOrder: glanceOrder ? glanceOrder.split(',') : [],
+            childLabel: (id: string) => dashboard.widgets.find((w) => w.id === id)?.title ?? id,
+          }
+        : undefined,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dashboard?.id, glanceOrder, glanceTitles],
+  );
 
   if (dashboardsQ.isLoading) {
     return (
@@ -615,11 +632,7 @@ export function DashboardDetailPage() {
           }}
         >
           {/* R206 — one Notes & insights block: the bar and its At a glance rows. */}
-          <MetadataBar
-            key={dash.id}
-            api={metaDock}
-            glance={{ dashboardId: dash.id, childOrder: displayIds, childLabel: widgetTitle }}
-          />
+          <MetadataBar key={dash.id} api={metaDock} glance={glance} />
 
           {ordered.length === 0 ? (
             <Card data-component="DashboardNoWidgets">

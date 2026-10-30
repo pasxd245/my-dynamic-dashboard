@@ -408,7 +408,7 @@ their parent.
 ### The triple anchor (R197, item 3.8)
 
 - **Stamped at write** by the server: `anchor {definitionVersion, dataVersions?, queryVersions?,
-runId?, params?, assumedParams?}` — the noun's definition, the data behind it (a dataset /
+  runId?, params?, assumedParams?}` — the noun's definition, the data behind it (a dataset /
   column: its own version; a relationship: both ends; a query: its plan's; a widget: its query's;
   a dashboard: all its widgets'), the queries behind a widget or dashboard, a workflow's current
   run, and the parameter values (a query / widget: as it reads; a dashboard: its controls as the
@@ -483,8 +483,8 @@ namespace_cap`.
 10. **Mounted where the nouns live** _(FE)_ — dataset, query, workflow, dashboard detail and
     the relationship check drawer; a dashboard widget with entries shows the info button and
     popover.
-11. **One block, a link, cards, still charts** _(FE, R206)_ — the bar's "View all N" opens All notes
-    and is replaced by "Showing on the right" while it shows, with no control that closes the dock;
+11. **One block, a link, cards, still charts** _(FE, R206)_ — the bar's "View all ›" opens All notes
+    and reads "Showing all notes" (`aria-disabled`) while it shows, with no control that closes the dock;
     a dashboard's glance rows live in the bar's block; a card opens on click and via "View details",
     without the namespace id, titled by its summary when it has no title; the Read view drops a
     leading heading equal to the title; the dock is beside at ≥ 1200 px, a right drawer at 768–1199 px,

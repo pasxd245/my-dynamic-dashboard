@@ -250,7 +250,15 @@ function OverDock({
       size={sheet ? '85%' : DOCK_WIDTH}
       closable={false}
       onClose={onClose}
-      styles={{ body: { padding: 0, display: 'flex', flexDirection: 'column' } }}
+      // R206 (QA-2) — no focus trap and no antd focus return: the dock moves focus to its
+      // heading on open and `close()` returns it to the opener; a trap pulled it back
+      // into the closing drawer and left it on <body>.
+      autoFocus={false}
+      focusable={{ trap: false, focusTriggerAfterClose: false }}
+      styles={{
+        body: { padding: 0, display: 'flex', flexDirection: 'column' },
+        mask: { background: 'rgba(0, 0, 0, 0.15)' },
+      }}
       data-component="MetadataDockDrawer"
       data-placement={sheet ? 'bottom' : 'right'}
     >
@@ -578,7 +586,7 @@ function ReadView({
   const { summary, assumed, beforePeriods } = anchorNotes(item.entry, current, paramLabels, t);
   const title = displayTitle(item);
   // R206 — a body that opens with the title as a heading does not print it twice.
-  const body = withoutLeadingTitle(item.body, title);
+  const body = withoutLeadingTitle(item.body, title, !item.title && !item.summary);
   // The summary under the heading — unless it became the heading (no title, short enough).
   const lead = item.summary && (item.title || item.summary.length > TITLE_MAX) ? item.summary : undefined;
   return (

@@ -1,6 +1,6 @@
 # Round 206: notes and insights — one block, a link not a toggle, cards you click, charts that stay still (item 5.6)
 
-**Status**: In progress
+**Status**: Review — one falsifier hit (perf, partly met); owner decides
 **Flow**: **DCFBI** — builder-only: the metadata bar, At a glance, the dock's cards and Read view and its
 breakpoints, and the dashboard widget's render path; no contract, route, engine or migration change.
 **Date started**: 2026-10-30
@@ -136,26 +136,111 @@ canvas "MDD — Ghi chú & nhận định (R206)", option A + C responsive) + ro
 
 ## Do
 
-- [ ] **D** — rc5.md 5.6; program row; this round file; `metadata.md` § Reading by layer + AC 11
-- [ ] **C** — no contract change
-- [ ] **F** — `dock.tsx` (bar, block, cards, Read heading, placement, Space), `badges.tsx` (glance
+- [x] **D** — rc5.md 5.6; program row; this round file; `metadata.md` § Reading by layer + AC 11
+- [x] **C** — no contract change
+- [x] **F** — `dock.tsx` (bar, block, cards, Read heading, placement, Space), `badges.tsx` (glance
       rows inside the bar), `DashboardDetailPage.tsx` (block, breakpoint, stable filters),
       `WidgetView.tsx` + `hooks.ts` (memo), i18n EN/VI, tests
-- [ ] **B** — none (builder-only)
-- [ ] **I** — visual gate + probe (Playwright, real backend, synthetic data; 1440 × 810, 1024 × 768,
+- [x] **B** — none (builder-only)
+- [x] **I** — visual gate + probe (Playwright, real backend, synthetic data; 1440 × 810, 1024 × 768,
       390 × 844; EN + VI)
-- [ ] Check — gates; code review; BA (contract exit + after build); QA
+- [x] Check — gates; code review; BA (contract exit + after build); QA
 
 ## Check
 
-_(filled at the end of the round)_
+**Gates** (head of this round): builder **717 / 717** (700 + 17 in `metadata-notes-r206`); `tsc` clean;
+md / plan / design lints 0; backend and contracts untouched; guard (no user names, no `backend/data`)
+empty. Negative controls: N5 fails on the pre-round code (a non-memo `BarView`: 7 renders vs 1);
+N5b fails without R206's empty-list constants (15 vs 5); 14 of the first 15 tests fail on `f4e30c4`.
+
+**Perf probe** (QA; production build, Playwright, CPU × 4, the synthetic 7-widget dashboard — a
+series bar, a combo, line, pie, stat, table, bar; start = before the click, end = dock in / out of the
+DOM + 2 frames; median of 3):
+
+| Viewport (placement)        | Open    | Read   | Back   | Close  | Chart-view renders per action |
+| --------------------------- | ------- | ------ | ------ | ------ | ----------------------------- |
+| f4e30c4, 1536 × 730 beside  | 1.2–1.5 s | 0.54–0.61 s | — | 1.2–1.3 s | 14 / 7 / 7 / 14 |
+| 2b3ae24, 1440 × 810 beside  | 1 404   | 425    | 463    | 892    | 2 / 1 / 1 / 2 (series bar, combo) |
+| head, 1440 × 810 beside     | 1 071   | 283    | 315    | 669    | **0** |
+| head, 1024 × 768 over       | 553     | 298    | 407    | 442    | **0** |
+
+**Falsifier hit (partly met):** no chart view re-renders on a note action (N5, N5b, and counted live
+through a React commit hook) — met. The timing limits are not: read 283 ms (limit 250), open / close
+1 071 / 669 ms beside (600) and 553 / 442 ms over (400). Against `f4e30c4`: read −50 %, open −20 to
+−30 %, close −45 %. What is left is the page itself re-rendering on the `?note=` change (every widget
+card, its header and the drag-and-drop wrappers — not the charts) plus, beside, one re-layout of the
+charts when the grid drops a column. The prototype that met the limits memoised the whole widget card
+and skipped its header updates (stale menus) — not shippable as it was. Next step logged (Feeds into).
+
+**Visual gate + live probe** (QA; EN + VI; screenshots inspected): 1440 × 810 block with two glance
+rows and Collapse; All notes beside, the grid 3 → 2; Read of the insight — title printed once, table
+renders, the row marked; sticky on scroll. 1024 × 768 right drawer over the grid (2 → 2 columns);
+390 × 844 bottom sheet. Dataset page: plain bar + dot hint, dock as tall as its content. Empty cases:
+no notes → no bar; no widgets → the empty card; info-only → header line, no Collapse; a title-less
+note titled by its summary, never by its namespace. Link → "Showing all notes" (`aria-disabled`, a
+second click keeps the dock); Esc / × / mask close; focus returns to the opener in all three
+placements (after the QA-2 fix: traced at 1024 and 1440); card click anywhere; Tab to "View details"
+and Enter; glance row `aria-current`; Collapse over a reload. No page errors.
+
+**Reviews**
+
+- BA at Contract exit — **CHANGES** (9 P1), all folded before the build: BA-C1/C2 one bar element,
+  "Showing all notes"; C3 mask, Esc, focus in every placement; C4 one title rule on every surface; C5
+  no Collapse without rows; C6 glance rows as single buttons in a labelled list; C7 heatmap / gauge
+  memo; C8 a measurable probe; C9/C16 stale docs (`dashboard-layout.md`, `dataset-detail.md`); P2s
+  C10–C17 folded (count reads "notes", label reaches the dock and the relationship panel, card click
+  rules, heading comparison, neutral examples, W6 superseded).
+- Code review — **PASS** (P2 only), folded: CR-1 a read that has not run returned a new empty list each
+  render, so the chart-data memo broke on a warm cache (= QA-1) — module constants + N5b; CR-2 a
+  title from the body's first line was printed again, setext and closed ATX headings not stripped —
+  `withoutLeadingTitle(…, fromBody)`, `firstLine` drops closing `#`s; CR-3 the block's glance config
+  memoised; CR-4 a doc comment moved back to its function.
+- After-build BA — **CHANGES** (3 P1), folded: BA-F1 focus on open in the drawer (antd's own autofocus
+  / trap) — `autoFocus={false}`, no trap; BA-F2/F3 AC 11, rc5.md and the dataset ASCII said "View all N"
+  / "Showing on the right" / "Metadata … Open" — rewritten; P2: BA-F4 (= CR-2), F5 a light mask
+  (15 %), F6 `role="list"`, F7 the rc5.md pointer and a list indent.
+- QA — **CHANGES** (2 P1): QA-1 the series bar and the combo still re-rendered (= CR-1) — fixed, 0
+  renders live; QA-2 focus fell to `<body>` when the drawer / sheet closed (antd's trap pulled it back
+  into the closing drawer) — fixed, traced live. P2 logged: QA-3 beside, at scroll 0, the sticky dock's
+  last ~44 px sit below the fold until the page scrolls; P2-2 (pre-existing) at 390 px the app sidebar
+  does not collapse, so the page scrolls sideways.
+
+**Walk script** (owner; ~5 min; production build; BA's):
+
+- W1 1440 × 810, a dashboard with notes: one block — "Notes & insights · N notes · N by AI", up to two
+  severity chips, "View all ›", "⌃ Collapse", up to three rows; no separate At a glance.
+- W2 "View all ›": the pane opens beside, the grid drops a column, the charts do not flicker; the link
+  reads "Showing all notes" (grey), clicking it does nothing.
+- W3 Click anywhere on a card: Read opens; no namespace on the card; the title is not printed twice; a
+  note without a title is titled by its summary. Back, Tab to "View details ›", Enter: the same note.
+- W4 Click a glance row: it is marked; Esc closes and focus is back. Collapse, reload: still collapsed.
+- W5 1024 × 768: "View all ›" — a 400 px drawer over the page, the grid keeps its columns, a light
+  mask; a click on the mask closes and focus returns to "View all ›".
+- W6 390 × 844: tap a row — a bottom sheet at ~85 %; × closes.
+- W7 Dataset page: the plain bar with the dot hint; query and workflow pages: the plain bar.
+- W8 VI: "Ghi chú & nhận định · N ghi chú · N do AI", "Xem tất cả ›" → "Đang xem tất cả ghi chú",
+  "Thu gọn" / "Mở rộng", "Chi tiết ›", cards "Xem chi tiết ›", widget tooltip "Ghi chú của widget
+  này" — every phrase reads naturally.
 
 ## Act
 
-_(filled at the end of the round)_
+- **Owner decision needed:** the perf falsifier is partly met (charts still, timings above the limits).
+  Accept the round as it is and take the rest in R207, or hold R206 until R207 lands.
+- **Rolling log**: the remaining page re-render on a note action (perf, R206); QA-3 sticky dock below
+  the fold at scroll 0; P2-2 (pre-existing) the sidebar at 390 px.
+- **Lesson (Track 2, for promotion review)**: a memo test must cover every data path the memo keys on —
+  the fixture's one widget read the server aggregate, so the raw-row widgets' fresh empty lists went
+  unseen until QA counted renders live on a mixed dashboard. Count renders on a fixture with one widget
+  of each read path.
+- **Prune check**: `AtAGlance` removed (its rows live in the bar); no new hook; the title rule is one
+  function pair.
+- **Promotion**: none yet.
 
 ## Feeds into → Round_207
 
+- **The page does not re-render on a note action** (the rest of 5.6's perf limit): the dock's `note`
+  state read by the dock and the bar only, or the widget card memoised with stable header props
+  (menu, badges, filter button) — measure against the same probe.
 - Previous / next between notes in the Read view (shown in the owner's design A, left out of 5.6) —
   opens if a walk shows readers stepping through notes one by one.
 - A deleted widget's notes listed under the raw widget id (pre-existing) — opens with a reader's

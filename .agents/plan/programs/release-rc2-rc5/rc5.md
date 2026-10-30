@@ -122,7 +122,7 @@ R204's review against the accepted design found four small gaps on the dataset p
   has notes ("Dots on column headers mark notes — colour = severity; click a dot to read"); the
   subtitle's relative time reads inline ("Uploaded just now", not "Uploaded Just now").
 - **Docs:** `dataset-detail.md` § Layout (strip), § Folding sections, § Properties panel, AC 1 + AC 12;
-  `metadata.md` § Metadata bar.
+  `metadata.md` § Notes & insights bar (was "Metadata bar", renamed by 5.6).
 - **Gate:** builder tests green; visual gate at 1536 × 730 with the dock open (EN + VI): the toolbar
   stays one row and the table still shows at least five rows.
 
@@ -142,7 +142,7 @@ object and a toggle that repeats the dock's ×; the bar and At a glance saying t
 cards reachable only through a small button, showing the namespace id; and lag (every open, read and
 close re-rendered every chart):
 
-- **Builder:** the bar reads "Notes & insights" with a "View all N ›" link (no toggle; × / `Esc`
+- **Builder:** the bar reads "Notes & insights" with a "View all ›" link (no toggle; × / `Esc`
   close); on a dashboard the bar is one block holding the ≤ 3 serious notes (At a glance merged,
   collapsible); a card opens on click and has a "View details ›" link, no namespace, a title from the
   summary when there is none; the Read view does not repeat a leading heading equal to the title; the

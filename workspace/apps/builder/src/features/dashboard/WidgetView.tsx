@@ -473,6 +473,10 @@ function toWireFilters(filters: readonly DashboardFilter[]): AggregateFilter[] {
   }));
 }
 
+// R206 — default lists that are the same object every render (the chart-data memo keys on them).
+const NO_FILTERS: readonly DashboardFilter[] = [];
+const NO_SHARED: readonly AggregateFilter[] = [];
+
 // R206 — every chart view is memoised: a re-render of the widget with the same data
 // (a note opened, the URL changed) does not re-render the chart.
 const BarView = memo(BarViewImpl);
@@ -494,12 +498,12 @@ const PieView = memo(PieViewImpl);
  *  scatter, heatmap, table, gauge) keep the client roll-up over raw rows. */
 export function useWidgetChartData(
   widget: Pick<Widget, 'queryId' | 'chartType' | 'dimensionCol' | 'seriesCol' | 'measureCol' | 'measureCol2' | 'agg'>,
-  filters: readonly DashboardFilter[] = [],
+  filters: readonly DashboardFilter[] = NO_FILTERS,
   // R195 — the dashboard's parameter context (viewer values + this widget).
   ctx?: ParamContext,
   // R199 — the viewer's shared selections for this widget (`RuntimeFilter` items
   // with `control`): sent with every read — `f.*` on `/rows`, items on the POSTs.
-  shared: readonly AggregateFilter[] = [],
+  shared: readonly AggregateFilter[] = NO_SHARED,
 ) {
   // R179 — a `note` never reaches this hook (WidgetView dispatches it to
   // NoteWidgetView); `agg` is typed optional only for the note's sake.

@@ -148,7 +148,7 @@ Home ▸ Data Management ▸ Datasets ▸ q1_pipeline_Deals  [+ Save filters as 
 │   │ DATE COVERAGE  won_at 2026-03-01 → 2026-05-14 · 25% blank                     │   │
 │   │                created_at 2026-02-28 14:02 → 2026-05-08 15:22                 │   │
 │   └──────────────────────────────────────────────────────────────────────────────┘   │
-│   Metadata  2 entries · 1 by AI  [Warn] [Open]       (only when entries exist)        │
+│   Notes & insights  2 notes · 1 by AI  [Warn]  View all ›  (only when entries exist)  │
 │   Dots on column headers mark notes — colour = severity; click a dot to read          │
 │                                       (the hint: only when a column has notes, R205)  │
 │                                                                                        │
