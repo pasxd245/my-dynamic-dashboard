@@ -105,7 +105,7 @@ afterEach(() => {
 });
 
 describe('R206 N1 the bar: a link to All notes, never a toggle', () => {
-  it('opens All notes, then reads "Showing all notes"; × and Esc close and focus returns to it', async () => {
+  it('opens All notes, then reads "Showing all" (R207: a grey chip); × and Esc close and focus returns to it', async () => {
     page();
     const link = await find('[data-component="MetadataBarOpen"]');
     expect(link.textContent).toBe('View all');
@@ -116,7 +116,7 @@ describe('R206 N1 the bar: a link to All notes, never a toggle', () => {
     await find('[data-component="MetadataDock"]');
     expect(where()).toBe('?note=*');
     const now = await find('[data-component="MetadataBarOpen"]');
-    expect(now.textContent).toBe('Showing all notes');
+    expect(now.textContent).toBe('Showing all');
     expect(now.getAttribute('aria-disabled')).toBe('true');
     // A second click does not close the dock: the bar is not a toggle.
     fireEvent.click(now);

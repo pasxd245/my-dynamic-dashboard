@@ -167,7 +167,7 @@ unchanged). Order everywhere:
 ```text
 ┌ Dashboard (≥ 1200 px: the pane beside) ──────────────────┐┌ Notes & insights · Dashboard ─ × ┐
 │ ┌ Notes & insights 11 notes · 11 by AI [Decide 1][Warn 1]││ ‹ All notes (11)                 │
-│ │                 Showing all notes          ⌃ Collapse ┐ ││ Sign-ups fell in region North    │
+│ │                 [◉ Showing all]            ⌃ Collapse ┐ ││ Sign-ups fell in region North    │
 │ │ [Decide] Title — summary…               (being read)  │ ││ [Decide] [AI] agent · 28/10      │
 │ │ [Warn]   Title · Widget B — summary…      Details ›   │ ││ body, tables…                    │
 │ └────────────────────────────────────────────────────────┘ ││                                  │
@@ -187,8 +187,8 @@ unchanged). Order everywhere:
 - **Notes & insights bar** (R206; was "Metadata … Open") — one line on dataset, query and workflow
   pages: "Notes & insights" / "Ghi chú & nhận định", the count ("11 notes" / "11 ghi chú"), the AI
   count, up to two severity counts and a **"View all ›" link** (`MetadataBarOpen`) that opens All
-  notes. While All notes is showing, the same element reads "Showing all notes" / "Đang xem tất cả ghi
-  chú" and is `aria-disabled` (one element, so focus returns to it when the dock closes); while one note
+  notes. While All notes is showing, the same element reads "Showing all" / "Đang xem tất cả" as a grey
+  chip with an eye icon beside the severity chips (R207; R206 had loose text) and is `aria-disabled` (one element, so focus returns to it when the dock closes); while one note
   is being read the link reads "View all ›" again and goes to All notes. The bar never closes the dock
   (no toggle): × or `Esc` does. Nothing written → no bar. The renamed label also heads the dock and the
   relationship drawer's panel. **On a dashboard** the bar is one
@@ -200,8 +200,9 @@ unchanged). Order everywhere:
   hiện mức độ; bấm vào dấu chấm để đọc." Only columns on screen count (a hidden column draws no dot).
   The bar takes it as an optional `hint`; other pages pass none.
 - **Dock** (`MetadataDock`) — beside the page content from the **`xl`** breakpoint (≥ 1200 px; R206,
-  was `lg`), 400 px wide, sticky, scrolls on its own, as tall as its content up to the page height
-  (beside a growing page: up to the viewport's bottom from where it sits — R207);
+  was `lg`), 400 px wide, sticky, scrolls on its own, as tall as its content — capped beside a page
+  that fills its column at the column's height, and beside a page that grows at the viewport's bottom
+  measured from the dock's top (re-measured on scroll, resize and layout changes — R207);
   from `md` to `xl` a 400 px `Drawer` **over** the page from the right; below `md` a bottom sheet (85 %
   of the viewport height). Over the page means the grid never re-flows on a small screen (R206, owner's
   design C). Over the page the drawer / sheet has a light mask; a click on the mask closes it (the
@@ -487,7 +488,7 @@ namespace_cap`.
     the relationship check drawer; a dashboard widget with entries shows the info button and
     popover.
 11. **One block, a link, cards, still charts** _(FE, R206)_ — the bar's "View all ›" opens All notes
-    and reads "Showing all notes" (`aria-disabled`) while it shows, with no control that closes the dock;
+    and reads "Showing all" (`aria-disabled`, a grey chip) while it shows, with no control that closes the dock;
     a dashboard's glance rows live in the bar's block; a card opens on click and via "View details",
     without the namespace id, titled by its summary when it has no title; the Read view drops a
     leading heading equal to the title; the dock is beside at ≥ 1200 px, a right drawer at 768–1199 px,

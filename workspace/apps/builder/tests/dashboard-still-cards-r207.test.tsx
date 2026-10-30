@@ -108,7 +108,9 @@ describe('R207 the widget cards stay still on a note action', () => {
   it('the card menu still acts on the latest page state (Edit opens the builder for that widget)', async () => {
     setWindowWidth(1024);
     page();
-    fireEvent.click(await find('[data-component="WidgetMoreButton"]'));
+    // Wait for the grid, then for the card's menu (CR-4: the first find raced the reads).
+    await find('[data-component="DashboardGridCell"]');
+    fireEvent.click(await waitFor(() => find('[data-component="WidgetMoreButton"]'), { timeout: 5000 }));
     fireEvent.click(
       await waitFor(() => {
         const el = [...document.querySelectorAll('.ant-dropdown-menu-item')].find((n) => n.textContent === 'Edit');
@@ -123,12 +125,27 @@ describe('R207 the widget cards stay still on a note action', () => {
 describe('R207 two layout gaps from R206 QA', () => {
   it('QA-3: the sticky dock is as tall as the viewport from where it sits, not a fixed height', async () => {
     setWindowWidth(1440);
+    // happy-dom lays nothing out: the dock's row sits 200 px down (CR-5).
+    const rect = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockReturnValue({
+        top: 200,
+        bottom: 0,
+        left: 0,
+        right: 0,
+        width: 0,
+        height: 0,
+        x: 0,
+        y: 200,
+        toJSON: () => ({}),
+      });
     page();
     fireEvent.click(await find('[data-component="MetadataBarOpen"]'));
     const dock = await find('[data-component="MetadataDock"]');
     const wrapper = dock.parentElement as HTMLElement;
-    // happy-dom lays nothing out (top 0 → the sticky top, 16 px): 900 − 16 − 16.
-    await waitFor(() => expect(wrapper.style.maxHeight).toBe('868px'));
+    // 900 − 200 − 16 (the bottom gap).
+    await waitFor(() => expect(wrapper.style.maxHeight).toBe('684px'));
+    rect.mockRestore();
   });
 
   it('P2-2: on a phone-width window the side menu starts collapsed, with no group popped open', async () => {

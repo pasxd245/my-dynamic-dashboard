@@ -1,6 +1,6 @@
 # Round 207: the dashboard stays still on a note action, the dock fits the screen, the phone menu folds (item 5.7)
 
-**Status**: In progress
+**Status**: Review
 **Flow**: **DCFBI** — builder-only (plus one line in the shared shell): the dashboard's widget cards, the
 dock's sticky height, the side menu's start state; no contract, route, engine or migration change.
 **Date started**: 2026-10-30
@@ -37,6 +37,9 @@ _Track: 1 (product). Pulled by: R206 Feeds into + rolling log (R206 QA probe, QA
 - **Builder — the dock fits** (`dock.tsx`): beside and sticky, its max height is the viewport from
   where it sits (never above 16 px) to the bottom, re-measured on scroll and resize (one frame at a
   time); was a fixed `100svh − 120px`.
+- **Builder — "Showing all" as a chip** (owner, mid-round 2026-10-30: loose grey text read as out of
+  place): while All notes shows, the bar's element reads "Showing all" / "Đang xem tất cả" as a grey
+  chip with an eye icon, the same size as the severity chips; still the one focusable element.
 - **Builder — the phone menu** (`AppLayout`, `WorkspaceShell`): below 768 px the side menu starts
   collapsed; a menu that starts collapsed opens no group (antd would float each open group over the
   page). The viewer can still open it.
@@ -77,16 +80,77 @@ change, which re-lays out every card and chart by design (5.2 / 5.6: "the grid n
 - [x] **C** — no contract change
 - [x] **F** — `DashboardDetailPage.tsx`, `dock.tsx`, `AppLayout.tsx`, `WorkspaceShell.tsx`, tests (6)
 - [x] **B** — none (builder-only)
-- [ ] **I** — perf probe + visual check (1440 × 810 dock at scroll 0; 390 × 844 menu)
-- [ ] Check — gates; code review; BA (after build); QA
+- [x] **I** — perf probe + visual check (1440 × 810 dock at scroll 0; 390 × 844 menu)
+- [x] Check — gates; code review; BA (after build); QA
 
 ## Check
 
-_(filled at the end of the round)_
+**Gates** (head of this round): builder **723 / 723** (717 + 6) — one full run under QA's parallel
+load timed out five upload-wizard tests (15–18 s each); `datasets.test.tsx` alone 15 / 15 and the head
+run green; `packages/ui` WorkspaceShell + PageHeader green; `tsc` clean; md / plan / design lints 0;
+backend and contracts untouched.
+
+**Perf probe** (QA; R206's probe, CPU × 4, 7 widgets, quiet machine, ≥ 6 samples):
+
+| Viewport (placement) | Open           | Read          | Back | Close         | Card / chart renders per action |
+| -------------------- | -------------- | ------------- | ---- | ------------- | ------------------------------- |
+| R206, 1440 beside    | 1 071          | 283           | 315  | 669           | 7 cards / 0 charts              |
+| R207, 1440 beside    | 1 016 (target) | **173**       | 290  | **521**       | read, back 0; open, close 7 / 0 |
+| R206, 1024 over      | 553            | 298           | 407  | 442           | 7 cards / 0 charts              |
+| R207, 1024 over      | **343**        | **184**       | 284  | **250**       | **0 / 0**                       |
+
+All falsifiers met (read ≤ 250, over ≤ 400, close beside ≤ 600). Open beside stays ~1 s — the grid's
+column change re-lays out all seven cards and charts (5.2's design); a target, not a falsifier,
+logged for R208. Under load (QA's first runs, load 4–5 on 2 cores) the 1440 read and close medians were
+263 / 637: the margins are thin on a busy machine.
+
+**Visual + live** (QA, EN + VI): card actions on live data after note cycles and a filter change — Edit
+opens the builder for the right widget, the filter button the right drawer (applied filter shows, only
+that card's button on), the notes badge that widget's notes, Delete confirms the right widget (cancel
+kept it). 1440 × 810 at scroll 0: dock bottom 794 of 810, follows scroll. 390 × 844: menu collapsed,
+no popup; **QA-1** the content area still scrolled 216 px sideways (the page header's buttons did not
+wrap, the title broke letter by letter) — fixed: the shared `PageHeader` wraps its actions under the
+title (`flex-wrap`, title `flex: 1 1 240px`), the dashboard's action group wraps; content 326 / 326 px
+after. "Showing all" chip checked at 1440 VI. Focus return after `Esc` at 1024 and 1440. No page
+errors.
+
+**Reviews**
+
+- Code review — **PASS** (P2 only), folded: CR-1 the dock re-measures on layout changes too
+  (`ResizeObserver` on the body); CR-2 first measurement in a layout effect (no frame at the wrong
+  height); CR-4 S3 waits for the grid; CR-5 S4 stubs a 200 px top (684 px). Not changed: CR-3 (a test
+  that edits A then deletes B) — QA exercised Edit / filter / notes / Delete live after note cycles and
+  a filter change; CR-6 an expanded phone menu opens no group (one tap opens it).
+- BA (after build; no contract-exit pass — the round adds no behaviour beyond 5.6's limits and two
+  logged layout fixes, owner-pulled) — **PASS on condition** the probe numbers land here (done) and
+  BA-1's wording: the rolling-log rows now point at this Check with its numbers; BA-2 the dock-height
+  sentence in `metadata.md` rewritten.
+- QA — **CHANGES** (QA-1 P1) → fixed as above. P2 logged: QA-2 at 390 px the expanded menu pushes the
+  content (90 px wide) instead of floating and stays open after navigating; QA-3 = open beside (R208);
+  QA-4 thin margins under load.
+
+**Walk script** (owner; ~5 min; BA's):
+
+1. ~1024 px, a dashboard with ~7 widgets: View all → open a note → Back → Esc — no card or chart
+   flickers; a chart's hover stays.
+2. 1440 × 810 at the top of the page: open the notes — the dock's bottom edge is visible; scroll, it
+   stays fitted. The bar shows a grey "Đang xem tất cả" chip.
+3. ⋯ → Edit on one card, change its title, save; ⋯ → Delete → confirm on another — the edited title
+   is still there.
+4. A card's filter button opens that widget's drawer; its notes badge opens that widget's notes.
+5. Drag a card by its handle (and with the keyboard) — the order is saved.
+6. 390 px: the menu starts folded, nothing floats, no sideways scroll; the header's buttons wrap under
+   the title.
 
 ## Act
 
-_(filled at the end of the round)_
+- **Rolling log**: the three R206 rows closed with this round's numbers; new P2 rows — QA-2 (the phone
+  menu pushes content when expanded) and the open-beside time (R208).
+- **Lesson (Track 2)**: a stable-props memo can still be defeated by a context its child reads — here
+  `useSensor`'s inline options gave drag-and-drop a new context each render. Count renders before and
+  after; when props are stable and renders continue, look at the contexts.
+- **Prune check**: no new component; one hook (`useFitViewport`); `widgetMenu` moved into the card.
+- **Promotion**: none yet.
 
 ## Feeds into → Round_208
 

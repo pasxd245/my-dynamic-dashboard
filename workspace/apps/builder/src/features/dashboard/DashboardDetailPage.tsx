@@ -640,7 +640,7 @@ export function DashboardDetailPage() {
         breadcrumb={breadcrumb}
         title={dash.name}
         actions={
-          <Space>
+          <Space wrap>
             <Button
               icon={<ControlsIcon />}
               onClick={() => setControlsOpen(true)}

@@ -14,13 +14,14 @@ import {
   ArrowLeftOutlined,
   CloseOutlined,
   DownOutlined,
+  EyeOutlined,
   RightOutlined,
   RobotOutlined,
   UpOutlined,
 } from '@ant-design/icons';
 import { Button, Drawer, Empty, Grid, Tag, Typography } from 'antd';
 import type { MouseEvent, ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -239,7 +240,8 @@ const STICKY_TOP = 16;
 function useFitViewport(enabled: boolean): [(el: HTMLDivElement | null) => void, number | undefined] {
   const [el, setEl] = useState<HTMLDivElement | null>(null);
   const [max, setMax] = useState<number | undefined>(undefined);
-  useEffect(() => {
+  // A layout effect, so the first paint already has the fitted height (CR-2).
+  useLayoutEffect(() => {
     if (!enabled || !el || typeof window === 'undefined') return;
     let frame = 0;
     const measure = () => {
@@ -253,7 +255,12 @@ function useFitViewport(enabled: boolean): [(el: HTMLDivElement | null) => void,
     measure();
     window.addEventListener('scroll', schedule, { passive: true, capture: true });
     window.addEventListener('resize', schedule);
+    // Content above the dock that grows or shrinks without a scroll (reads arriving,
+    // the control bar wrapping) moves it too (CR-1).
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(schedule);
+    ro?.observe(document.body);
     return () => {
+      ro?.disconnect();
       if (frame) window.cancelAnimationFrame(frame);
       window.removeEventListener('scroll', schedule, { capture: true });
       window.removeEventListener('resize', schedule);
@@ -750,13 +757,28 @@ export function MetadataBar({
         aria-disabled={showingAll}
         data-component="MetadataBarOpen"
         data-showing={showingAll ? 'true' : 'false'}
-        style={{
-          paddingInline: 4,
-          ...(showingAll ? { color: 'var(--ant-color-text-secondary, #595959)', cursor: 'default' } : {}),
-        }}
+        style={
+          showingAll
+            ? // R207 — the state reads as a grey chip beside the severity chips, not as loose
+              // text; still this one focusable element, so focus returns here on close.
+              {
+                height: 22,
+                paddingInline: 7,
+                fontSize: 12,
+                borderRadius: 4,
+                cursor: 'default',
+                color: 'var(--ant-color-text, rgba(0,0,0,0.88))',
+                background: 'var(--ant-color-fill-tertiary, rgba(0,0,0,0.04))',
+                border: '1px solid var(--ant-color-border, #d9d9d9)',
+              }
+            : { paddingInline: 4 }
+        }
       >
         {showingAll ? (
-          t('metadata.bar.showing')
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <EyeOutlined />
+            {t('metadata.bar.showing')}
+          </span>
         ) : (
           <>
             {t('metadata.bar.viewAll')}

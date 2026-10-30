@@ -68,6 +68,9 @@ export function PageHeader({ breadcrumb, title, subtitle, actions, onNavigate }:
     display: 'flex',
     alignItems: 'flex-start',
     gap: 16, // (this gap is between the breadcrumb/title block and the actions slot)
+    // R207 (QA-1) — on a narrow window the actions wrap under the title instead of
+    // pushing the page sideways (the title kept ~70 px and broke letter by letter).
+    flexWrap: 'wrap',
   };
 
   const subtitleStyle: CSSProperties = {
@@ -77,14 +80,18 @@ export function PageHeader({ breadcrumb, title, subtitle, actions, onNavigate }:
 
   return (
     <header data-component="PageHeader" style={headerStyle}>
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: '1 1 240px', minWidth: 0 }}>
         <Breadcrumb items={items} style={{ marginBottom: 8 }} />
         <Typography.Title level={2} style={{ marginTop: 0, marginBottom: subtitle ? 4 : 0 }}>
           {title}
         </Typography.Title>
         {subtitle !== undefined && <Typography.Paragraph style={subtitleStyle}>{subtitle}</Typography.Paragraph>}
       </div>
-      {actions !== undefined && <div data-slot="actions">{actions}</div>}
+      {actions !== undefined && (
+        <div data-slot="actions" style={{ maxWidth: '100%' }}>
+          {actions}
+        </div>
+      )}
     </header>
   );
 }
