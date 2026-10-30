@@ -25,7 +25,6 @@ const DASH_ITEM_PREFIX = 'dash:';
 const DASH_WS_PREFIX = 'dashws:'; // workspace SubMenu header (toggles only; no route)
 const DASHBOARDS_PATH = '/dashboards/';
 
-
 // Static leaf → route map (the dashboard instance items are resolved dynamically).
 const ROUTE_FOR_KEY: Record<string, string> = {
   [SETTINGS_DASHBOARD_KEY]: '/settings/dashboard',
@@ -57,13 +56,24 @@ function activeKeyFor(pathname: string): string {
   return '';
 }
 
+/** Below the `md` breakpoint (768 px). No `matchMedia` (tests, SSR) → not narrow. */
+function narrowWindow(): boolean {
+  try {
+    return globalThis.matchMedia?.('(max-width: 767.98px)').matches ?? false;
+  } catch {
+    return false;
+  }
+}
+
 export function AppLayout({ children }: Readonly<{ children: ReactNode }>) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { t } = useTranslation();
   const { items: dashboardItems } = useAllDashboards();
   const activeKey = activeKeyFor(pathname);
-  const [collapsed, setCollapsed] = useState(false);
+  // R207 — on a phone-width window the side menu starts collapsed, so the page is not
+  // pushed sideways (QA P2-2, R206); the viewer can still open it.
+  const [collapsed, setCollapsed] = useState(() => narrowWindow());
   const routeMeta = useRouteMeta();
 
   // Built INSIDE the component so the labels are i18n'd (R105 B1 — was a

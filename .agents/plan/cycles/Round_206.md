@@ -1,10 +1,10 @@
 # Round 206: notes and insights — one block, a link not a toggle, cards you click, charts that stay still (item 5.6)
 
-**Status**: Review — one falsifier hit (perf, partly met); owner decides
+**Status**: Complete — accepted by the owner 2026-10-30 with the perf limits partly met (the rest → R207); pinned
 **Flow**: **DCFBI** — builder-only: the metadata bar, At a glance, the dock's cards and Read view and its
 breakpoints, and the dashboard widget's render path; no contract, route, engine or migration change.
 **Date started**: 2026-10-30
-**Date completed**: —
+**Date completed**: 2026-10-30
 
 ## Goal
 

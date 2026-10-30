@@ -200,7 +200,8 @@ unchanged). Order everywhere:
   hiện mức độ; bấm vào dấu chấm để đọc." Only columns on screen count (a hidden column draws no dot).
   The bar takes it as an optional `hint`; other pages pass none.
 - **Dock** (`MetadataDock`) — beside the page content from the **`xl`** breakpoint (≥ 1200 px; R206,
-  was `lg`), 400 px wide, sticky, scrolls on its own, as tall as its content up to the page height;
+  was `lg`), 400 px wide, sticky, scrolls on its own, as tall as its content up to the page height
+  (beside a growing page: up to the viewport's bottom from where it sits — R207);
   from `md` to `xl` a 400 px `Drawer` **over** the page from the right; below `md` a bottom sheet (85 %
   of the viewport height). Over the page means the grid never re-flows on a small screen (R206, owner's
   design C). Over the page the drawer / sheet has a light mask; a click on the mask closes it (the
@@ -230,7 +231,9 @@ unchanged). Order everywhere:
   only; it re-renders no chart view: the widget's derived chart data is memoised on its fetched
   results, the widget and its filters (the parameter context reaches it only through the fetched
   results), and every chart view — the eight recharts views and the lazy heatmap and gauge — is
-  `React.memo`. Only a width change (the
+  `React.memo`. R207: the widget **cards** stay still too — each card is memoised, its callbacks are one function
+  each calling the page's latest handlers, and the drag-and-drop context no longer changes on a page
+  render; a note action that does not change the grid's columns re-renders no card. Only a width change (the
   pane opening beside the grid) re-lays a chart out.
 - **Markdown viewer** — `SafeMarkdown` renders through `react-markdown` + `remark-gfm`: headings,
   paragraphs, emphasis, strikethrough, inline + fenced code, nested lists, task lists, quotes,

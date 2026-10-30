@@ -44,7 +44,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { PageContainer, PageHeader } from '@mdd/ui';
 import { App, Button, Card, Dropdown, Empty, Grid, Space, Spin, Tooltip, theme } from 'antd';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
@@ -82,6 +82,7 @@ import {
   paramContextFor,
   useWidgetParamContext,
   useWidgetSharedFilters,
+  type Reach,
   type ValuesSource,
 } from './DashboardParams';
 import { paramsFromSearch } from '@/features/data-management/queries/params';
@@ -122,11 +123,17 @@ function newWidgetId(): string {
 // R206 — one empty list, so a widget without filters gets the same object every
 // render (its chart data memo keys on it).
 const NO_FILTERS: DashboardFilter[] = [];
+const NO_CONTROLS: DashboardControl[] = [];
+// R207 — sensor options as constants: `useSensor` memoises on the options object, so an
+// inline literal gave drag-and-drop a new context on every page render and re-rendered
+// every card.
+const POINTER_SENSOR = { activationConstraint: { distance: 4 } };
+const KEYBOARD_SENSOR = { coordinateGetter: sortableKeyboardCoordinates };
 
 /** One widget as a sortable grid cell. The drag activator is the HANDLE only
  *  (not the whole card), so the ⋯ menu and the interactive chart keep their
  *  clicks; the handle is keyboard-focusable (dnd-kit keyboard sensor). */
-function SortableWidget({
+function SortableWidgetCard({
   widget,
   gridCols,
   canReorder,
@@ -135,11 +142,12 @@ function SortableWidget({
   filterActive,
   filterLabel,
   onOpenFilter,
-  menu,
+  onEdit,
+  onDelete,
   filters,
   metadata,
   onOpenMetadata,
-  badge,
+  reach,
 }: Readonly<{
   widget: Widget;
   gridCols: 1 | 2 | 3;
@@ -148,15 +156,18 @@ function SortableWidget({
   handleTooltip: string;
   filterActive: boolean;
   filterLabel: string;
-  onOpenFilter: () => void;
-  menu: React.ReactNode;
+  /** R207 — every callback takes the widget (or its id) and is the same function on
+   *  every page render, so a note action does not re-render the card. */
+  onOpenFilter: (widget: Widget) => void;
+  onEdit: (widget: Widget) => void;
+  onDelete: (widget: Widget) => void;
   filters: readonly DashboardFilter[];
   /** R180 — this widget's metadata entries (from the dashboard's one read). */
   metadata?: MetadataEntries;
   /** R202 — open the dock on this widget's notes. */
-  onOpenMetadata: () => void;
-  /** R195 — which parameter controls reached this widget. */
-  badge?: React.ReactNode;
+  onOpenMetadata: (widgetId: string) => void;
+  /** R195 — which parameter controls reached this widget (the same object while equal). */
+  reach: Reach;
 }>) {
   const { token } = theme.useToken();
   const { t } = useTranslation();
@@ -200,7 +211,7 @@ function SortableWidget({
           type="text"
           size="small"
           icon={filterActive ? <FilterFilled /> : <FilterOutlined />}
-          onClick={onOpenFilter}
+          onClick={() => onOpenFilter(widget)}
           aria-label={filterLabel}
           aria-pressed={filterActive}
           style={filterActive ? { color: token.colorPrimary } : undefined}
@@ -210,7 +221,7 @@ function SortableWidget({
     );
   // R180 — an affordance when something is written about this widget; R202 —
   // severity chips (+N) or the info button, opening the dock beside the grid.
-  const metaButton = <WidgetMetadataBadges entries={metadata} onOpen={onOpenMetadata} />;
+  const metaButton = <WidgetMetadataBadges entries={metadata} onOpen={() => onOpenMetadata(widget.id)} />;
   // R182 — a table's numbers go out as a file: every row of the same filtered
   // result the table reads, with its totals row; the server names the file.
   const { message } = App.useApp();
@@ -252,12 +263,38 @@ function SortableWidget({
         </Tooltip>
       </Dropdown>
     ) : null;
+  // R187 — the ⋯ menu (Edit / Delete); its actions go through the page's latest handlers.
+  const menu = (
+    <Dropdown
+      trigger={['click']}
+      menu={{
+        items: [
+          { key: 'edit', icon: <EditOutlined />, label: t('common.edit'), onClick: () => onEdit(widget) },
+          {
+            key: 'delete',
+            icon: <DeleteOutlined />,
+            label: t('common.delete'),
+            danger: true,
+            onClick: () => onDelete(widget),
+          },
+        ],
+      }}
+    >
+      <Button
+        type="text"
+        size="small"
+        icon={<MoreOutlined />}
+        aria-label={`${widget.title} — ${t('common.edit')} / ${t('common.delete')}`}
+        data-component="WidgetMoreButton"
+      />
+    </Dropdown>
+  );
   return (
     <div ref={setNodeRef} style={style} data-component="DashboardGridCell" data-span={cell.cols} data-rows={cell.rows}>
       <WidgetView
         widget={widget}
         filters={filters}
-        badge={badge}
+        badge={<ReachBadge reach={reach} />}
         extra={
           <Space size={0}>
             {handle}
@@ -271,6 +308,10 @@ function SortableWidget({
     </div>
   );
 }
+
+/** R207 — the card re-renders only when its own props change: a note action (the
+ *  `?note=` change re-renders the page) leaves every widget card as it was. */
+const SortableWidget = memo(SortableWidgetCard);
 
 export function DashboardDetailPage() {
   const { t } = useTranslation();
@@ -290,13 +331,20 @@ export function DashboardDetailPage() {
   // R195 — parameter controls: viewer values in the URL (`?p.<name>=`), the
   // queries' declarations for types and reach, and the controls editor.
   const [searchParams] = useSearchParams();
-  const viewer = paramsFromSearch(searchParams);
+  // R207 — the same objects while the values are the same (a `?note=` change keeps them).
+  const viewerFresh = paramsFromSearch(searchParams);
+  const viewerKey = JSON.stringify(viewerFresh);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const viewer = useMemo(() => viewerFresh, [viewerKey]);
   // R199 — every URL write goes through the ONE raw writer (`sharedFilters`):
   // `f.*` is split before decoding, so its bytes must never be re-serialised by
   // `URLSearchParams` (BA-C2). Reads of `f.*` come from the raw search too.
   const location = useLocation();
   const rawSearch = location.search;
-  const selections = parseFilterSelections(rawSearch);
+  const selectionsFresh = parseFilterSelections(rawSearch);
+  const selectionsKey = JSON.stringify(selectionsFresh);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const selections = useMemo(() => selectionsFresh, [selectionsKey]);
   const writeUrl = (search: string, replace: boolean) =>
     navigate({ pathname: location.pathname, search, hash: location.hash }, { replace });
   // R180 — one read serves the dashboard's own entries and every widget's;
@@ -327,10 +375,7 @@ export function DashboardDetailPage() {
   // R102 reorder — display order (widget ids). Kept local for an optimistic
   // reorder on drop; resynced whenever the server order/set changes (so a
   // successful save is a no-op and a failed save / external edit reverts).
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
+  const sensors = useSensors(useSensor(PointerSensor, POINTER_SENSOR), useSensor(KeyboardSensor, KEYBOARD_SENSOR));
   const [orderIds, setOrderIds] = useState<string[]>([]);
   const serverKey = (dashboard?.widgets ?? []).map((w) => w.id).join(',');
   useEffect(() => {
@@ -370,6 +415,32 @@ export function DashboardDetailPage() {
         : undefined,
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [dashboard?.id, glanceOrder, glanceTitles],
+  );
+
+  // R207 — the widget cards' callbacks: one function each for the page's life, calling
+  // the latest handlers (set below, every render), so the cards stay memoised.
+  const latest = useRef({
+    openFilter: (_w: Widget) => {},
+    edit: (_w: Widget) => {},
+    remove: (_w: Widget) => {},
+    openNotes: (_id: string) => {},
+  });
+  const onOpenFilter = useCallback((w: Widget) => latest.current.openFilter(w), []);
+  const onEditWidget = useCallback((w: Widget) => latest.current.edit(w), []);
+  const onDeleteWidget = useCallback((w: Widget) => latest.current.remove(w), []);
+  const onOpenWidgetNotes = useCallback((id: string) => latest.current.openNotes(id), []);
+  // R207 — values handed to the cards keep their identity while equal.
+  const reachCache = useRef(new Map<string, { key: string; value: Reach }>());
+  const idsCache = useRef<string[]>([]);
+  const paramsValue = useMemo(
+    () => ({
+      viewer,
+      dashboardId: dashboard?.id ?? '',
+      controls: dashboard?.controls ?? NO_CONTROLS,
+      report: reportResolved,
+      filters: selections,
+    }),
+    [viewer, dashboard?.id, dashboard?.controls, reportResolved, selections],
   );
 
   if (dashboardsQ.isLoading) {
@@ -465,7 +536,11 @@ export function DashboardDetailPage() {
       .catch(() => message.error(t('common.error')));
   // Display widgets in the local order; fall back to server order, and drop any
   // ids the optimistic order hasn't caught up on (e.g. just-removed widget).
-  const displayIds = orderIds.filter((id) => widgetsById.has(id));
+  const freshIds = orderIds.filter((id) => widgetsById.has(id));
+  if (freshIds.join(',') !== idsCache.current.join(',')) idsCache.current = freshIds;
+  // R207 — the same array while the order is the same (the drag-and-drop context and
+  // every card read it).
+  const displayIds = idsCache.current;
   const ordered: Widget[] = displayIds.map((id) => widgetsById.get(id) as Widget);
   const widgetTitle = (id: string) => widgetsById.get(id)?.title ?? id;
   const canReorder = ordered.length > 1;
@@ -540,31 +615,24 @@ export function DashboardDetailPage() {
 
   // The card header carries the drag handle (R102, added in SortableWidget) +
   // this ⋯ menu (Edit / Delete).
-  const widgetMenu = (w: Widget) => (
-    <Dropdown
-      trigger={['click']}
-      menu={{
-        items: [
-          { key: 'edit', icon: <EditOutlined />, label: t('common.edit'), onClick: () => setBuilder({ initial: w }) },
-          {
-            key: 'delete',
-            icon: <DeleteOutlined />,
-            label: t('common.delete'),
-            danger: true,
-            onClick: () => confirmRemoveWidget(w),
-          },
-        ],
-      }}
-    >
-      <Button
-        type="text"
-        size="small"
-        icon={<MoreOutlined />}
-        aria-label={`${w.title} — ${t('common.edit')} / ${t('common.delete')}`}
-        data-component="WidgetMoreButton"
-      />
-    </Dropdown>
-  );
+  // R207 — the cards call these through stable callbacks (see `latest` above).
+  latest.current = {
+    openFilter: (w) => {
+      setFilterWidget(w);
+      setFilterDrawerOpen(true);
+    },
+    edit: (w) => setBuilder({ initial: w }),
+    remove: confirmRemoveWidget,
+    openNotes: (id) => metaDock.open({ scope: 'child', child: id }),
+  };
+  const reachOf = (w: Widget): Reach => {
+    const value = controlReach(controls, w, w.queryId ? queriesById.get(w.queryId) : undefined, widgetColumns(w));
+    const key = JSON.stringify(value);
+    const hit = reachCache.current.get(w.id);
+    if (hit && hit.key === key) return hit.value;
+    reachCache.current.set(w.id, { key, value });
+    return value;
+  };
 
   return (
     <PageContainer width="data" dataComponent="DashboardDetailPage">
@@ -618,9 +686,7 @@ export function DashboardDetailPage() {
         valuesSource={valuesSource}
       />
 
-      <DashboardParamsContext.Provider
-        value={{ viewer, dashboardId: dash.id, controls, report: reportResolved, filters: selections }}
-      >
+      <DashboardParamsContext.Provider value={paramsValue}>
         <MetadataDockRow
           api={metaDock}
           cfg={{
@@ -668,24 +734,13 @@ export function DashboardDetailPage() {
                       handleTooltip={t('dashboard.reorder.tooltip')}
                       filterActive={filtersFor(w.id).some((f) => f.values.length > 0)}
                       filterLabel={t('dashboard.filter.iconLabel', { title: w.title })}
-                      onOpenFilter={() => {
-                        setFilterWidget(w);
-                        setFilterDrawerOpen(true);
-                      }}
-                      menu={widgetMenu(w)}
+                      onOpenFilter={onOpenFilter}
+                      onEdit={onEditWidget}
+                      onDelete={onDeleteWidget}
                       metadata={metaDock.read?.children?.[w.id]}
-                      onOpenMetadata={() => metaDock.open({ scope: 'child', child: w.id })}
+                      onOpenMetadata={onOpenWidgetNotes}
                       filters={filtersFor(w.id)}
-                      badge={
-                        <ReachBadge
-                          reach={controlReach(
-                            controls,
-                            w,
-                            w.queryId ? queriesById.get(w.queryId) : undefined,
-                            widgetColumns(w),
-                          )}
-                        />
-                      }
+                      reach={reachOf(w)}
                     />
                   ))}
                 </div>

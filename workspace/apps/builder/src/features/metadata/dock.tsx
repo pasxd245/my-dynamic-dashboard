@@ -177,6 +177,7 @@ export function MetadataDockRow({
   const screens = Grid.useBreakpoint();
   const beside = dockBeside(screens);
   const sheet = screens.md === false;
+  const [stickyRef, stickyMax] = useFitViewport(Boolean(api.sel) && beside && !fill);
   const dock = api.sel ? (
     <MetadataDock cfg={cfg} read={api.read} sel={api.sel} fromAll={api.fromAll} onOpen={api.open} onClose={api.close} />
   ) : null;
@@ -202,6 +203,7 @@ export function MetadataDockRow({
       </div>
       {dock && beside ? (
         <div
+          ref={fill ? undefined : stickyRef}
           style={{
             flex: `0 0 ${DOCK_WIDTH}px`,
             width: DOCK_WIDTH,
@@ -211,7 +213,9 @@ export function MetadataDockRow({
               : {
                   position: 'sticky',
                   top: 16,
-                  maxHeight: 'calc(100svh - 120px)',
+                  // R207 (QA-3, R206) — fits the viewport from where it sits: at scroll 0
+                  // it starts below the page header, so a fixed height ran off the bottom.
+                  maxHeight: stickyMax ?? 'calc(100svh - 32px)',
                   display: 'flex',
                   flexDirection: 'column',
                 }),
@@ -227,6 +231,35 @@ export function MetadataDockRow({
       ) : null}
     </div>
   );
+}
+
+/** R207 — the sticky dock's height: from its top (never above `STICKY_TOP`) to the
+ *  viewport's bottom, re-measured on scroll and resize (one frame at a time). */
+const STICKY_TOP = 16;
+function useFitViewport(enabled: boolean): [(el: HTMLDivElement | null) => void, number | undefined] {
+  const [el, setEl] = useState<HTMLDivElement | null>(null);
+  const [max, setMax] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    if (!enabled || !el || typeof window === 'undefined') return;
+    let frame = 0;
+    const measure = () => {
+      frame = 0;
+      const top = Math.max(el.getBoundingClientRect().top, STICKY_TOP);
+      setMax(Math.max(240, Math.floor(window.innerHeight - top - STICKY_TOP)));
+    };
+    const schedule = () => {
+      if (!frame) frame = window.requestAnimationFrame(measure);
+    };
+    measure();
+    window.addEventListener('scroll', schedule, { passive: true, capture: true });
+    window.addEventListener('resize', schedule);
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', schedule, { capture: true });
+      window.removeEventListener('resize', schedule);
+    };
+  }, [enabled, el]);
+  return [setEl, enabled ? max : undefined];
 }
 
 /** R206 — where the dock goes for these breakpoints: beside the content from `xl`

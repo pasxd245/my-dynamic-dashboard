@@ -285,7 +285,9 @@ export function WorkspaceShell(props: Readonly<WorkspaceShellProps>) {
               inlineIndent={INLINE_INDENT}
               items={menuItems}
               selectedKeys={activeKey ? [activeKey] : []}
-              defaultOpenKeys={defaultOpenKeys}
+              // R207 — a menu that starts collapsed (a phone-width window) opens no group:
+              // antd would show each open group as a floating popup over the page.
+              defaultOpenKeys={collapsed ? [] : defaultOpenKeys}
               onClick={(info) => onSelect(info.key)}
               style={{
                 borderRight: 'none',

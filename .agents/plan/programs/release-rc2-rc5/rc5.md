@@ -155,3 +155,27 @@ close re-rendered every chart):
 
 _Not in this item:_ previous / next between notes in the Read view; the query and workflow pages'
 own layout; the launcher that runs the builder in dev mode (an install's script, outside this repo).
+
+## 5.7 The dashboard stays still on a note action; the dock fits the screen; the phone menu folds
+
+|       |                                                                                                    |
+| ----- | -------------------------------------------------------------------------------------------------- |
+| Track | 1                                                                                                  |
+| Flow  | **DCFBI** — builder-only (one line in the shared shell): widget cards, dock height, menu start    |
+| Added | by the owner, 2026-10-30, accepting R206 with its perf limits partly met ("R207: the rest")        |
+| Round | `Round_207`                                                                                        |
+
+R206 kept the charts still but the page re-rendered every widget card on each note action; its QA
+logged the beside dock running off the bottom at scroll 0 and the side menu not folding at 390 px:
+
+- **Builder:** memoised widget cards with stable callbacks (latest handlers through a ref), the menu
+  built in the card, stable reach / id list / parameter context, drag sensors' options as constants;
+  the sticky dock's height measured from where it sits; the side menu starts collapsed below 768 px
+  with no group popped open.
+- **Docs:** `metadata.md` § Reading by layer.
+- **Gate:** builder tests green; R206's probe — read ≤ 250 ms, open / close ≤ 400 ms over the page,
+  close ≤ 600 ms beside; at 1440 × 810 the open dock's bottom inside the viewport; at 390 px no sideways
+  scroll.
+
+_Not in this item:_ keeping the grid's column count when the dock opens beside (5.2's design); previous
+/ next between notes.
