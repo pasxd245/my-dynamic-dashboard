@@ -135,22 +135,24 @@ the data table.
                                                   ┌──────── PageHeader.actions ────────┐
 Home ▸ Data Management ▸ Datasets ▸ q1_pipeline_Deals  [+ Save filters as Query] [Actions ▾]
 ▣ q1_pipeline_Deals  [Excel · Deals]                                                  │
-2,481 rows · 12 columns · 84 KB · Uploaded 14:02  ─────────────────────────────────────┘
+2,481 rows · 12 columns · 84 KB · Uploaded 14:02 · ▸ Details  ─────────────────────────┘
        Actions ▾ = Join with related dataset │ Properties · Refresh · Rename · Delete
 
 ┌───────────────────────────────────────────────────────────────────────────────────────┐
 │  PageCard                                                                              │
-│   ┌─ Metadata strip ─────────────────────────────────────────────────────────────┐   │
-│   │ WORKSPACE  ROWS   COLS  SIZE   UPLOADED     DATA VERSION        FORMAT        │   │
-│   │ Marketing  2,481  12    84 KB  3 days ago   v4 · 14:02          Excel · Deals │   │
+│   ┌─ Metadata strip (Details — R205: only what the subtitle does not say) ───────┐   │
+│   │ WORKSPACE          DATA VERSION          FORMAT                               │   │
+│   │ Marketing          v4 · 14:02            Excel · Deals                        │   │
 │   └──────────────────────────────────────────────────────────────────────────────┘   │
 │   ┌─ Coverage strip ─────────────────────────────────────────────────────────────┐   │
 │   │ DATE COVERAGE  won_at 2026-03-01 → 2026-05-14 · 25% blank                     │   │
 │   │                created_at 2026-02-28 14:02 → 2026-05-08 15:22                 │   │
 │   └──────────────────────────────────────────────────────────────────────────────┘   │
-│   ▸ Metadata  2 entries · 1 by AI                    (only when entries exist)        │
+│   Metadata  2 entries · 1 by AI  [Warn] [Open]       (only when entries exist)        │
+│   Dots on column headers mark notes — colour = severity; click a dot to read          │
+│                                       (the hint: only when a column has notes, R205)  │
 │                                                                                        │
-│   [🔍 Search rows…            ⊗]  Matched 2,481 / 2,481              [▥ Columns 9/12]  │
+│   [🔍 Search rows…        ⊗]  Matched 2,481 / 2,481  ▸ Advanced query [▥ Columns 9/12] │
 │   [ Advanced query…                                                              ]     │
 │   (active filter chips — only when ≥1 chip filter)                                     │
 │                                                                                        │
@@ -499,11 +501,14 @@ At 1366 × 768, or 1920 × 1080 at 125 % scale (~620–740 CSS px of
 viewport), the open sections took ~230 px and the table showed one or two
 rows (R202 visual gate; the first user's screen).
 
-- **Toggles** — two text buttons in the toolbar row, left of
-  `[Columns N/M]`: `▸ Details` / VI **Thông tin thêm** and `▸ Advanced
-query` / VI **Truy vấn nâng cao**; `▾` when open; `aria-expanded` +
-  `aria-controls` (the section's wrapper keeps its id while folded). No
-  extra row: the toolbar already exists.
+- **Toggles** — each sits right next to what it opens (R205): `▸ Details`
+  / VI **Thông tin thêm** ends the subtitle line, directly above the
+  Details section at the top of the card; `▸ Advanced query` / VI **Truy
+  vấn nâng cao** stays in the toolbar row, left of `[Columns N/M]`, with
+  its field right below. `▾` when open; `aria-expanded` + `aria-controls`
+  (the section's wrapper keeps its id while folded). No extra row. (R204
+  put both in the toolbar; Details then opened two rows above its toggle,
+  under the Metadata bar.)
 - **Default** — open on a viewport at least `SHORT_VIEWPORT_PX` (760 CSS
   px) tall, folded below it (`matchMedia('(max-height: 759px)')`,
   follows resizes). The subtitle keeps rows · columns · size · uploaded;
@@ -524,6 +529,13 @@ query` / VI **Truy vấn nâng cao**; `▾` when open; `aria-expanded` +
 - **Draft kept** — a folded Advanced query is hidden, not unmounted: a
   typed but unapplied query (an error, or inside the 300 ms debounce)
   is still there when the section opens again.
+- **Nothing said twice (R205)** — the subtitle already reads rows ·
+  columns · size · uploaded, so the Details strip shows only Workspace,
+  Data version and Format; the Properties drawer keeps the full list
+  (`datasetMetaItems` stays the single source; the strip filters it).
+- **Inline time (R205)** — a relative time inside a sentence starts
+  lower case ("Uploaded just now", VI "Tải lên vừa xong"); standalone
+  values (the strip, the drawer, the list) keep the capital.
 - **Out of scope** — the query and workflow pages (same pattern if a
   walk shows the need); a one-line digest of the folded strip.
 
@@ -803,6 +815,12 @@ Dataset` (incl. `refreshedAt`, `dataVersion`, `coverage` on temporal
     folds its section and the choice is remembered over the viewport
     default; an active `?aq=` keeps the input shown and hides its toggle;
     EN / VI labels (`dataset-fold-r204.test.tsx`, F1–F6).
+12. **Context beside its control (R205)** _(FE)_ — the Details toggle is
+    in the subtitle line (not the toolbar); the open strip shows Workspace,
+    Data version and Format only, the Properties drawer all seven fields;
+    the subtitle's relative time is lower case inline; with column notes
+    the Metadata bar shows the dot hint, without them no hint
+    (`dataset-context-r205.test.tsx`).
 
 ---
 

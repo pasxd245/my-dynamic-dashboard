@@ -103,3 +103,26 @@ query — takes most of the height and the table shows one or two rows. The cont
   at least five rows on a fixture dataset with Details and Advanced query folded.
 
 _Not in this item:_ the query and workflow pages; a one-line digest of the folded strip.
+
+## 5.5 Dataset page context: each control beside what it opens, nothing said twice
+
+|       |                                                                                                                |
+| ----- | -------------------------------------------------------------------------------------------------------------- |
+| Track | 1                                                                                                              |
+| Flow  | **DCFBI** — builder-only: a toggle moves, the strip drops repeated fields, one hint line, one inline time form |
+| Added | by the owner, 2026-10-30, from a review of R204 against the accepted metadata-reading design (5.2)             |
+| Round | `Round_205`                                                                                                    |
+
+R204's review against the accepted design found four small gaps on the dataset page:
+
+- **Builder:** the `▸ Details` toggle moves from the toolbar to the end of the subtitle line, right
+  above the section it opens (R204 put it two rows below, under the Metadata bar); the Details strip
+  drops the fields the subtitle already shows (rows, columns, size, uploaded) — the Properties
+  drawer keeps the full list; on the dataset page the Metadata bar adds one hint line when any column
+  has notes ("Dots on column headers mark notes — colour = severity; click a dot to read"); the
+  subtitle's relative time reads inline ("Uploaded just now", not "Uploaded Just now").
+- **Docs:** `dataset-detail.md` § Folding sections + AC 11, § Header; `metadata.md` § Metadata bar.
+- **Gate:** builder tests green; visual gate at 1536 × 730 with the dock open (EN + VI): the toolbar
+  stays one row and the table still shows at least five rows.
+
+_Not in this item:_ the query and workflow pages; a severity legend with coloured samples.

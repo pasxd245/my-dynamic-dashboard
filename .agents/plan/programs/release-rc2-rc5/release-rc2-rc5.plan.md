@@ -61,7 +61,7 @@ contract delta, backend/builder files, migration, tests, acceptance walk — liv
 | [`rc2.md`](rc2.md)                     | items 2.0–2.6, 2.8 (as built) + rc.2 exit gate                |
 | [`rc3.md`](rc3.md)                     | items 3.1–3.8 + 2.7 (moved) + dependency order + rc.3 gates   |
 | [`rc4.md`](rc4.md)                     | items 4.1–4.4 (4.1 deferred), 4.8, conditional 4.5–4.7 + rc.4 exit gate |
-| [`rc5.md`](rc5.md)                     | conditional tags (5.1); metadata read by layer (5.2, R202); within N days recipe (5.3, R203); fold on short screens (5.4, R204) |
+| [`rc5.md`](rc5.md)                     | conditional tags (5.1); metadata read by layer (5.2, R202); within N days recipe (5.3, R203); fold on short screens (5.4, R204); context controls beside what they open (5.5, R205) |
 | [`claude-code.md`](claude-code.md)     | who does what, kickoff / per-gate / close prompts             |
 | [`walk-rc2-rc3a.md`](walk-rc2-rc3a.md) | one-sitting walk pack for R177–R189 (fake data, own worktree) |
 
@@ -191,6 +191,7 @@ copy of the real database (logged in `Round_187`).
 | 5.2 | Metadata read by layer: badges, a side-by-side reading dock, At a glance, a GFM markdown viewer, reserved keys `title` / `summary` / `severity` — added by the owner 2026-10-28 | in progress | R202  |
 | 5.3 | Within N days of a start date — a builder recipe (five existing steps) so a cohort not yet observable for the full window reads as unobserved, not as a low rate; pulls conditional 4.5; added by the owner 2026-10-28 | in progress | R203  |
 | 5.4 | Fold the dataset page's context (Details, Advanced query) on short screens so the table keeps its height; added by the owner 2026-10-29 | in progress | R204  |
+| 5.5 | Dataset page context: the Details toggle beside what it opens, no field said twice, a dot hint in the Metadata bar, inline relative time; added by the owner 2026-10-30 (review of R204 against 5.2's accepted design) | in progress | R205  |
 
 Forecast (in rounds, from here): rc.2 — 0 code rounds (the release note is drafted; the rest of
 its gate is the owner's); rc.3 — 7 rounds, numbered R191–R197 (fix round, 3.6 ×2, 3.7 ×2, 3.2c, 3.8;

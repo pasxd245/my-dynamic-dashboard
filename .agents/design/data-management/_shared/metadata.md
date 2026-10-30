@@ -178,6 +178,10 @@ its cells joined by `·`). The Read view does not repeat a `summary` the body al
   the colour of the column's highest severity (grey when none); click opens the dock on the column.
 - **Metadata bar** — one line on dashboard, dataset, query and workflow pages: "Metadata", the count
   and up to two severity counts and **Open**. Nothing written → no bar.
+  On the dataset page, when at least one **column** has entries, a second secondary-text line under
+  the bar explains the header dots (R205): "Dots on column headers mark notes — colour = severity;
+  click a dot to read" / VI "Chấm trên tiêu đề cột: cột có ghi chú — màu theo mức; bấm chấm để đọc".
+  The bar takes it as an optional `hint`; other pages pass none.
 - **Dock** (`MetadataDock`) — beside the page content from the `lg` breakpoint (≥ 992 px), 400 px
   wide, sticky, scrolls on its own; below `lg` a full-width `Drawer`. Never modal: the page stays
   usable. Views: **Notes** (the noun's cards; on a dashboard opened from the bar: **All notes** —
